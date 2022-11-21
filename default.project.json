@@ -1,0 +1,23 @@
+{
+	"name": "Example Build",
+	"base": "default.base.rbxl",
+	"build": "Temp/Build.rbxl",
+
+	"tree": {
+		"Workspace": {
+			"$properties": {
+				"FallenPartsDestroyHeight": -1337,
+				"Gravity": 133.7
+			},
+
+			"$path": "Assets/Workspace",
+
+			"Terrain": {
+				"$terrainRegion": ["Assets/TerrainRegion.rbxm", ["workspace.Terrain.MaxExtents.Min"], true],
+				"$terrainMaterialColors": {
+					"Grass": ["Color3.new(0, 0.5, 0)"]
+				}
+			}
+		}
+	}
+}

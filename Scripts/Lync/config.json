@@ -1,0 +1,8 @@
+{
+	"RobloxVersionsPath_Windows": "%LOCALAPPDATA%/Roblox/Versions",
+	"RobloxPluginsPath_Windows": "%LOCALAPPDATA%/Roblox/Plugins",
+	"StudioModManagerContentPath_Windows": "%LOCALAPPDATA%/Roblox Studio/content",
+
+	"RobloxContentPath_MacOS": "/Applications/RobloxStudio.app/Contents/Resources/content",
+	"RobloxPluginsPath_MacOS": "%HOME%/Documents/Roblox/Plugins"
+}

@@ -1,0 +1,16 @@
+{
+	"ClassName": "Folder",
+	"Children": [
+		{
+			"Name": "RootPart",
+			"ClassName": "Part",
+			"Properties": {
+				"Size": ["Vector3.new(4, 4, 4)"]
+			}
+		},
+		{
+			"Name": "SendMoney",
+			"ClassName": "RemoteEvent"
+		}
+	]
+}

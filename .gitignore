@@ -1,0 +1,6 @@
+desktop.ini
+.DS_Store
+.vscode/
+Temp/*
+!Temp/.gitkeep
+*.lock
