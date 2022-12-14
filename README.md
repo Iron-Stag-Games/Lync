@@ -14,7 +14,7 @@ This tool is currently provided without any documentation whatsoever! Documentat
 # How does Lync compare to Rojo?
 
 ### Pros
-- 99% compatibility with existing Rojo projects. All you need to change is [the project JSON](https://github.com/Iron-Stag-Games/Lync/blob/main/default.project.json).
+- 99% compatibility with existing Rojo projects. JSON files, including [the project JSON](https://github.com/Iron-Stag-Games/Lync/blob/main/default.project.json) must be changed.
 - Compatible with all future Roblox properties.
 - Mesh loading bug and duplication bug fixed.
 - Much faster live sync.
@@ -25,16 +25,21 @@ This tool is currently provided without any documentation whatsoever! Documentat
 - Currently unable to build to RBXL because it requires a serializer.
 - Lack of documentation.
 
-## Feature differences
+## Features
 |                         | Lync | Rojo |
 |-------------------------|------|------|
 | Server IP               | ✕    | ✓    |
 | Build To RBXL           | ✕    | ✓    |
 | $ignoreUnknownInstances | ✕    | ✓    |
-| $attributes             | ✓    | ✕    |
-| $tags                   | ✓    | ✕    |
 | $terrainRegion          | ✓    | ✕    |
 | $terrainMaterialColors  | ✓    | ✕    |
+
+
+## Syntax
+| Lync | Rojo |
+|-|-|
+| $attributes | $properties.Attributes |
+| $tags | $properties.{any array} |
 
 # Documentation
 

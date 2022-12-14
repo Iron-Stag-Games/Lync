@@ -101,7 +101,7 @@ local function getPort(): string
 	return port.Text ~= "" and port.Text or port.PlaceholderText
 end
 
-local function eval(value: any)
+local function eval(value: any): any
 	if type(value) == "table" then
 		local newModule = Instance.new("ModuleScript")
 		newModule.Source = "return " .. value[1]
