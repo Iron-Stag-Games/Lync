@@ -26,7 +26,7 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local VERSION = "Alpha 2 indev"
+local VERSION = "indev"
 
 local LuaCsv = require(script:WaitForChild("LuaCsv"))
 local PrettyPrint = require(script:WaitForChild("PrettyPrint"))
@@ -103,7 +103,7 @@ end
 
 local function eval(value: any): any
 	if type(value) == "table" then
-		return loadstring("return " .. value[1])() :: any
+		return (loadstring("return " .. value[1]) :: any)()
 	else
 		return value
 	end

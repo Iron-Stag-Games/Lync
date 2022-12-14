@@ -71,7 +71,7 @@ function removeEmpty(obj) {
 	return newObj
 }
 
-function filePathExtensionIsMappable(localPath) {
+function localPathExtensionIsMappable(localPath) {
 	let localPathParsed = path.parse(localPath)
 	return localPathParsed.ext == '.rbxm' || localPathParsed.ext == '.rbxmx' || localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau' || localPathParsed.ext == '.json' || localPathParsed.ext == '.txt' || localPathParsed.ext == '.csv'
 }
@@ -126,7 +126,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 	if (localPathStats.isFile()) {
 		let robloxPathParsed = path.parse(robloxPath)
 		if (flag != 'Modified') robloxPath = robloxPathParsed.dir + '/' + robloxPathParsed.name
-		if (filePathExtensionIsMappable(localPath)) {
+		if (localPathExtensionIsMappable(localPath)) {
 			mTimes[localPath] = localPathStats.mtimeMs
 			let localPathParsed = path.parse(localPath)
 			let properties;
@@ -285,11 +285,11 @@ function mapDirectory(localPath, robloxPath, flag) {
 	}
 }
 
-function mapJsonRecursive(jsonPath, target, robloxPath, key, loadingThirdpartyProject, thirdpartyProjectAppend, mtimeMs) {
+function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExternalPackage, externalPackageAppend, mtimeMs) {
 	let nextRobloxPath = robloxPath + '/' + key
-	if (loadingThirdpartyProject) nextRobloxPath = robloxPath
+	if (firstLoadingExternalPackage) nextRobloxPath = robloxPath
 	let localPath = target[key]['$path']
-	if (localPath) localPath = thirdpartyProjectAppend + localPath
+	if (externalPackageAppend && localPath) localPath = externalPackageAppend + localPath
 	assignMap(nextRobloxPath, {
 		'Type': 'Instance',
 		'ClassName': robloxPath == 'tree' && key || target[key]['$className'] || 'Folder',
@@ -303,7 +303,7 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, loadingThirdpartyPr
 	}, mtimeMs)
 	for (let nextKey in target[key]) {
 		if (nextKey[0] != '$' && typeof target[key][nextKey] != 'string' && !Array.isArray(target[key][nextKey])) {
-			mapJsonRecursive(jsonPath, target[key], nextRobloxPath, nextKey, false, thirdpartyProjectAppend, mtimeMs)
+			mapJsonRecursive(jsonPath, target[key], nextRobloxPath, nextKey, false, externalPackageAppend, mtimeMs)
 		}
 	}
 	if (localPath) {
@@ -326,7 +326,7 @@ function changedJson() {
 	map = {}
 	let projectJsonStats = fs.statSync(PROJECT_JSON)
 	for (let service in projectJson.tree) {
-		mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, '', projectJsonStats.mtimeMs)
+		mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, undefined, projectJsonStats.mtimeMs)
 	}
 }
 
