@@ -26,7 +26,7 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local VERSION = "Alpha 1"
+local VERSION = "Alpha 2 indev"
 
 local LuaCsv = require(script:WaitForChild("LuaCsv"))
 local PrettyPrint = require(script:WaitForChild("PrettyPrint"))
@@ -103,10 +103,7 @@ end
 
 local function eval(value: any): any
 	if type(value) == "table" then
-		local newModule = Instance.new("ModuleScript")
-		newModule.Source = "return " .. value[1]
-		task.defer(newModule.Destroy, newModule)
-		return require(newModule) :: any
+		return loadstring("return " .. value[1])() :: any
 	else
 		return value
 	end
