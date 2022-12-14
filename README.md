@@ -4,7 +4,7 @@
 
 Lync is an alternative to Rojo focused on improving user experience.
 
-This tool is currently provided without any documentation whatsoever! Documentation will be done in the future.
+This tool is currently provided without any documentation whatsoever! Because the two tools are so similar, please refer to [the Rojo documentation](https://rojo.space/docs/v7/) for the time being.
 
 ## Usage
 
@@ -41,6 +41,9 @@ This tool is currently provided without any documentation whatsoever! Documentat
 | $attributes | $properties.Attributes |
 | $tags | $properties.{any array} |
 
-# Documentation
+# Games made with Lync
 
-Documentation will be done in the future. Because the two tools are so similar, please refer to [the Rojo documentation](https://rojo.space/docs/v7/) for the time being.
+- [RB Battles](https://www.roblox.com/games/5036207802) - TeraBrite Games
+- [NDA title #1](https://www.roblox.com/games/8875360163) - TeraBrite Games
+- NDA title #2 - TeraBrite Games
+- [ExoTech](https://www.roblox.com/games/7634484468) - Iron Stag Games
