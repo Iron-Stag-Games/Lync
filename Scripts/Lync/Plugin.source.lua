@@ -127,7 +127,7 @@ local function buildJsonModel(target: any, data: any)
 	end
 	if data.Properties then
 		for property, value in data.Properties do
-			lpcall("Set Property", function()
+			lpcall("Set Property " .. property, function()
 				target[property] = eval(value)
 			end)
 		end
@@ -314,7 +314,7 @@ local function buildPath(path: string)
 		end
 		if data.Properties then
 			for property, value in data.Properties do
-				lpcall("Set Property", function()
+				lpcall("Set Property " .. property, function()
 					target[property] = eval(value)
 				end)
 			end
