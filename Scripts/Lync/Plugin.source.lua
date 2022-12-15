@@ -1,6 +1,7 @@
 --!strict
 --[[
 	Lync Client - indev
+	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
 	This library is free software; you can redistribute it and/or
