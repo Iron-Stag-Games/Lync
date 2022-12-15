@@ -1,5 +1,5 @@
 /*
-	Lync Server
+	Lync Server - indev
 	Copyright (C) 2022  Iron Stag Games
 
 	This library is free software; you can redistribute it and/or
