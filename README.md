@@ -23,6 +23,7 @@ This tool is currently provided without any documentation whatsoever! Because th
 ### Cons
 - Not possible to automate publishing. (See [this thread](https://devforum.roblox.com/t/expose-studiopublishservicepublishas-to-pluginsecurity-create-respective-permission/2065965) for a suggested fix)
 - Currently unable to build to RBXL because it requires a serializer.
+- Currently unable to convert RBXL to a Lync project because it requires a serializer.
 - Lack of documentation.
 
 ## Features
