@@ -30,7 +30,8 @@ This tool is currently provided without any documentation whatsoever! Because th
 |                         | Lync | Rojo |
 |-------------------------|------|------|
 | Server IP               | ✕    | ✓    |
-| Build To RBXL           | ✕    | ✓    |
+| Build To RBXL           | …    | ✓    |
+| RBXL To Lync/Rojo       | …    | ✓    |
 | $ignoreUnknownInstances | ✕    | ✓    |
 | $terrainRegion          | ✓    | ✕    |
 | $terrainMaterialColors  | ✓    | ✕    |
