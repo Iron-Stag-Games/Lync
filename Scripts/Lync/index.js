@@ -24,6 +24,7 @@ const fs = require('fs')
 const http = require('http')
 const path = require('path')
 const process = require('process')
+const watch = require('node-watch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
@@ -432,9 +433,9 @@ if (!SYNC_ONLY) {
 
 // Sync file changes
 
-fs.watch(path.resolve(), { recursive: true }, async (event, localPath) => {
+watch(path.resolve(), { recursive: true }, function(event, localPath) {
+	localPath = path.relative(path.resolve(), localPath)
 	if (localPath) {
-		await delay(100) // existsSync is inaccurate when using git if no delay is used
 		if (path.resolve(localPath) != path.resolve(PROJECT_JSON)) {
 			localPath = localPath.replace(/\\/g, '/')
 			let parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
@@ -443,7 +444,7 @@ fs.watch(path.resolve(), { recursive: true }, async (event, localPath) => {
 			if (localPath in mTimes) {
 
 				// Deleted
-				if (!fs.existsSync(localPath)) {
+				if (event == 'remove') {
 					console.log('D', cyan(localPath))
 					for (let key in map) {
 
@@ -505,7 +506,7 @@ fs.watch(path.resolve(), { recursive: true }, async (event, localPath) => {
 					mTimes[localPath] = localPathStats.mtimeMs
 				}
 
-			} else if (event == 'rename' && fs.existsSync(localPath)) {
+			} else if (event == 'update') {
 
 				// Added
 				if (parentPathString in mTimes) {
