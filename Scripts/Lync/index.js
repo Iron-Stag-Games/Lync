@@ -1,5 +1,5 @@
 /*
-	Lync Server - indev
+	Lync Server - Alpha 2
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
