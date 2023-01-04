@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 2
+	Lync Server - Alpha 3
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -40,9 +40,8 @@ var mTimes = {}
 var modified = {}
 var projectJson
 var config = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
+var hardLinkPath
 
-
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 function red(s) {
 	return '\x1b[31m' + s + '\x1b[0m'
@@ -332,6 +331,26 @@ function changedJson() {
 	}
 }
 
+function hardLinkRecursive(localPath) {
+	try {
+		let stats = fs.statSync(localPath)
+		let target = path.resolve(hardLinkPath, path.relative(path.resolve(), localPath))
+		if (stats.isDirectory()) {
+			if (!fs.existsSync(target)) {
+				fs.mkdirSync(target)
+			}
+			fs.readdirSync(localPath).forEach((dirNext) => {
+				hardLinkRecursive(path.resolve(localPath, dirNext))
+			})
+		} else {
+			if (fs.existsSync(target)) {
+				fs.unlinkSync(target)
+			}
+			fs.linkSync(localPath, target)
+		}
+	} catch (e) {}
+}
+
 
 // Begin
 
@@ -359,58 +378,40 @@ if (DUMP_MAP) {
 	process.exit()
 }
 
-// Create content symlinks
+// Create content hard links
 
 if (process.platform == 'win32') {
 	const versionsPath = path.resolve(config.RobloxVersionsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 	fs.readdirSync(versionsPath).forEach((dirNext) => {
 		const stats = fs.statSync(path.resolve(versionsPath, dirNext))
 		if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
-			const symlinkPath = path.resolve(versionsPath, dirNext, 'content/symlink')
-			if (fs.existsSync(symlinkPath)) {
-				fs.unlinkSync(symlinkPath)
-				if (DEBUG) console.log('Removed symlink', cyan(symlinkPath))
+			hardLinkPath = path.resolve(versionsPath, dirNext, 'content/lync')
+			if (!fs.existsSync(hardLinkPath)) {
+				fs.mkdirSync(hardLinkPath)
+				if (DEBUG) console.log('Created hard link folder', cyan(hardLinkPath))
 			}
-			fs.symlink(path.resolve(), symlinkPath, 'junction', (e) => {
-				if (e) {
-					console.error(red(e))
-					process.exit()
-				}
-			})
-			if (DEBUG) console.log('Created symlink', cyan(symlinkPath))
 		}
 	})
 	// Studio Mod Manager
 	const modManagerContentPath = path.resolve(config.StudioModManagerContentPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 	if (fs.existsSync(modManagerContentPath)) {
-		const symlinkPath = path.resolve(modManagerContentPath, 'symlink')
-		if (fs.existsSync(symlinkPath)) {
-			fs.unlinkSync(symlinkPath)
-			if (DEBUG) console.log('Removed symlink', cyan(symlinkPath))
+		hardLinkPath = path.resolve(modManagerContentPath, 'lync')
+		if (!fs.existsSync(hardLinkPath)) {
+			fs.mkdirSync(hardLinkPath)
+			if (DEBUG) console.log('Created hard link folder', cyan(hardLinkPath))
 		}
-		fs.symlink(path.resolve(), symlinkPath, 'junction', (e) => {
-			if (e) {
-				console.error(red(e))
-				process.exit()
-			}
-		})
-		if (DEBUG) console.log('Created symlink', cyan(symlinkPath))
 	}
 } else if (process.platform == 'darwin') {
 	const contentPath = path.resolve(config.RobloxContentPath_MacOS)
-	const symlinkPath = path.resolve(contentPath, 'symlink')
-	if (fs.existsSync(symlinkPath)) {
-		fs.unlinkSync(symlinkPath)
-		if (DEBUG) console.log('Removed symlink', cyan(symlinkPath))
+	hardLinkPath = path.resolve(contentPath, 'lync')
+	if (fs.existsSync(hardLinkPath)) {
+		fs.mkdirSync(hardLinkPath)
+		if (DEBUG) console.log('Created hard link folder', cyan(hardLinkPath))
 	}
-	fs.symlink(path.resolve(), symlinkPath, 'junction', (e) => {
-		if (e) {
-			console.error(red(e))
-			process.exit()
-		}
-	})
-	if (DEBUG) console.log('Created symlink', cyan(symlinkPath))
 }
+
+fs.rmSync(hardLinkPath, { recursive: true })
+hardLinkRecursive(path.resolve())
 
 // Copy plugin
 
@@ -428,7 +429,7 @@ if (DEBUG) console.log('Copied', cyan(projectJson.base), '->', cyan(projectJson.
 
 if (!SYNC_ONLY) {
 	if (DEBUG) console.log('Opening', cyan(projectJson.build))
-	spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], { shell: true, windowsHide: true })
+	spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], { stdio: 'ignore', detached: true, shell: true, windowsHide: true })
 }
 
 // Sync file changes
@@ -509,6 +510,7 @@ watch(path.resolve(), { recursive: true }, function(event, localPath) {
 			} else if (event == 'update') {
 
 				// Added
+				hardLinkRecursive(localPath)
 				if (parentPathString in mTimes) {
 					console.log('A', cyan(localPath))
 					for (let key in map) {

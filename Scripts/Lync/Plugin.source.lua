@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 2
+	Lync Client - Alpha 3
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -27,7 +27,7 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local VERSION = "Alpha 2"
+local VERSION = "Alpha 3"
 
 local LuaCsv = require(script:WaitForChild("LuaCsv"))
 local PrettyPrint = require(script:WaitForChild("PrettyPrint"))
@@ -214,7 +214,7 @@ local function buildPath(path: string)
 				target = target.Parent
 				OriginalTarget.Parent = nil
 			end
-			local objects = getObjects("rbxasset://symlink/" .. data.Path)
+			local objects = getObjects("rbxasset://lync/" .. data.Path)
 			if objects and #objects == 1 then
 				objects[1].Name = name
 				objects[1].Parent = target
@@ -336,7 +336,7 @@ local function buildPath(path: string)
 		end
 		if data.TerrainRegion then
 			if target == workspace.Terrain then
-				local objects = getObjects("rbxasset://symlink/" .. data.TerrainRegion[1])
+				local objects = getObjects("rbxasset://lync/" .. data.TerrainRegion[1])
 				if objects and #objects == 1 then
 					lpcall("Set Terrain Region", function()
 						workspace.Terrain:Clear()
