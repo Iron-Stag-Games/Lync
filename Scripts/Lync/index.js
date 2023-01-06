@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 3
+	Lync Server - Alpha 4
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -40,7 +40,7 @@ var mTimes = {}
 var modified = {}
 var projectJson
 var config = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
-var hardLinkPath
+var hardLinkPaths = []
 
 
 function red(s) {
@@ -331,7 +331,7 @@ function changedJson() {
 	}
 }
 
-function hardLinkRecursive(localPath) {
+function hardLinkRecursive(hardLinkPath, localPath) {
 	try {
 		let stats = fs.statSync(localPath)
 		let target = path.resolve(hardLinkPath, path.relative(path.resolve(), localPath))
@@ -340,7 +340,7 @@ function hardLinkRecursive(localPath) {
 				fs.mkdirSync(target)
 			}
 			fs.readdirSync(localPath).forEach((dirNext) => {
-				hardLinkRecursive(path.resolve(localPath, dirNext))
+				hardLinkRecursive(hardLinkPath, path.resolve(localPath, dirNext))
 			})
 		} else {
 			if (fs.existsSync(target)) {
@@ -385,45 +385,48 @@ if (process.platform == 'win32') {
 	fs.readdirSync(versionsPath).forEach((dirNext) => {
 		const stats = fs.statSync(path.resolve(versionsPath, dirNext))
 		if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
-			hardLinkPath = path.resolve(versionsPath, dirNext, 'content/lync')
+			let hardLinkPath = path.resolve(versionsPath, dirNext, 'content/lync')
 			if (!fs.existsSync(hardLinkPath)) {
 				fs.mkdirSync(hardLinkPath)
-				if (DEBUG) console.log('Created hard link folder', cyan(hardLinkPath))
 			}
+			hardLinkPaths.push(hardLinkPath)
 		}
 	})
 	// Studio Mod Manager
 	const modManagerContentPath = path.resolve(config.StudioModManagerContentPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 	if (fs.existsSync(modManagerContentPath)) {
-		hardLinkPath = path.resolve(modManagerContentPath, 'lync')
+		let hardLinkPath = path.resolve(modManagerContentPath, 'lync')
 		if (!fs.existsSync(hardLinkPath)) {
 			fs.mkdirSync(hardLinkPath)
-			if (DEBUG) console.log('Created hard link folder', cyan(hardLinkPath))
 		}
+		hardLinkPaths.push(hardLinkPath)
 	}
 } else if (process.platform == 'darwin') {
 	const contentPath = path.resolve(config.RobloxContentPath_MacOS)
-	hardLinkPath = path.resolve(contentPath, 'lync')
-	if (fs.existsSync(hardLinkPath)) {
+	let hardLinkPath = path.resolve(contentPath, 'lync')
+	if (!fs.existsSync(hardLinkPath)) {
 		fs.mkdirSync(hardLinkPath)
-		if (DEBUG) console.log('Created hard link folder', cyan(hardLinkPath))
 	}
+	hardLinkPaths.push(hardLinkPath)
 }
 
-fs.rmSync(hardLinkPath, { recursive: true })
-hardLinkRecursive(path.resolve())
+for (let hardLinkPath of hardLinkPaths) {
+	if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
+	fs.rmSync(hardLinkPath, { recursive: true })
+	hardLinkRecursive(hardLinkPath, path.resolve())
+}
 
 // Copy plugin
 
 let pluginsPath = path.resolve(process.platform == 'win32' && config.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && config.RobloxPluginsPath_MacOS.replace('%HOME%', process.env.HOME))
 if (!fs.existsSync(pluginsPath)) {
+	if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 	fs.mkdirSync(pluginsPath)
-	if (DEBUG) console.log('Created folder', cyan(pluginsPath))
 }
+if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
 fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
-if (DEBUG) console.log('Copied', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
+if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
 fs.copyFileSync(projectJson.base, projectJson.build)
-if (DEBUG) console.log('Copied', cyan(projectJson.base), '->', cyan(projectJson.build))
 
 // Open Studio
 
@@ -510,7 +513,9 @@ watch(path.resolve(), { recursive: true }, function(event, localPath) {
 			} else if (event == 'update') {
 
 				// Added
-				hardLinkRecursive(localPath)
+				for (let hardLinkPath of hardLinkPaths) {
+					hardLinkRecursive(hardLinkPath, localPath)
+				}
 				if (parentPathString in mTimes) {
 					console.log('A', cyan(localPath))
 					for (let key in map) {
