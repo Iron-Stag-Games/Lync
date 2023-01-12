@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 4
+	Lync Server - Alpha 5
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -378,44 +378,6 @@ if (DUMP_MAP) {
 	process.exit()
 }
 
-// Create content hard links
-
-if (process.platform == 'win32') {
-	const versionsPath = path.resolve(config.RobloxVersionsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
-	fs.readdirSync(versionsPath).forEach((dirNext) => {
-		const stats = fs.statSync(path.resolve(versionsPath, dirNext))
-		if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
-			let hardLinkPath = path.resolve(versionsPath, dirNext, 'content/lync')
-			if (!fs.existsSync(hardLinkPath)) {
-				fs.mkdirSync(hardLinkPath)
-			}
-			hardLinkPaths.push(hardLinkPath)
-		}
-	})
-	// Studio Mod Manager
-	const modManagerContentPath = path.resolve(config.StudioModManagerContentPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
-	if (fs.existsSync(modManagerContentPath)) {
-		let hardLinkPath = path.resolve(modManagerContentPath, 'lync')
-		if (!fs.existsSync(hardLinkPath)) {
-			fs.mkdirSync(hardLinkPath)
-		}
-		hardLinkPaths.push(hardLinkPath)
-	}
-} else if (process.platform == 'darwin') {
-	const contentPath = path.resolve(config.RobloxContentPath_MacOS)
-	let hardLinkPath = path.resolve(contentPath, 'lync')
-	if (!fs.existsSync(hardLinkPath)) {
-		fs.mkdirSync(hardLinkPath)
-	}
-	hardLinkPaths.push(hardLinkPath)
-}
-
-for (let hardLinkPath of hardLinkPaths) {
-	if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
-	fs.rmSync(hardLinkPath, { recursive: true })
-	hardLinkRecursive(hardLinkPath, path.resolve())
-}
-
 // Copy plugin
 
 let pluginsPath = path.resolve(process.platform == 'win32' && config.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && config.RobloxPluginsPath_MacOS.replace('%HOME%', process.env.HOME))
@@ -576,6 +538,43 @@ http.createServer(function(req, res) {
 	let jsonString, read;
 	switch(req.headers.type) {
 		case 'Map':
+			// Create content hard links
+			if (process.platform == 'win32') {
+				const versionsPath = path.resolve(config.RobloxVersionsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+				fs.readdirSync(versionsPath).forEach((dirNext) => {
+					const stats = fs.statSync(path.resolve(versionsPath, dirNext))
+					if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
+						let hardLinkPath = path.resolve(versionsPath, dirNext, 'content/lync')
+						if (!fs.existsSync(hardLinkPath)) {
+							fs.mkdirSync(hardLinkPath)
+						}
+						hardLinkPaths.push(hardLinkPath)
+					}
+				})
+				// Studio Mod Manager
+				const modManagerContentPath = path.resolve(config.StudioModManagerContentPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+				if (fs.existsSync(modManagerContentPath)) {
+					let hardLinkPath = path.resolve(modManagerContentPath, 'lync')
+					if (!fs.existsSync(hardLinkPath)) {
+						fs.mkdirSync(hardLinkPath)
+					}
+					hardLinkPaths.push(hardLinkPath)
+				}
+			} else if (process.platform == 'darwin') {
+				const contentPath = path.resolve(config.RobloxContentPath_MacOS)
+				let hardLinkPath = path.resolve(contentPath, 'lync')
+				if (!fs.existsSync(hardLinkPath)) {
+					fs.mkdirSync(hardLinkPath)
+				}
+				hardLinkPaths.push(hardLinkPath)
+			}
+			for (let hardLinkPath of hardLinkPaths) {
+				if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
+				fs.rmSync(hardLinkPath, { recursive: true })
+				hardLinkRecursive(hardLinkPath, path.resolve())
+			}
+
+			// Send map
 			map.Debug = DEBUG
 			jsonString = JSON.stringify(map)
 			delete map['SaveToFile']
