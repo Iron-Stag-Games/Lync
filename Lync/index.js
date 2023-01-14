@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 6
+	Lync Server - Alpha 7
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -21,12 +21,10 @@
 
 const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
-const http = require('http')
 const path = require('path')
 const process = require('process')
-const zlib = require('zlib')
-const axios = require('axios')
 const extract = require('extract-zip')
+const { http, https } = require('follow-redirects')
 const watch = require('node-watch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
@@ -355,7 +353,36 @@ function hardLinkRecursive(hardLinkPath, localPath) {
 	} catch (e) {}
 }
 
-async function main() {
+async function getAsync(url, options) {
+	return new Promise ((resolve, reject) => {
+		const req = https.get(url, options, (res) => {
+			let data = []
+			res.on("data", (chunk) => {
+				data.push(chunk)
+			})
+			res.on("end", () => {
+				try {
+					let buffer = Buffer.concat(data)
+					switch (options.responseType) {
+						case 'json':
+							resolve(JSON.parse(buffer.toString()))
+							break
+						default:
+							resolve(buffer)
+					}
+				} catch (err) {
+					reject(err)
+				}
+			})
+		})
+		req.on('error', (err) => {
+			reject(err)
+		})
+		req.end()
+	})
+}
+
+(async function () {
 
 	// Check for updates
 
@@ -368,20 +395,20 @@ async function main() {
 		} catch (e) {}
 		try {
 			// Grab latest version info
-			const latest = await axios.get('https://api.github.com/repos/Iron-Stag-Games/Lync/releases/latest', { validateStatus: () => true })
-			if (latest.data.id != currentId) {
+			const latest = await getAsync('https://api.github.com/repos/Iron-Stag-Games/Lync/releases/latest', { headers: { 'user-agent': 'node.js' }, responseType: 'json' })
+			if (latest.id != currentId) {
 				const updateFile = path.resolve(__dirname, 'update.zip')
-				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.data.tag_name)
+				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.tag_name)
 				const updateFolder = path.resolve(extractedFolder, 'Lync')
 
 				// Download latest version
-				console.log(`Updating to ${latest.data.name} . . .`)
-				const update = await axios.get(`https://github.com/Iron-Stag-Games/Lync/archive/refs/tags/${latest.data.tag_name}.zip`, { responseType: 'arraybuffer' })
-				fs.writeFileSync(updateFile, update.data, 'binary')
+				console.log(`Updating to ${latest.name} . . .`)
+				const update = await getAsync(`https://github.com/Iron-Stag-Games/Lync/archive/refs/tags/${latest.tag_name}.zip`, { headers: { 'user-agent': 'node.js' }, responseType: 'arraybuffer' })
+				fs.writeFileSync(updateFile, update, 'binary')
 				await extract(updateFile, { dir: __dirname })
 
 				// Write new version
-				fs.writeFileSync(versionFile, latest.data.id.toString())
+				fs.writeFileSync(versionFile, latest.id.toString())
 
 				// Delete old files
 				fs.readdirSync(__dirname).forEach((dirNext) => {
@@ -677,6 +704,4 @@ async function main() {
 	.listen(PORT, function() {
 		console.log(`\nSyncing ${green(projectJson.name)} on port ${yellow(PORT)}\n`)
 	})	
-}
-
-main()
+})()
