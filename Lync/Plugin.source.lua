@@ -543,7 +543,7 @@ while task.wait(0.5) do
 				repeat task.wait() until activeSourceRequests == 0
 				ChangeHistoryService:SetWaypoint("Sync")
 			end
-		elseif result ~= "Number of requests exceeded limit" then
+		else
 			task.spawn(error, "[Lync] - " .. result)
 			setConnected(false)
 		end
