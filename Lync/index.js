@@ -353,9 +353,11 @@ function hardLinkRecursive(hardLinkPath, localPath) {
 	} catch (e) {}
 }
 
-async function getAsync(url, options) {
+async function getAsync(url, responseType) {
 	return new Promise ((resolve, reject) => {
-		const req = https.get(url, options, (res) => {
+		const req = https.get(url, {
+			headers: { 'user-agent': 'node.js' }
+		}, (res) => {
 			let data = []
 			res.on("data", (chunk) => {
 				data.push(chunk)
@@ -363,7 +365,7 @@ async function getAsync(url, options) {
 			res.on("end", () => {
 				try {
 					let buffer = Buffer.concat(data)
-					switch (options.responseType) {
+					switch (responseType) {
 						case 'json':
 							resolve(JSON.parse(buffer.toString()))
 							break
@@ -395,7 +397,7 @@ async function getAsync(url, options) {
 		} catch (e) {}
 		try {
 			// Grab latest version info
-			const latest = await getAsync('https://api.github.com/repos/Iron-Stag-Games/Lync/releases/latest', { headers: { 'user-agent': 'node.js' }, responseType: 'json' })
+			const latest = await getAsync('https://api.github.com/repos/Iron-Stag-Games/Lync/releases/latest', 'json')
 			if (latest.id != currentId) {
 				const updateFile = path.resolve(__dirname, 'update.zip')
 				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.tag_name)
@@ -403,7 +405,7 @@ async function getAsync(url, options) {
 
 				// Download latest version
 				console.log(`Updating to ${latest.name} . . .`)
-				const update = await getAsync(`https://github.com/Iron-Stag-Games/Lync/archive/refs/tags/${latest.tag_name}.zip`, { headers: { 'user-agent': 'node.js' }, responseType: 'arraybuffer' })
+				const update = await getAsync(`https://github.com/Iron-Stag-Games/Lync/archive/refs/tags/${latest.tag_name}.zip`)
 				fs.writeFileSync(updateFile, update, 'binary')
 				await extract(updateFile, { dir: __dirname })
 
