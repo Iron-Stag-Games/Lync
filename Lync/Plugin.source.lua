@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 5
+	Lync Client - Alpha 6
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -27,7 +27,7 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local VERSION = "Alpha 5"
+local VERSION = "Alpha 6"
 
 local LuaCsv = require(script:WaitForChild("LuaCsv"))
 local PrettyPrint = require(script:WaitForChild("PrettyPrint"))

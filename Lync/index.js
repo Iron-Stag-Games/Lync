@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 5
+	Lync Server - Alpha 6
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -291,9 +291,9 @@ function mapDirectory(localPath, robloxPath, flag) {
 }
 
 function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExternalPackage, externalPackageAppend, mtimeMs) {
-	const nextRobloxPath = robloxPath + '/' + key
+	let nextRobloxPath = robloxPath + '/' + key
 	if (firstLoadingExternalPackage) nextRobloxPath = robloxPath
-	const localPath = target[key]['$path']
+	let localPath = target[key]['$path']
 	if (externalPackageAppend && localPath) localPath = externalPackageAppend + localPath
 	assignMap(nextRobloxPath, {
 		'Type': 'Instance',
@@ -370,30 +370,35 @@ async function main() {
 			// Grab latest version info
 			const latest = await axios.get('https://api.github.com/repos/Iron-Stag-Games/Lync/releases/latest', { validateStatus: () => true })
 			if (latest.data.id != currentId) {
+				const updateFile = path.resolve(__dirname, 'update.zip')
+				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.data.tag_name)
+				const updateFolder = path.resolve(extractedFolder, 'Lync')
+
 				// Download latest version
 				console.log(`Updating to ${latest.data.name} . . .`)
 				const update = await axios.get(`https://github.com/Iron-Stag-Games/Lync/archive/refs/tags/${latest.data.tag_name}.zip`, { responseType: 'arraybuffer' })
-				const updateFile = path.resolve(__dirname, 'update.zip')
 				fs.writeFileSync(updateFile, update.data, 'binary')
+				await extract(updateFile, { dir: __dirname })
+
 				// Write new version
 				fs.writeFileSync(versionFile, latest.data.id.toString())
+
 				// Delete old files
 				fs.readdirSync(__dirname).forEach((dirNext) => {
 					const next = path.resolve(__dirname, dirNext)
-					if (next != versionFile && next != updateFile) {
+					if (next != versionFile && next != extractedFolder) {
 						fs.rmSync(next, { recursive: true })
 					}
 				})
-				// Extract new files
-				await extract(updateFile, { dir: __dirname })
-				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.data.tag_name)
-				const updateFolder = path.resolve(extractedFolder, 'Lync')
+
+				// Move new files
 				fs.readdirSync(updateFolder).forEach((dirNext) => {
 					fs.renameSync(path.resolve(updateFolder, dirNext), path.resolve(__dirname, dirNext))
 				})
+
 				// Cleanup
 				fs.rmdirSync(extractedFolder, { recursive: true })
-				fs.rmSync(updateFile)
+
 				// Restart Lync
 				console.clear()
 				spawnSync(process.argv.shift(), process.argv, {
