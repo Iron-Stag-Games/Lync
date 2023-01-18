@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 7
+	Lync Server - Alpha 8
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,19 +29,19 @@ const watch = require('node-watch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
+const VERSION = 'Alpha 8'
+const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
 const PORT = ARGS[1]
 const DEBUG = ARGS[2] == 'DEBUG' || ARGS[3] == 'DEBUG'
 const DUMP_MAP = ARGS[2] == 'DUMP_MAP' || ARGS[3] == 'DUMP_MAP'
 const SYNC_ONLY = ARGS[2] == 'SYNC_ONLY' || ARGS[3] == 'SYNC_ONLY'
-const AUTO_UPDATE = true
 
 var map = {}
 var mTimes = {}
 var modified = {}
 var projectJson
-var config = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 var hardLinkPaths = []
 
 
@@ -388,9 +388,10 @@ async function getAsync(url, responseType) {
 
 	// Check for updates
 
-	if (AUTO_UPDATE) {
+	if (CONFIG.AutoUpdate) {
 		console.log('Checking for updates . . .')
 		const versionFile = path.resolve(__dirname, 'version')
+		const configFile = path.resolve(__dirname, 'config.json')
 		let currentId = 0
 		try {
 			currentId = fs.readFileSync(versionFile)
@@ -415,18 +416,21 @@ async function getAsync(url, responseType) {
 				// Delete old files
 				fs.readdirSync(__dirname).forEach((dirNext) => {
 					const next = path.resolve(__dirname, dirNext)
-					if (next != versionFile && next != extractedFolder) {
-						fs.rmSync(next, { recursive: true })
+					if (next != versionFile && next != configFile && next != extractedFolder) {
+						fs.rmSync(next, { force: true, recursive: true })
 					}
 				})
 
 				// Move new files
 				fs.readdirSync(updateFolder).forEach((dirNext) => {
-					fs.renameSync(path.resolve(updateFolder, dirNext), path.resolve(__dirname, dirNext))
+					const next = path.resolve(updateFolder, dirNext)
+					if (next != configFile) {
+						fs.renameSync(next, path.resolve(__dirname, dirNext))
+					}
 				})
 
 				// Cleanup
-				fs.rmdirSync(extractedFolder, { recursive: true })
+				fs.rmdirSync(extractedFolder, { force: true, recursive: true })
 
 				// Restart Lync
 				console.clear()
@@ -469,7 +473,7 @@ async function getAsync(url, responseType) {
 	
 	// Copy plugin
 	
-	const pluginsPath = path.resolve(process.platform == 'win32' && config.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && config.RobloxPluginsPath_MacOS.replace('%HOME%', process.env.HOME))
+	const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('%HOME%', process.env.HOME))
 	if (!fs.existsSync(pluginsPath)) {
 		if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 		fs.mkdirSync(pluginsPath)
@@ -629,7 +633,7 @@ async function getAsync(url, responseType) {
 			case 'Map':
 				// Create content hard links
 				if (process.platform == 'win32') {
-					const versionsPath = path.resolve(config.RobloxVersionsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+					const versionsPath = path.resolve(CONFIG.RobloxVersionsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 					fs.readdirSync(versionsPath).forEach((dirNext) => {
 						const stats = fs.statSync(path.resolve(versionsPath, dirNext))
 						if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
@@ -641,7 +645,7 @@ async function getAsync(url, responseType) {
 						}
 					})
 					// Studio Mod Manager
-					const modManagerContentPath = path.resolve(config.StudioModManagerContentPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+					const modManagerContentPath = path.resolve(CONFIG.StudioModManagerContentPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 					if (fs.existsSync(modManagerContentPath)) {
 						const hardLinkPath = path.resolve(modManagerContentPath, 'lync')
 						if (!fs.existsSync(hardLinkPath)) {
@@ -650,7 +654,7 @@ async function getAsync(url, responseType) {
 						hardLinkPaths.push(hardLinkPath)
 					}
 				} else if (process.platform == 'darwin') {
-					const contentPath = path.resolve(config.RobloxContentPath_MacOS)
+					const contentPath = path.resolve(CONFIG.RobloxContentPath_MacOS)
 					const hardLinkPath = path.resolve(contentPath, 'lync')
 					if (!fs.existsSync(hardLinkPath)) {
 						fs.mkdirSync(hardLinkPath)
@@ -659,11 +663,12 @@ async function getAsync(url, responseType) {
 				}
 				for (const hardLinkPath of hardLinkPaths) {
 					if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
-					fs.rmSync(hardLinkPath, { recursive: true })
+					fs.rmSync(hardLinkPath, { force: true, recursive: true })
 					hardLinkRecursive(hardLinkPath, path.resolve())
 				}
 	
 				// Send map
+				map.Version = VERSION
 				map.Debug = DEBUG
 				jsonString = JSON.stringify(map)
 				delete map['SaveToFile']

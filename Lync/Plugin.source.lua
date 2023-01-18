@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 7
+	Lync Client - Alpha 8
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -27,7 +27,7 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local VERSION = "Alpha 7"
+local VERSION = "Alpha 8"
 
 local LuaCsv = require(script:WaitForChild("LuaCsv"))
 local PrettyPrint = require(script:WaitForChild("PrettyPrint"))
@@ -397,12 +397,17 @@ local function setConnected(newConnected: boolean)
 					return get ~= "{}" and HttpService:JSONDecode(get) or nil
 				end)
 				if success then
-					debugPrints = result.Debug
-					result.Debug = nil
-					map = result
-					if debugPrints then warn("[Lync] - Map:", result) end
-					task.spawn(buildAll)
-					repeat task.wait() until activeSourceRequests == 0
+					if result.Version == VERSION then
+						debugPrints = result.Debug
+						result.Debug = nil
+						map = result
+						if debugPrints then warn("[Lync] - Map:", result) end
+						task.spawn(buildAll)
+						repeat task.wait() until activeSourceRequests == 0
+					else
+						task.spawn(error, "[Lync] - Version mismatch. Please restart Studio")
+						newConnected = false
+					end
 				else
 					task.spawn(error, "[Lync] - " .. result)
 					newConnected = false
