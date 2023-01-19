@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 8
+	Lync Server - Alpha 9
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,7 +29,7 @@ const watch = require('node-watch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 8'
+const VERSION = 'Alpha 9'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -473,7 +473,7 @@ async function getAsync(url, responseType) {
 	
 	// Copy plugin
 	
-	const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('%HOME%', process.env.HOME))
+	const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
 	if (!fs.existsSync(pluginsPath)) {
 		if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 		fs.mkdirSync(pluginsPath)

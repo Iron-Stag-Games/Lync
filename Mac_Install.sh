@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-rm -r %HOME%/Documents/Roblox/Lync
-cp -R Lync %HOME%/Documents/Roblox
+rm -r $HOME/Documents/Roblox/Lync
+cp -R Lync $HOME/Documents/Roblox
 echo
 echo Lync has finished installing.
 echo
