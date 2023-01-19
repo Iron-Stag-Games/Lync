@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 9
+	Lync Server - Alpha 10
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,7 +29,7 @@ const watch = require('node-watch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 9'
+const VERSION = 'Alpha 10'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -632,6 +632,7 @@ async function getAsync(url, responseType) {
 		switch(req.headers.type) {
 			case 'Map':
 				// Create content hard links
+				hardLinkPaths = []
 				if (process.platform == 'win32') {
 					const versionsPath = path.resolve(CONFIG.RobloxVersionsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 					fs.readdirSync(versionsPath).forEach((dirNext) => {
