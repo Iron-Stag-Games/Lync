@@ -664,7 +664,9 @@ async function getAsync(url, responseType) {
 				}
 				for (const hardLinkPath of hardLinkPaths) {
 					if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
-					fs.rmSync(hardLinkPath, { force: true, recursive: true })
+					try {
+						fs.rmSync(hardLinkPath, { force: true, recursive: true })
+					} catch (e) {}
 					hardLinkRecursive(hardLinkPath, path.resolve())
 				}
 	
