@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 10
+	Lync Server - Alpha 11
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -28,7 +28,7 @@ const { http, https } = require('follow-redirects')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 10'
+const VERSION = 'Alpha 11'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
