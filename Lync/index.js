@@ -25,7 +25,6 @@ const path = require('path')
 const process = require('process')
 const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
-const watch = require('node-watch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
@@ -492,18 +491,17 @@ async function getAsync(url, responseType) {
 	
 	// Sync file changes
 	
-	watch(path.resolve(), { recursive: true }, function(event, localPath) {
-		localPath = path.relative(path.resolve(), localPath)
+	fs.watch(path.resolve(), { recursive: true }, function(event, localPath) {
 		if (localPath) {
+			localPath = path.relative(path.resolve(), localPath)
 			if (path.resolve(localPath) != path.resolve(PROJECT_JSON)) {
 				localPath = localPath.replace(/\\/g, '/')
 				const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-				let localPathStats;
-				if (fs.existsSync(localPath)) localPathStats = fs.statSync(localPath)
+				const localPathStats = fs.statSync(localPath, { throwIfNoEntry: false })
 				if (localPath in mTimes) {
 	
 					// Deleted
-					if (event == 'remove') {
+					if (!localPathStats) {
 						console.log('D', cyan(localPath))
 						for (const key in map) {
 	
@@ -565,13 +563,13 @@ async function getAsync(url, responseType) {
 						mTimes[localPath] = localPathStats.mtimeMs
 					}
 	
-				} else if (event == 'update') {
+				} else if (event == 'rename' && localPathStats) {
 	
 					// Added
 					for (const hardLinkPath of hardLinkPaths) {
 						hardLinkRecursive(hardLinkPath, localPath)
 					}
-					if (parentPathString in mTimes) {
+					if (parentPathString in mTimes && localPathExtensionIsMappable(localPath)) {
 						console.log('A', cyan(localPath))
 						for (const key in map) {
 							if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
