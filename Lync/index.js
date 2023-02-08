@@ -569,7 +569,7 @@ async function getAsync(url, responseType) {
 					for (const hardLinkPath of hardLinkPaths) {
 						hardLinkRecursive(hardLinkPath, localPath)
 					}
-					if (parentPathString in mTimes && localPathExtensionIsMappable(localPath)) {
+					if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
 						console.log('A', cyan(localPath))
 						for (const key in map) {
 							if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
