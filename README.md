@@ -49,6 +49,4 @@ This tool is currently provided without any documentation whatsoever! Because th
 - [NDA title #1](https://www.roblox.com/games/8875360163) - TeraBrite Games
 - NDA title #2 - TeraBrite Games
 - NDA title #3 - TeraBrite Games
-- NDA title #4 - TeraBrite Games
-- NDA title #5 - TeraBrite Games
 - [ExoTech](https://www.roblox.com/games/7634484468) - Iron Stag Games
