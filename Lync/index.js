@@ -263,7 +263,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				mapLua(localPath + '/init.server.luau', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
 
 			// Folders
-			} else if (robloxPath.slice(0, robloxPath.lastIndexOf('/')) != 'tree') {
+			} else if (flag != 'Json') {
 				assignMap(robloxPath, {
 					'Type': 'Instance',
 					'ClassName': className,
