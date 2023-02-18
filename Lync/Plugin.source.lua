@@ -241,14 +241,6 @@ local function buildPath(path: string)
 				end
 			end)
 		elseif data.Type == "JsonModel" then
-			if createInstance then
-				local newInstance = Instance.new(data.ClassName or "Folder")
-				newInstance.Name = name
-				newInstance.Parent = target
-				target = newInstance
-			else
-				target:ClearAllChildren()
-			end
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
@@ -256,7 +248,16 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					buildJsonModel(target, HttpService:JSONDecode(result))
+					local json = HttpService:JSONDecode(result)
+					if createInstance then
+						local newInstance = Instance.new(json.ClassName or "Folder")
+						newInstance.Name = name
+						newInstance.Parent = target
+						target = newInstance
+					else
+						target:ClearAllChildren()
+					end
+					buildJsonModel(target, json)
 				else
 					terminate("The server did not return a source for '" .. data.Path .. "'")
 				end
