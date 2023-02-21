@@ -497,7 +497,7 @@ async function getAsync(url, responseType) {
 			if (path.resolve(localPath) != path.resolve(PROJECT_JSON)) {
 				localPath = localPath.replace(/\\/g, '/')
 				const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-				const localPathStats = fs.statSync(localPath, { throwIfNoEntry: false })
+				let localPathStats; try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (e) { return }
 				if (localPath in mTimes) {
 	
 					// Deleted
