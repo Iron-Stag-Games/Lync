@@ -328,6 +328,7 @@ function changedJson() {
 	map = {}
 	const projectJsonStats = fs.statSync(PROJECT_JSON)
 	for (const service in projectJson.tree) {
+		if (service == '$className') continue // Fix for Roblox LSP source map
 		mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, undefined, projectJsonStats.mtimeMs)
 	}
 }
