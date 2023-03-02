@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 11
+	Lync Client - Alpha 12
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -27,7 +27,7 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local VERSION = "Alpha 11"
+local VERSION = "Alpha 12"
 
 local LuaCsv = require(script:WaitForChild("LuaCsv"))
 local PrettyPrint = require(script:WaitForChild("PrettyPrint"))
@@ -178,10 +178,15 @@ local function buildPath(path: string)
 		elseif index == #subpaths then
 			createInstance = true
 		elseif data then
-			terminate("Path '" .. subpath .. "' not found in " .. target:GetFullName())
+			terminate(`Path '{subpath}' not found in {target:GetFullName()}`)
 		end
 	end
 	if data then
+		if data.ClearOnSync and not createInstance then
+			for _, child in target:GetChildren() do
+				pcall(child.Destroy, child)
+			end
+		end
 		if data.Type == "Instance" then
 			if createInstance then
 				local newInstance = Instance.new(data.ClassName)
@@ -205,7 +210,7 @@ local function buildPath(path: string)
 				if success then
 					target.Source = result
 				else
-					terminate("The server did not return a source for '" .. data.Path .. "'")
+					terminate(`The server did not return a source for '{data.Path}'`)
 				end
 			end)
 		elseif data.Type == "Model" then
@@ -219,7 +224,7 @@ local function buildPath(path: string)
 				objects[1].Name = name
 				objects[1].Parent = target
 			else
-				task.spawn(error, "[Lync] - '" .. data.Path .. "' cannot contain zero or multiple root Instances")
+				task.spawn(error, `[Lync] - '{data.Path}' cannot contain zero or multiple root Instances`)
 			end
 		elseif data.Type == "Json" then
 			if createInstance then
@@ -237,7 +242,7 @@ local function buildPath(path: string)
 				if success then
 					target.Source = "return " .. PrettyPrint(HttpService:JSONDecode(result))
 				else
-					terminate("The server did not return a source for '" .. data.Path .. "'")
+					terminate(`The server did not return a source for '{data.Path}'`)
 				end
 			end)
 		elseif data.Type == "JsonModel" then
@@ -259,7 +264,7 @@ local function buildPath(path: string)
 					end
 					buildJsonModel(target, json)
 				else
-					terminate("The server did not return a source for '" .. data.Path .. "'")
+					terminate(`The server did not return a source for '{data.Path}'`)
 				end
 			end)
 		elseif data.Type == "PlainText" then
@@ -278,7 +283,7 @@ local function buildPath(path: string)
 				if success then
 					target.Value = result
 				else
-					terminate("The server did not return a source for '" .. data.Path .. "'")
+					terminate(`The server did not return a source for '{data.Path}'`)
 				end
 			end)
 		elseif data.Type == "Localization" then
@@ -298,11 +303,11 @@ local function buildPath(path: string)
 					local entries = {}
 					local lines = result:split("\n")
 					local header = LuaCsv(lines[1])
-					for index = 2, #lines do
-						local entry = LuaCsv(lines[index])
+					for lIndex = 2, #lines do
+						local entry = LuaCsv(lines[lIndex])
 						local values = {}
-						for index = 5, #entry do
-							values[header[index]] = entry[index]
+						for eIndex = 5, #entry do
+							values[header[eIndex]] = entry[eIndex]
 						end
 						table.insert(entries, {Key = entry[1], Source = entry[2], Context = entry[3], Example = entry[4], Values = values})
 					end
@@ -310,7 +315,7 @@ local function buildPath(path: string)
 						target:SetEntries(entries)
 					end)
 				else
-					terminate("The server did not return a source for '" .. data.Path .. "'")
+					terminate(`The server did not return a source for '{data.Path}'`)
 				end
 			end)
 		end
@@ -344,10 +349,10 @@ local function buildPath(path: string)
 						workspace.Terrain:PasteRegion(objects[1], eval(data.TerrainRegion[2]), data.TerrainRegion[3])
 					end)
 				else
-					task.spawn(error, "[Lync] - '" .. data.TerrainRegion[1] .. "' cannot contain zero or multiple root Instances")
+					task.spawn(error, `[Lync] - '{data.TerrainRegion[1]}' cannot contain zero or multiple root Instances`)
 				end
 			else
-				task.spawn(error, "[Lync] - Cannot use $terrainRegion property with", target)
+				task.spawn(error, "[Lync] - Cannot use $terrainRegion property with " .. tostring(target))
 			end
 		end
 		if data.TerrainMaterialColors then
@@ -358,7 +363,7 @@ local function buildPath(path: string)
 					end)
 				end
 			else
-				task.spawn(error, "[Lync] - Cannot use $terrainMaterialColors property with", target)
+				task.spawn(error, "[Lync] - Cannot use $terrainMaterialColors property with " .. tostring(target))
 			end
 		end
 	end

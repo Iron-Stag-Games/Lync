@@ -32,7 +32,6 @@ This tool is currently provided without any documentation whatsoever! Because th
 | Server IP               | ✕    | ✓    |
 | Build To RBXL           | …    | ✓    |
 | RBXL To Lync/Rojo       | …    | ✓    |
-| $ignoreUnknownInstances | ✕    | ✓    |
 | $terrainRegion          | ✓    | ✕    |
 | $terrainMaterialColors  | ✓    | ✕    |
 
@@ -42,6 +41,7 @@ This tool is currently provided without any documentation whatsoever! Because th
 |-|-|
 | $attributes | $properties.Attributes |
 | $tags | $properties.{any array} |
+| $clearOnSync | $ignoreUnknownInstances |
 
 # Games made with Lync
 

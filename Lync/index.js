@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 11
+	Lync Server - Alpha 12
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -28,7 +28,7 @@ const { http, https } = require('follow-redirects')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 11'
+const VERSION = 'Alpha 12'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -221,6 +221,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 			let properties;
 			let attributes;
 			let tags;
+			let clearOnSync;
 			let metaLocalPath;
 
 			// Init Meta Files
@@ -231,6 +232,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				properties = metaJson['properties']
 				attributes = metaJson['attributes']
 				tags = metaJson['tags']
+				clearOnSync = metaJson['clearOnSync']
 				metaLocalPath = metaLocalPathCheck
 			}
 
@@ -270,6 +272,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 					'Properties': properties,
 					'Attributes': attributes,
 					'Tags': tags,
+					'ClearOnSync': clearOnSync,
 					'Path': localPath,
 					'Meta': metaLocalPath
 				}, localPathStats.mtimeMs)
@@ -299,6 +302,7 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExterna
 		'Attributes': target[key]['$attributes'],
 		'Tags': target[key]['$tags'],
 		'Path': localPath,
+		'ClearOnSync': target[key]['$clearOnSync'],
 		'ProjectJson': jsonPath,
 		'TerrainRegion': target[key]['$terrainRegion'],
 		'TerrainMaterialColors': target[key]['$terrainMaterialColors']
