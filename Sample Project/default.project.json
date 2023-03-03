@@ -1,7 +1,7 @@
 {
 	"name": "Example Build",
 	"base": "default.base.rbxl",
-	"build": "Temp/Build.rbxl",
+	"build": "BuildScripts/Build/Build.rbxl",
 
 	"tree": {
 		"Workspace": {

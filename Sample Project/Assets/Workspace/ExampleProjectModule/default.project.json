@@ -1,6 +1,6 @@
 {
 	"name": "ExampleProjectModule",
 	"tree": {
-        "$path": "src"
+		"$path": "src"
 	}
 }

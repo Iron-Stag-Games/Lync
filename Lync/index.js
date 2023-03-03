@@ -159,8 +159,9 @@ function mapDirectory(localPath, robloxPath, flag) {
 
 			// Lua
 			} else if (localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau') {
-				const robloxPathParsed = path.parse(robloxPath)
-				mapLua(localPath, robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name), properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
+				let newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
+				if (flag == 'Json') newRobloxPath = robloxPath
+				mapLua(localPath, newRobloxPath, properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
 
 			// JSON (non-meta)
 			} else if (localPathParsed.ext == '.json' && !localPathParsed.name.endsWith('.meta')) {
