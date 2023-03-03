@@ -441,7 +441,7 @@ async function getAsync(url, responseType) {
 				console.clear()
 				spawnSync(process.argv.shift(), process.argv, {
 					cwd: process.cwd(),
-					detached : false,
+					detached: false,
 					stdio: 'inherit'
 				})
 				process.exit()
