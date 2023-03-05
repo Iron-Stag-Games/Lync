@@ -560,8 +560,10 @@ async function getAsync(url, responseType) {
 					} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
 						console.log('M', cyan(localPath))
 						for (const key in map) {
-							if (map[key].Meta == localPath || map[key].InitParent == parentPathString) {
+							if (map[key].InitParent == parentPathString) {
 								mapDirectory(parentPathString, key, 'Modified')
+							} else if (map[key].Meta == localPath) {
+								mapDirectory(map[key].Path, key, 'Modified')
 							} else if (map[key].Path == localPath) {
 								mapDirectory(localPath, key, 'Modified')
 							}

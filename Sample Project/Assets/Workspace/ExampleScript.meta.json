@@ -1,5 +1,6 @@
 {
-    "$properties": {
-        "Enabled": false
+    "properties": {
+        "Enabled": true,
+		"RunContext": ["Enum.RunContext.Client"]
     }
 }
