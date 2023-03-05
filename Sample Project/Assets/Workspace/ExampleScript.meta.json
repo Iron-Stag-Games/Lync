@@ -1,6 +1,6 @@
 {
-    "properties": {
-        "Enabled": true,
+	"properties": {
+		"Enabled": true,
 		"RunContext": ["Enum.RunContext.Client"]
-    }
+	}
 }
