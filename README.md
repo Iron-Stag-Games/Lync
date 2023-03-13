@@ -14,11 +14,11 @@ This tool is currently provided without any documentation whatsoever! Because th
 # How does Lync compare to Rojo?
 
 ### Pros
-- 99% compatibility with existing Rojo projects. JSON files, including [the project JSON](https://github.com/Iron-Stag-Games/Lync/blob/main/Sample%20Project/default.project.json) must be changed.
-- Compatible with all future Roblox properties.
-- Mesh loading bug and duplication bug fixed.
 - Much faster live sync.
-- No compilation necessary.
+- Designed from the ground up to be compatible with all future Roblox properties.
+- Nearly fully compatibile with existing Rojo projects. JSON files, including [the project JSON](https://github.com/Iron-Stag-Games/Lync/blob/main/Sample%20Project/default.project.json) must be changed.
+- Mesh loading bug and duplication bug fixed.
+- No compilation of Lync necessary - edit and go!
 
 ### Cons
 - Not possible to automate publishing. (See [this thread](https://devforum.roblox.com/t/expose-studiopublishservicepublishas-to-pluginsecurity-create-respective-permission/2065965) for a suggested fix)
