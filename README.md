@@ -45,8 +45,8 @@ This tool is currently provided without any documentation whatsoever! Because th
 
 # Games made with Lync
 
-- [RB Battles](https://www.roblox.com/games/5036207802) - TeraBrite Games
-- [NDA title #1](https://www.roblox.com/games/8875360163) - TeraBrite Games
-- NDA title #2 - TeraBrite Games
-- NDA title #3 - TeraBrite Games
+- [RB Battles](https://www.roblox.com/games/5036207802) - RB Battles Games
+- [NDA title #1](https://www.roblox.com/games/8875360163) - Fund For Games
+- NDA title #2 - Fund For Games
+- NDA title #3 - Fund For Games
 - [ExoTech](https://www.roblox.com/games/7634484468) - Iron Stag Games
