@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 12
+	Lync Client - Alpha 13
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -27,7 +27,7 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local VERSION = "Alpha 12"
+local VERSION = "Alpha 13"
 
 local LuaCsv = require(script:WaitForChild("LuaCsv"))
 local PrettyPrint = require(script:WaitForChild("PrettyPrint"))
@@ -115,21 +115,15 @@ local function getObjects(url: string): {Instance}?
 	return if success then result else nil
 end
 
-local function buildJsonModel(target: any, data: any)
-	if data.Children then
-		for _, childData in data.Children do
-			local newInstance = Instance.new(childData.ClassName or "Folder")
-			if childData.Name then
-				newInstance.Name = childData.Name
-			end
-			buildJsonModel(newInstance, childData)
-			newInstance.Parent = target
-		end
-	end
+local function setDetails(target: any, data: any)
 	if data.Properties then
 		for property, value in data.Properties do
 			lpcall("Set Property " .. property, function()
-				target[property] = eval(value)
+				if target:IsA("Model") and property == "Scale" then
+					target:ScaleTo(eval(value))
+				else
+					target[property] = eval(value)
+				end
 			end)
 		end
 	end
@@ -147,6 +141,20 @@ local function buildJsonModel(target: any, data: any)
 			end)
 		end
 	end
+end
+
+local function buildJsonModel(target: any, data: any)
+	if data.Children then
+		for _, childData in data.Children do
+			local newInstance = Instance.new(childData.ClassName or "Folder")
+			if childData.Name then
+				newInstance.Name = childData.Name
+			end
+			buildJsonModel(newInstance, childData)
+			newInstance.Parent = target
+		end
+	end
+	setDetails(target, data)
 end
 
 local function buildPath(path: string)
@@ -319,27 +327,7 @@ local function buildPath(path: string)
 				end
 			end)
 		end
-		if data.Properties then
-			for property, value in data.Properties do
-				lpcall("Set Property " .. property, function()
-					target[property] = eval(value)
-				end)
-			end
-		end
-		if data.Attributes then
-			for attribute, value in data.Attributes do
-				lpcall("Set Attribute", function()
-					target:SetAttribute(attribute, value)
-				end)
-			end
-		end
-		if data.Tags then
-			for _, tag in data.Tags do
-				lpcall("Set Tag", function()
-					CollectionService:AddTag(target, tag)
-				end)
-			end
-		end
+		setDetails(target, data)
 		if data.TerrainRegion then
 			if target == workspace.Terrain then
 				local objects = getObjects("rbxasset://lync/" .. data.TerrainRegion[1])

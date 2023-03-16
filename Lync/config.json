@@ -1,5 +1,6 @@
 {
 	"AutoUpdate": true,
+	"GithubUpdateRepo": "Iron-Stag-Games/Lync",
 
 	"RobloxVersionsPath_Windows": "%LOCALAPPDATA%/Roblox/Versions",
 	"RobloxPluginsPath_Windows": "%LOCALAPPDATA%/Roblox/Plugins",

@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 12
+	Lync Server - Alpha 13
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -28,7 +28,7 @@ const { http, https } = require('follow-redirects')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 12'
+const VERSION = 'Alpha 13'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -403,7 +403,7 @@ async function getAsync(url, responseType) {
 		} catch (e) {}
 		try {
 			// Grab latest version info
-			const latest = await getAsync('https://api.github.com/repos/Iron-Stag-Games/Lync/releases/latest', 'json')
+			const latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases/latest`, 'json')
 			if (latest.id != currentId) {
 				const updateFile = path.resolve(__dirname, 'update.zip')
 				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.tag_name)
@@ -411,7 +411,7 @@ async function getAsync(url, responseType) {
 
 				// Download latest version
 				console.log(`Updating to ${latest.name} . . .`)
-				const update = await getAsync(`https://github.com/Iron-Stag-Games/Lync/archive/refs/tags/${latest.tag_name}.zip`)
+				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/archive/refs/tags/${latest.tag_name}.zip`)
 				fs.writeFileSync(updateFile, update, 'binary')
 				await extract(updateFile, { dir: __dirname })
 
@@ -421,21 +421,27 @@ async function getAsync(url, responseType) {
 				// Delete old files
 				fs.readdirSync(__dirname).forEach((dirNext) => {
 					const next = path.resolve(__dirname, dirNext)
-					if (next != versionFile && next != configFile && next != extractedFolder) {
+					if (next != versionFile && next != extractedFolder) {
 						fs.rmSync(next, { force: true, recursive: true })
 					}
 				})
 
 				// Move new files
 				fs.readdirSync(updateFolder).forEach((dirNext) => {
-					const next = path.resolve(updateFolder, dirNext)
-					if (next != configFile) {
-						fs.renameSync(next, path.resolve(__dirname, dirNext))
+					const oldPath = path.resolve(updateFolder, dirNext)
+					const newPath = path.resolve(__dirname, dirNext)
+					if (newPath == configFile) {
+						const newConfig = JSON.parse(fs.readFileSync(oldPath))
+						for (const key in CONFIG)
+							newConfig[key] = CONFIG[key]
+						fs.writeFileSync(oldPath, JSON.stringify(newConfig, null, 4))
 					}
+					fs.renameSync(oldPath, newPath)
 				})
 
 				// Cleanup
 				fs.rmdirSync(extractedFolder, { force: true, recursive: true })
+				fs.rmSync(updateFile, { force: true })
 
 				// Restart Lync
 				console.clear()
@@ -446,8 +452,12 @@ async function getAsync(url, responseType) {
 				})
 				process.exit()
 			}
-		} catch (e) {}
-		console.clear()
+			console.clear()
+		} catch (e) {
+			console.clear()
+			console.error(red('Failed to update:'), e)
+			console.log()
+		}
 	}
 
 	// Begin
