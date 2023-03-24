@@ -32,8 +32,6 @@ This tool is currently provided without any documentation whatsoever! Because th
 | Server IP               | ✕    | ✓    |
 | Build To RBXL           | …    | ✓    |
 | RBXL To Lync/Rojo       | …    | ✓    |
-| $terrainRegion          | ✓    | ✕    |
-| $terrainMaterialColors  | ✓    | ✕    |
 
 
 ## Syntax
@@ -42,6 +40,8 @@ This tool is currently provided without any documentation whatsoever! Because th
 | $attributes | $properties.Attributes |
 | $tags | $properties.{any array} |
 | $clearOnSync | $ignoreUnknownInstances |
+| Terrain.$terrainRegion | Terrain.$path |
+| Terrain.$terrainMaterialColors | Terrain.$path |
 
 # Games made with Lync
 
