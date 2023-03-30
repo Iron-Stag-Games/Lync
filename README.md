@@ -21,17 +21,8 @@ This tool is currently provided without any documentation whatsoever! Because th
 - No compilation of Lync necessary - edit and go!
 
 ### Cons
-- Not possible to automate publishing. (See [this thread](https://devforum.roblox.com/t/expose-studiopublishservicepublishas-to-pluginsecurity-create-respective-permission/2065965) for a suggested fix)
-- Currently unable to build to RBXL because it requires a serializer.
-- Currently unable to convert RBXL to a Lync project because it requires a serializer.
+- Currently unable to convert RBXL to a Lync project.
 - Lack of documentation.
-
-## Features
-|                         | Lync | Rojo |
-|-------------------------|------|------|
-| Server IP               | ✕    | ✓    |
-| Build To RBXL           | …    | ✓    |
-| RBXL To Lync/Rojo       | …    | ✓    |
 
 
 ## Syntax
@@ -42,6 +33,12 @@ This tool is currently provided without any documentation whatsoever! Because th
 | $clearOnSync | $ignoreUnknownInstances |
 | Terrain.$terrainRegion | Terrain.$path |
 | Terrain.$terrainMaterialColors | Terrain.$path |
+
+
+# Packages Warning
+
+Complex expressions in property fields may not be supported by other tools, so please avoid doing things like math or calling string functions when releasing packages.
+Simple expressions like `Color3.new(0, 0, 0)` are easy for other tools to interpret without using a Luau VM.
 
 # Games made with Lync
 

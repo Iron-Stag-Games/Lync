@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 13
+	Lync Server - Alpha 14
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -28,14 +28,18 @@ const { http, https } = require('follow-redirects')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 13'
+const VERSION = 'Alpha 14'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
-const PORT = ARGS[1]
 const DEBUG = ARGS[2] == 'DEBUG' || ARGS[3] == 'DEBUG'
-const DUMP_MAP = ARGS[2] == 'DUMP_MAP' || ARGS[3] == 'DUMP_MAP'
+
+// Sync args
+const PORT = ARGS[1]
 const SYNC_ONLY = ARGS[2] == 'SYNC_ONLY' || ARGS[3] == 'SYNC_ONLY'
+
+// Offline build args
+const OFFLINE = ARGS[1] == 'OFFLINE'
 
 var map = {}
 var mTimes = {}
@@ -71,6 +75,14 @@ function removeEmpty(obj) {
 		else if (obj[key] !== undefined) newObj[key] = obj[key]
 	})
 	return newObj
+}
+
+function toEscapeSequence(str) {
+	let escapeSequence = ''
+	let i = str.length
+	while (i--)
+		escapeSequence = '\\' + str.charCodeAt(i) + escapeSequence
+	return escapeSequence
 }
 
 function localPathExtensionIsMappable(localPath) {
@@ -403,7 +415,7 @@ async function getAsync(url, responseType) {
 		} catch (e) {}
 		try {
 			// Grab latest version info
-			const latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases/latest`, 'json')
+			const latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
 			if (latest.id != currentId) {
 				const updateFile = path.resolve(__dirname, 'update.zip')
 				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.tag_name)
@@ -434,7 +446,7 @@ async function getAsync(url, responseType) {
 						const newConfig = JSON.parse(fs.readFileSync(oldPath))
 						for (const key in CONFIG)
 							newConfig[key] = CONFIG[key]
-						fs.writeFileSync(oldPath, JSON.stringify(newConfig, null, 4))
+						fs.writeFileSync(oldPath, JSON.stringify(newConfig, null, '\t'))
 					}
 					fs.renameSync(oldPath, newPath)
 				})
@@ -477,13 +489,94 @@ async function getAsync(url, responseType) {
 	// Map project
 	
 	changedJson()
-	
-	if (DUMP_MAP) {
-		map = removeEmpty(map)
-		console.log()
-		console.log(map)
-		//console.log(mTimes)
+
+	// Build
+
+	if (OFFLINE) {
+		const buildScriptPath = projectJson.build + '.luau'
+
+		// Map loadstring calls (needed until Lune implements loadstring)
+		let loadstringMapEntries = {}
+		let loadstringMap = ''
+		for (key in map) {
+			let mapping = map[key]
+			if ('Properties' in mapping) {
+				for (property in mapping.Properties) {
+					let value = mapping.Properties[property]
+					if (Array.isArray(value) && !(value in loadstringMapEntries)) {
+						loadstringMap += `\t[ "${toEscapeSequence('return ' + value)}" ] = ${value};\n`
+						loadstringMapEntries[value] = true
+					}
+				}
+			}
+		}
+
+		// Fetch script functions
+		let pluginSource = fs.readFileSync(path.resolve(__dirname, 'plugin.source.lua'), { encoding: 'utf8' })
+		pluginSource = pluginSource.substring(pluginSource.indexOf('--offline-start') + 18, pluginSource.indexOf('--offline-end') - 2)
+
+		// Write validation script
+		if (DEBUG) console.log('Writing validation script . . .')
+		let validationScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
+		validationScript += `${pluginSource}\n`
+		validationScript += `for _, lua in {\n`
+		for (entry in loadstringMapEntries) {
+			validationScript += `\t"${toEscapeSequence(entry)}";\n`
+		}
+		validationScript += '} do\n\tlocal HttpService;\n\tif not validateLuaProperty(lua) then\n\t\terror(`Security - Lua string [ {lua} ] failed validation`)\n\tend\nend\n'
+		if (fs.existsSync(buildScriptPath))
+			fs.rmSync(buildScriptPath)
+		fs.writeFileSync(buildScriptPath, validationScript)
+
+		// Validate loadstrings
+		if (DEBUG) console.log('Validating loadstrings . . .')
+		if (spawnSync(`${CONFIG.LunePath}`, [ `${buildScriptPath}` ], {
+			cwd: process.cwd(),
+			detached: false,
+			stdio: 'inherit'
+		}).status != 0) {
+			process.exit()
+		}
+
+		// Write build script
+		if (DEBUG) console.log('Writing build script . . .')
+		let buildScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
+		buildScript += `local game = roblox.readPlaceFile("${projectJson.base}")\n`
+		buildScript += 'local workspace = game:GetService("Workspace")\n'
+		buildScript += `${pluginSource}\n`
+		buildScript += `map = net.jsonDecode("${toEscapeSequence(JSON.stringify(map, null, '\t'))}")\n`
+		buildScript += `loadstringMap = {\n${loadstringMap}}\n`
+		buildScript += `buildAll()\n`
+		buildScript += `roblox.writePlaceFile("${projectJson.build}", game)\n`
+		if (fs.existsSync(buildScriptPath))
+			fs.rmSync(buildScriptPath)
+		fs.writeFileSync(buildScriptPath, buildScript)
+
+		// Build RBXL
+		if (DEBUG) console.log('Building RBXL . . .')
+		if (spawnSync(`${CONFIG.LunePath}`, [ `${buildScriptPath}` ], {
+			cwd: process.cwd(),
+			detached: false,
+			stdio: 'inherit'
+		}).status != 0) {
+			process.exit()
+		}
+		console.log('Build saved to', cyan(projectJson.build))
+
+		// Open Studio (temporary)
+		spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
+			stdio: 'ignore',
+			detached: true,
+			shell: true,
+			windowsHide: true
+		})
+
+		// Cleanup
+		//fs.rmSync(buildScriptPath)
 		process.exit()
+	} else {
+		if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
+		fs.copyFileSync(projectJson.base, projectJson.build)
 	}
 	
 	// Copy plugin
@@ -495,14 +588,17 @@ async function getAsync(url, responseType) {
 	}
 	if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
 	fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
-	if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
-	fs.copyFileSync(projectJson.base, projectJson.build)
 	
 	// Open Studio
 	
 	if (!SYNC_ONLY) {
 		if (DEBUG) console.log('Opening', cyan(projectJson.build))
-		spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], { stdio: 'ignore', detached: true, shell: true, windowsHide: true })
+		spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
+			stdio: 'ignore',
+			detached: true,
+			shell: true,
+			windowsHide: true
+		})
 	}
 	
 	// Sync file changes

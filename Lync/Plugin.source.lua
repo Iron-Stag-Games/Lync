@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 13
+	Lync Client - Alpha 14
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -27,12 +27,11 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local VERSION = "Alpha 13"
+local VERSION = "Alpha 14"
 
 local LuaCsv = require(script:WaitForChild("LuaCsv"))
-local PrettyPrint = require(script:WaitForChild("PrettyPrint"))
 
-local debugPrints
+local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
 local connected = false
 local connecting = false
@@ -54,15 +53,6 @@ local port = frame:WaitForChild("Frame"):WaitForChild("TextBox")
 port.Text = plugin:GetSetting("Port") or ""
 
 -- Functions
-
-local function lpcall(context: string, func: any, ...): (boolean, any)
-	local args = {...}
-	return xpcall(function()
-		return func(unpack(args))
-	end, function(err)
-		task.spawn(error, "[Lync] - " .. context .. ": " .. err)
-	end)
-end
 
 local function setActiveTheme()
 	local connectBackground = (connecting or connected) and Enum.StudioStyleGuideColor.DialogButton or Enum.StudioStyleGuideColor.DialogMainButton
@@ -93,26 +83,102 @@ local function setTheme()
 	setActiveTheme()
 end
 
-local function terminate(ErrorMessage: string)
-	connecting = false
-	error("[Lync] - Terminated: " .. ErrorMessage, 0)
-end
-
 local function getPort(): string
 	return port.Text ~= "" and port.Text or port.PlaceholderText
 end
 
-local function eval(value: any): any
-	if type(value) == "table" then
-		return (loadstring("return " .. value[1]) :: any)()
-	else
-		return value
-	end
+local function terminate(errorMessage: string)
+	connecting = false
+	error("[Lync] - Terminated: " .. errorMessage, 0)
+end
+
+local function lpcall(context: string, func: any, ...): (boolean, any)
+	local args = {...}
+	return xpcall(function()
+		return func(unpack(args))
+	end, function(err)
+		task.spawn(error, "[Lync] - " .. context .. ": " .. err)
+	end)
 end
 
 local function getObjects(url: string): {Instance}?
 	local success, result = lpcall("Get Objects", game.GetObjects, game, url)
 	return if success then result else nil
+end
+
+--offline-start
+
+local function trim6(s: string)
+	return s:match'^()%s*$' and '' or s:match'^%s*(.*%S)'
+end
+
+local function validateLuaProperty(lua: string): boolean
+	-- Constructor
+	if lua:match([[^[A-Z][0-9A-Za-z]+%.[0-9A-Za-z]+%(.*%)$]]) then
+		local valid = true
+		local params = lua:sub(lua:find([[%(.*%)$]])):sub(2, -2)
+		while valid do
+			local paramTestStart, paramTestEnd = params:find([[%([^()]+%)]])
+			if paramTestStart then
+				local param = params:sub(paramTestStart, paramTestEnd):sub(2, -2)
+				valid = validateLuaProperty(`a.a({param})`)
+				params = params:sub(1, paramTestStart - 1) .. "()" .. params:sub(paramTestEnd + 1, -1)
+			end
+			if not valid then break end
+			local tableTestStart, tableTestEnd = params:find([[{[^{}]+}]])
+			if tableTestStart then
+				local value = params:sub(tableTestStart, tableTestEnd):sub(2, -2)
+				valid = validateLuaProperty(`a.a({value})`)
+				params = params:sub(1, tableTestStart - 1) .. params:sub(tableTestEnd + 1, -1)
+			end
+			if not paramTestStart and not tableTestStart then break end
+		end
+		if params == "" then
+			return valid
+		end
+		for _, param in params:split(",") do
+			if valid then
+				valid = validateLuaProperty(trim6(param))
+			else
+				break
+			end
+		end
+		return valid
+
+	-- Enum
+	elseif lua:match([[^Enum%.[0-9A-Za-z_]+%.[0-9A-Za-z_]+$]]) then
+		return true
+
+	-- Nil
+	elseif lua:match([[^nil$]]) then
+		return true
+
+	-- Boolean
+	elseif lua:match([[^true$]]) or lua:match([[^false$]]) then
+		return true
+
+	-- Number
+	elseif lua:match([[^[0-9A-Fa-fXx_.+%-*/^%%# ]+$]]) then
+		return true
+
+	-- String
+	elseif lua:match([[^"[^"]+"$]]) or lua:match([[^'[^']+'$]]) then
+		return true
+	end
+
+	return false
+end
+
+local function eval(value: any): any
+	if type(value) == "table" then
+		if validateLuaProperty(value[1]) then
+			return (loadstring("return " .. value[1]) :: any)()
+		else
+			terminate(`Security: Lua string [ {value[1]} ] doesn't match the JSON property format`)
+		end
+	else
+		return value
+	end
 end
 
 local function setDetails(target: any, data: any)
@@ -190,6 +256,13 @@ local function buildPath(path: string)
 		end
 	end
 	if data then
+		if path == "tree/Workspace/Terrain" then
+			data.ClassName = "Terrain"
+		elseif path == "tree/StarterPlayer/StarterCharacterScripts" then
+			data.ClassName = "StarterCharacterScripts"
+		elseif path == "tree/StarterPlayer/StarterPlayerScripts" then
+			data.ClassName = "StarterPlayerScripts"
+		end
 		if data.ClearOnSync and not createInstance then
 			for _, child in target:GetChildren() do
 				pcall(child.Destroy, child)
@@ -248,7 +321,7 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					target.Source = "return " .. PrettyPrint(HttpService:JSONDecode(result))
+					target.Source = `return game:GetService("HttpService"):JSONDecode([===[{result}]===])`
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
 				end
@@ -367,6 +440,8 @@ local function buildAll()
 		buildPath(path)
 	end
 end
+
+--offline-end
 
 local function setConnected(newConnected: boolean)
 	if connecting then return end
