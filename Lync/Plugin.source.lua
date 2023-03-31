@@ -117,18 +117,18 @@ local function validateLuaProperty(lua: string): boolean
 	if lua:match([[^[A-Z][0-9A-Za-z]+%.[0-9A-Za-z]+%(.*%)$]]) then
 		local valid = true
 		local paramStart, paramEnd = lua:find([[%(.*%)$]])
-		local params = lua:sub(paramStart :: number, paramEnd :: number):sub(2, -2)
+		local params = lua:sub(paramStart :: number + 1, paramEnd :: number - 1)
 		while valid do
 			local paramTestStart, paramTestEnd = params:find([[%([^()]+%)]])
 			if paramTestStart and paramTestEnd then
-				local param = params:sub(paramTestStart, paramTestEnd):sub(2, -2)
+				local param = params:sub(paramTestStart + 1, paramTestEnd - 1)
 				valid = validateLuaProperty(`a.a({param})`)
 				params = params:sub(1, paramTestStart - 1) .. "()" .. params:sub(paramTestEnd + 1, -1)
 			end
 			if not valid then break end
 			local tableTestStart, tableTestEnd = params:find([[{[^{}]+}]])
 			if tableTestStart and tableTestEnd then
-				local value = params:sub(tableTestStart, tableTestEnd):sub(2, -2)
+				local value = params:sub(tableTestStart + 1, tableTestEnd - 1)
 				valid = validateLuaProperty(`a.a({value})`)
 				params = params:sub(1, tableTestStart - 1) .. params:sub(tableTestEnd + 1, -1)
 			end
@@ -163,7 +163,7 @@ local function validateLuaProperty(lua: string): boolean
 		return true
 
 	-- String
-	elseif lua:match([[^"[^"]+"$]]) or lua:match([[^'[^']+'$]]) then
+	elseif lua:match([[^"[^"]*"$]]) or lua:match([[^'[^']*'$]]) then
 		return true
 	end
 
