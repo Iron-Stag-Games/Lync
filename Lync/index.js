@@ -415,7 +415,8 @@ async function getAsync(url, responseType) {
 		} catch (e) {}
 		try {
 			// Grab latest version info
-			const latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
+			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
+			if (CONFIG.GithubUpdatePrereleases) latest = latest[0]
 			if (latest.id != currentId) {
 				const updateFile = path.resolve(__dirname, 'update.zip')
 				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.tag_name)
