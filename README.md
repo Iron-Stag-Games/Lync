@@ -12,7 +12,7 @@ This tool is currently provided without any documentation whatsoever! Because th
 - [Lune](https://github.com/filiptibell/lune) must be installed for offline RBXL builds. You can specify the path to your Lune installation in the config file.
 - [pkg](https://www.npmjs.com/package/pkg) can be used to package Lync into an executable if desired. In the future, this will be automatically generated on GitHub.
 
-## Config
+## Configuration
 
 The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.json) is located in your Lync installation.
 
@@ -29,6 +29,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 - No compilation of Lync necessary - edit and go!
 
 ### Cons
+- Currently unable to use Terrain in an offline RBXL build.
 - Currently unable to convert RBXL to a Lync project.
 - Lack of documentation.
 

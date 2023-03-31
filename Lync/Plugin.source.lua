@@ -108,25 +108,26 @@ end
 
 --offline-start
 
-local function trim6(s: string)
-	return s:match'^()%s*$' and '' or s:match'^%s*(.*%S)'
+local function trim6(s: string): string
+	return s:match'^()%s*$' and '' or s:match'^%s*(.*%S)' :: string
 end
 
 local function validateLuaProperty(lua: string): boolean
 	-- Constructor
 	if lua:match([[^[A-Z][0-9A-Za-z]+%.[0-9A-Za-z]+%(.*%)$]]) then
 		local valid = true
-		local params = lua:sub(lua:find([[%(.*%)$]])):sub(2, -2)
+		local paramStart, paramEnd = lua:find([[%(.*%)$]])
+		local params = lua:sub(paramStart :: number, paramEnd :: number):sub(2, -2)
 		while valid do
 			local paramTestStart, paramTestEnd = params:find([[%([^()]+%)]])
-			if paramTestStart then
+			if paramTestStart and paramTestEnd then
 				local param = params:sub(paramTestStart, paramTestEnd):sub(2, -2)
 				valid = validateLuaProperty(`a.a({param})`)
 				params = params:sub(1, paramTestStart - 1) .. "()" .. params:sub(paramTestEnd + 1, -1)
 			end
 			if not valid then break end
 			local tableTestStart, tableTestEnd = params:find([[{[^{}]+}]])
-			if tableTestStart then
+			if tableTestStart and tableTestEnd then
 				local value = params:sub(tableTestStart, tableTestEnd):sub(2, -2)
 				valid = validateLuaProperty(`a.a({value})`)
 				params = params:sub(1, tableTestStart - 1) .. params:sub(tableTestEnd + 1, -1)
@@ -158,7 +159,7 @@ local function validateLuaProperty(lua: string): boolean
 		return true
 
 	-- Number
-	elseif lua:match([[^[0-9A-Fa-fXx_.+%-*/^%%# ]+$]]) then
+	elseif lua:match([[^[0-9A-Fa-fXx_.+%-*/^%%#() ]+$]]) then
 		return true
 
 	-- String
@@ -175,6 +176,7 @@ local function eval(value: any): any
 			return (loadstring("return " .. value[1]) :: any)()
 		else
 			terminate(`Security: Lua string [ {value[1]} ] doesn't match the JSON property format`)
+			return
 		end
 	else
 		return value
