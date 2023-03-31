@@ -565,15 +565,15 @@ async function getAsync(url, responseType) {
 		console.log('Build saved to', cyan(projectJson.build))
 
 		// Open Studio (temporary)
-		spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
+		/*spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
 			stdio: 'ignore',
 			detached: true,
 			shell: true,
 			windowsHide: true
-		})
+		})*/
 
 		// Cleanup
-		//fs.rmSync(buildScriptPath)
+		fs.rmSync(buildScriptPath)
 		process.exit()
 	} else {
 		if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
