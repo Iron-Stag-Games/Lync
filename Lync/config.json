@@ -1,5 +1,5 @@
 {
-	"AutoUpdate": true,
+	"AutoUpdate": false,
 	"GithubUpdateRepo": "Iron-Stag-Games/Lync",
 	"GithubUpdatePrereleases": false,
 
