@@ -9,7 +9,15 @@ This tool is currently provided without any documentation whatsoever! Because th
 ## Usage
 
 - [Node.js](https://nodejs.org/) must be installed for Lync to run.
+- [Lune](https://github.com/filiptibell/lune) must be installed for offline RBXL builds. You can specify the path to your Lune installation in the config file.
 - [pkg](https://www.npmjs.com/package/pkg) can be used to package Lync into an executable if desired. In the future, this will be automatically generated on GitHub.
+
+## Config
+
+The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.json) is located in your Lync installation.
+
+- Windows: `%LOCALAPPDATA%\Roblox\Lync\config.json`
+- MacOS: `$HOME/Documents/Roblox/Lync/config.json`
 
 # How does Lync compare to Rojo?
 
@@ -35,7 +43,7 @@ This tool is currently provided without any documentation whatsoever! Because th
 | Terrain.$terrainMaterialColors | Terrain.$path |
 
 
-# Packages Warning
+# Package Compatibility Notice
 
 Complex expressions in property fields may not be supported by other tools, so please avoid doing things like math or calling string functions when releasing packages.
 Simple expressions like `Color3.new(0, 0, 0)` are easy for other tools to interpret without using a Luau VM.
