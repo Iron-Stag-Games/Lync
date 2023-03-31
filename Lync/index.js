@@ -741,6 +741,12 @@ async function getAsync(url, responseType) {
 	// Start server
 	
 	http.createServer(function(req, res) {
+		if (req.socket.remoteAddress != '::1') {
+			console.error(red('Server error:'), yellow(`Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`))
+			res.writeHead(403)
+			res.end()
+			return
+		}
 		let jsonString, read;
 		switch(req.headers.type) {
 			case 'Map':
@@ -804,27 +810,27 @@ async function getAsync(url, responseType) {
 					res.writeHead(200)
 					res.end(read)
 				} catch (e) {
-					console.error(red(e))
+					console.error(red('Server error:'), yellow(e))
 					res.writeHead(404)
 					res.end()
 				}
 				break
 			default:
 				if ('type' in req.headers) {
-					console.error(red('Unknown type header from Client; must be Map, Modified, or Source'))
+					console.error(red('Server error:'), yellow('Unknown type header from Client; must be Map, Modified, or Source'))
 					res.writeHead(400)
 					res.end('Unknown type header')
 				} else {
-					console.error(red('Missing type header from Client; must be Map, Modified, or Source'))
+					console.error(red('Server error:'), yellow('Missing type header from Client; must be Map, Modified, or Source'))
 					res.writeHead(400)
 					res.end('Missing type header')
 				}
 		}
 	})
 	.on('error', function(e) {
-		console.error(red(e))
+		console.error(red('Server error:'), yellow(e))
 	})
 	.listen(PORT, function() {
 		console.log(`\nSyncing ${green(projectJson.name)} on port ${yellow(PORT)}\n`)
-	})	
+	})
 })()
