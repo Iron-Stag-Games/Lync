@@ -741,7 +741,7 @@ async function getAsync(url, responseType) {
 	// Start server
 	
 	http.createServer(function(req, res) {
-		if (req.socket.remoteAddress != '::1') {
+		if (req.socket.remoteAddress != '::1' && req.socket.remoteAddress != '127.0.0.1') {
 			console.error(red('Server error:'), yellow(`Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`))
 			res.writeHead(403)
 			res.end()
