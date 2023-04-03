@@ -2,7 +2,7 @@
 
 # What is Lync?
 
-Lync is an alternative to Rojo focused on improving user experience.
+Lync is an alternative to Rojo focused on improving user experience and maintainability.
 
 This tool is currently provided without any documentation whatsoever! Because the two tools are so similar, please refer to [the Rojo documentation](https://rojo.space/docs/v7/) for the time being.
 
