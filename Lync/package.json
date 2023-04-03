@@ -2,6 +2,7 @@
   "dependencies": {
     "extract-zip": "^2.0.1",
     "follow-redirects": "^1.15.2",
+    "minimatch": "^8.0.2",
     "node-watch": "^0.7.3"
   }
 }

@@ -476,8 +476,21 @@ local function setConnected(newConnected: boolean)
 						task.spawn(buildAll)
 						repeat task.wait() until activeSourceRequests == 0
 					else
-						task.spawn(error, "[Lync] - Version mismatch. Please restart Studio")
+						task.spawn(error, `[Lync] - Version mismatch ({result.Version} ~= {VERSION}). Please restart Studio`)
 						newConnected = false
+					end
+					if result.ServePlaceIds then
+						local placeIdMatch = false
+						for _, placeId in result.ServePlaceIds do
+							if placeId == game.PlaceId then
+								placeIdMatch = true
+								break
+							end
+						end
+						if not placeIdMatch then
+							task.spawn(error, `[Lync] - PlaceId '{game.PlaceId}' not found in ServePlaceIds`)
+							newConnected = false
+						end
 					end
 				else
 					task.spawn(error, "[Lync] - " .. result)

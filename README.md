@@ -31,6 +31,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 ### Cons
 - Currently unable to use Terrain in an offline RBXL build.
 - Currently unable to convert RBXL to a Lync project.
+- Not possible to serve multiple projects simultaneously.
 - Lack of documentation.
 
 

@@ -25,6 +25,7 @@ const path = require('path')
 const process = require('process')
 const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
+const minimatch = require('minimatch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
@@ -95,6 +96,14 @@ function localPathIsInit(localPath) {
 	return (localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau') && (localPathParsed.name == 'init' || localPathParsed.name == 'init.client' || localPathParsed.name == 'init.server' || localPathParsed.name.endsWith('.init') || localPathParsed.name.endsWith('.init.client') || localPathParsed.name.endsWith('.init.server'))
 }
 
+function localPathIsIgnored(localPath) {
+	if (localPath != undefined && ('globIgnorePaths' in projectJson))
+		for (const index in projectJson.globIgnorePaths)
+			if (minimatch(localPath, projectJson.globIgnorePaths[index]))
+				return true
+	return false
+}
+
 function jsonParse(fileRead, localPath) {
 	try {
 		return JSON.parse(fileRead)
@@ -105,6 +114,7 @@ function jsonParse(fileRead, localPath) {
 }
 
 function assignMap(robloxPath, mapDetails, mtimeMs) {
+	if (localPathIsIgnored(mapDetails.Path)) return
 	if (DEBUG) console.log('Mapping', mapDetails.Type, green(robloxPath), '->', cyan(mapDetails.Path || ''))
 	if (robloxPath in map) {
 		if (map[robloxPath].Path != mapDetails.Path && !map[robloxPath].ProjectJson) {
@@ -122,6 +132,7 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 }
 
 function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPath, initPath, mtimeMs) {
+	if (localPathIsIgnored(localPath)) return
 	const context = (localPath.endsWith('.client.lua') || localPath.endsWith('.client.luau')) && 'Client' || (localPath.endsWith('.server.lua') || localPath.endsWith('.server.luau')) && 'Server' || 'Module'
 	assignMap(robloxPath, {
 		'Type': 'Lua',
@@ -136,6 +147,7 @@ function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPa
 }
 
 function mapDirectory(localPath, robloxPath, flag) {
+	if (localPathIsIgnored(localPath)) return
 	const localPathStats = fs.statSync(localPath)
 	if (localPathStats.isFile()) {
 		const robloxPathParsed = path.parse(robloxPath)
@@ -601,23 +613,23 @@ async function getAsync(url, responseType) {
 			windowsHide: true
 		})
 	}
-	
+
 	// Sync file changes
-	
+
 	fs.watch(path.resolve(), { recursive: true }, function(event, localPath) {
 		if (localPath) {
 			localPath = path.relative(path.resolve(), localPath)
-			if (path.resolve(localPath) != path.resolve(PROJECT_JSON)) {
+			if (path.resolve(localPath) != path.resolve(PROJECT_JSON) && !localPathIsIgnored(localPath)) {
 				localPath = localPath.replace(/\\/g, '/')
 				const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
 				let localPathStats; try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (e) { return }
 				if (localPath in mTimes) {
-	
+
 					// Deleted
 					if (!localPathStats) {
 						console.log('D', cyan(localPath))
 						for (const key in map) {
-	
+
 							// Direct
 							if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
 								if (!map[key].ProjectJson) {
@@ -632,7 +644,7 @@ async function getAsync(url, responseType) {
 									mapDirectory(parentPathString, key, 'Modified')
 								}
 							}
-	
+
 							// Meta
 							if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
 								if (!map[key].ProjectJson) {
@@ -647,7 +659,7 @@ async function getAsync(url, responseType) {
 									mapDirectory(parentPathString, key, 'Modified')
 								}
 							}
-	
+
 							// Json member
 							if (key in map && map[key].ProjectJson == localPath) {
 								if (map[key].Path in mTimes) {
@@ -662,7 +674,7 @@ async function getAsync(url, responseType) {
 							}
 						}
 						delete mTimes[localPath]
-	
+
 					// Changed
 					} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
 						console.log('M', cyan(localPath))
@@ -677,9 +689,9 @@ async function getAsync(url, responseType) {
 						}
 						mTimes[localPath] = localPathStats.mtimeMs
 					}
-	
+
 				} else if (event == 'rename' && localPathStats) {
-	
+
 					// Added
 					for (const hardLinkPath of hardLinkPaths) {
 						hardLinkRecursive(hardLinkPath, localPath)
@@ -689,7 +701,7 @@ async function getAsync(url, responseType) {
 						for (const key in map) {
 							if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
 								const localPathParsed = path.parse(localPath)
-	
+
 								// Remap adjacent matching file
 								if (localPathParsed.name != 'init.meta'  && localPathParsed.name.endsWith('.meta') && localPathParsed.ext == '.json') {
 									const title = localPathParsed.name.slice(0, -5)
@@ -715,16 +727,16 @@ async function getAsync(url, responseType) {
 										console.error(red('Project error:'), yellow(`Stray meta file [${localPath}]`))
 										return
 									}
-	
+
 								// Remap parent folder
 								} else if (localPathIsInit(localPath) || localPathParsed.base == 'init.meta.json' || localPathParsed.base == 'default.project.json') {
 									delete map[key]
 									mapDirectory(parentPathString, key)
-	
+
 								// Map only file
 								} else if (localPathStats.isFile()) {
 									mapDirectory(localPath, key + '/' + localPathParsed.name)
-	
+
 								// Map only directory
 								} else {
 									mapDirectory(localPath, key + '/' + localPathParsed.base)
@@ -737,9 +749,9 @@ async function getAsync(url, responseType) {
 			}
 		}
 	})
-	
+
 	// Start server
-	
+
 	http.createServer(function(req, res) {
 		if (req.socket.remoteAddress != '::1' && req.socket.remoteAddress != '127.0.0.1') {
 			console.error(red('Server error:'), yellow(`Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`))
@@ -788,12 +800,15 @@ async function getAsync(url, responseType) {
 					} catch (e) {}
 					hardLinkRecursive(hardLinkPath, path.resolve())
 				}
-	
+
 				// Send map
 				map.Version = VERSION
 				map.Debug = DEBUG
+				map.ServePlaceIds = projectJson.servePlaceIds
 				jsonString = JSON.stringify(map)
-				delete map['SaveToFile']
+				delete map['Version']
+				delete map['Debug']
+				delete map['ServePlaceIds']
 				modified = {}
 				res.writeHead(200)
 				res.end(jsonString)
