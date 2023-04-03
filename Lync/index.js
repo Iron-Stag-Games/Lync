@@ -197,6 +197,12 @@ function mapDirectory(localPath, robloxPath, flag) {
 						'Path': localPath
 					}, localPathStats.mtimeMs)
 
+				// Project Files
+				} else if (localPathParsed.name.endsWith('.project')) {
+					mTimes[localPath] = localPathStats.mtimeMs
+					const subProjectJson = jsonParse(fs.readFileSync(localPath), localPath)
+					mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, localPath + '/', localPathStats.mtimeMs)
+
 				// Modules
 				} else {
 					assignMap(robloxPath, {
