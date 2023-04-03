@@ -202,7 +202,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 					mTimes[localPath] = localPathStats.mtimeMs
 					const subProjectJson = jsonParse(fs.readFileSync(localPath), localPath)
 					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-					const externalPackageAppend = parentPathString == '' && '' || parentPathString + '/'
+					const externalPackageAppend = parentPathString != '' && parentPathString + '/' || ''
 					mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
 
 				// Modules
