@@ -26,6 +26,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local Selection = game:GetService("Selection")
 
 local VERSION = "Alpha 14"
 
@@ -146,23 +147,23 @@ local function validateLuaProperty(lua: string): boolean
 		end
 		return valid
 
-	-- Enum
+		-- Enum
 	elseif lua:match([[^Enum%.[0-9A-Za-z_]+%.[0-9A-Za-z_]+$]]) then
 		return true
 
-	-- Nil
+		-- Nil
 	elseif lua:match([[^nil$]]) then
 		return true
 
-	-- Boolean
+		-- Boolean
 	elseif lua:match([[^true$]]) or lua:match([[^false$]]) then
 		return true
 
-	-- Number
+		-- Number
 	elseif lua:match([[^[0-9A-Fa-fXx_.+%-*/^%%#() ]+$]]) then
 		return true
 
-	-- String
+		-- String
 	elseif lua:match([[^"[^"]*"$]]) or lua:match([[^'[^']*'$]]) then
 		return true
 	end
@@ -529,6 +530,18 @@ toolbarButton:SetActive(widget.Enabled)
 
 toolbarButton.Click:Connect(function()
 	widget.Enabled = not widget.Enabled
+end)
+
+local toolbarButton2 = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion RBXM / RBXMX", "")
+
+toolbarButton2.ClickableWhenViewportHidden = true
+
+toolbarButton2.Click:Connect(function()
+	local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents);
+	terrainRegion.Parent = workspace
+	Selection:Set({terrainRegion})
+	plugin:PromptSaveSelection()
+	terrainRegion:Destroy()
 end)
 
 -- Widget
