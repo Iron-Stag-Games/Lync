@@ -147,23 +147,23 @@ local function validateLuaProperty(lua: string): boolean
 		end
 		return valid
 
-		-- Enum
+	-- Enum
 	elseif lua:match([[^Enum%.[0-9A-Za-z_]+%.[0-9A-Za-z_]+$]]) then
 		return true
 
-		-- Nil
+	-- Nil
 	elseif lua:match([[^nil$]]) then
 		return true
 
-		-- Boolean
+	-- Boolean
 	elseif lua:match([[^true$]]) or lua:match([[^false$]]) then
 		return true
 
-		-- Number
+	-- Number
 	elseif lua:match([[^[0-9A-Fa-fXx_.+%-*/^%%#() ]+$]]) then
 		return true
 
-		-- String
+	-- String
 	elseif lua:match([[^"[^"]*"$]]) or lua:match([[^'[^']*'$]]) then
 		return true
 	end
@@ -520,29 +520,31 @@ local function setConnected(newConnected: boolean)
 	end
 end
 
--- Toolbar
+-- Toolbar Buttons
 
 local toolbar = plugin:CreateToolbar("Lync " .. VERSION)
-local toolbarButton = toolbar:CreateButton("Lync Client", "Toggle Lync Client widget", "rbxassetid://11619251438")
+local widgetButton = toolbar:CreateButton("Lync Client", "Toggle Lync Client widget", "rbxassetid://11619251438")
 
-toolbarButton.ClickableWhenViewportHidden = true
-toolbarButton:SetActive(widget.Enabled)
+widgetButton.ClickableWhenViewportHidden = true
+widgetButton:SetActive(widget.Enabled)
 
-toolbarButton.Click:Connect(function()
+widgetButton.Click:Connect(function()
 	widget.Enabled = not widget.Enabled
 end)
 
-local toolbarButton2 = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion RBXM / RBXMX", "")
+do
+	local saveTerrain = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion RBXM / RBXMX", "")
 
-toolbarButton2.ClickableWhenViewportHidden = true
+	saveTerrain.ClickableWhenViewportHidden = true
 
-toolbarButton2.Click:Connect(function()
-	local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents);
-	terrainRegion.Parent = workspace
-	Selection:Set({terrainRegion})
-	plugin:PromptSaveSelection()
-	terrainRegion:Destroy()
-end)
+	saveTerrain.Click:Connect(function()
+		local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents);
+		terrainRegion.Parent = workspace
+		Selection:Set({terrainRegion})
+		plugin:PromptSaveSelection()
+		terrainRegion:Destroy()
+	end)
+end
 
 -- Widget
 
@@ -550,11 +552,11 @@ do
 	local widgetEnabled = plugin:GetSetting("Widget")
 	widget.Enabled = widgetEnabled == nil or widgetEnabled
 end
-toolbarButton:SetActive(widget.Enabled)
+widgetButton:SetActive(widget.Enabled)
 
 widget:GetPropertyChangedSignal("Enabled"):Connect(function()
-	toolbarButton:SetActive(not widget.Enabled)
-	toolbarButton:SetActive(widget.Enabled)
+	widgetButton:SetActive(not widget.Enabled)
+	widgetButton:SetActive(widget.Enabled)
 	plugin:SetSetting("Widget", widget.Enabled)
 end)
 
