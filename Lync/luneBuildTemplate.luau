@@ -71,6 +71,9 @@ local function getObjects(url)
 	return if success then result else nil
 end
 
+local function listenForChanges()
+end
+
 local function getPort()
 	return ""
 end

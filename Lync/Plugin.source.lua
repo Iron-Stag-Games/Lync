@@ -24,13 +24,14 @@ if not plugin or game:GetService("RunService"):IsRunning() then return end
 
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local CollectionService = game:GetService("CollectionService")
+local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local Selection = game:GetService("Selection")
 
 local VERSION = "Alpha 14"
 
-local LuaCsv = require(script:WaitForChild("LuaCsv"))
+local LuaCsv = require(script.LuaCsv)
 
 local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
@@ -38,30 +39,133 @@ local connected = false
 local connecting = false
 local map = nil
 local activeSourceRequests = 0
+local changedModels = {}
 
--- Gui
+-- Main Widget
 
-local widget = plugin:CreateDockWidgetPluginGui("Lync", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 268 + 8, 40 + 8, 268 + 8, 40 + 8))
-widget.Name = "Lync Client"
-widget.Title = widget.Name
+local mainWidget = plugin:CreateDockWidgetPluginGui("Lync_Main", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 268 + 8, 40 + 8, 268 + 8, 40 + 8))
+mainWidget.Name = "Lync Client"
+mainWidget.Title = mainWidget.Name
 
-local frame = script:WaitForChild("ScreenGui"):WaitForChild("Frame")
-frame.Parent = widget
-frame:WaitForChild("Frame"):WaitForChild("Version").Text = VERSION:lower()
+local mainWidgetFrame = script.WidgetGui.Frame
+mainWidgetFrame.Parent = mainWidget
+mainWidgetFrame.Frame.Version.Text = VERSION:lower()
 
-local connect = frame:WaitForChild("Frame"):WaitForChild("TextButton")
-local port = frame:WaitForChild("Frame"):WaitForChild("TextBox")
-port.Text = plugin:GetSetting("Port") or ""
+local connect = mainWidgetFrame.Frame.TextButton
+local portTextBox = mainWidgetFrame.Frame.TextBox
+portTextBox.Text = plugin:GetSetting("Port") or ""
+
+-- Unsaved Model Widget
+
+local unsavedModelWidget = plugin:CreateDockWidgetPluginGui("Lync_UnsavedModel", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, true, 512, 256, 512, 256))
+unsavedModelWidget.Name = "Lync - Unsaved Models"
+unsavedModelWidget.Title = unsavedModelWidget.Name
+
+local unsavedModelWidgetFrame = script.UnsavedModelListGui.ScrollingFrame
+unsavedModelWidgetFrame.Parent = unsavedModelWidget
+
+-- Unsaved Model Widget
+
+local unsavedModelWarning = script.UnsavedModelWarningGui
+unsavedModelWarning.Parent = CoreGui
 
 -- Functions
 
+local function updateChangedModelUi()
+	-- Destroy hidden or old entries
+	for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
+		if modelEntry:IsA("Frame") then
+			if not changedModels[modelEntry.Object.Value] then
+				modelEntry:Destroy()
+			end
+		end
+	end
+
+	-- Make new entries
+	for object, changed in changedModels do
+		if changed then
+			-- Skip if entry already created
+			local alreadyCreated = false
+			for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
+				if modelEntry:IsA("Frame") and modelEntry.Object.Value == object then
+					alreadyCreated = true
+					break
+				end
+			end
+			if alreadyCreated then
+				continue
+			end
+
+			local fullName = object:GetFullName()
+			local entry = script.UnsavedModelListItem:Clone()
+			entry.Name = fullName
+			entry.Object.Value = object
+			entry.Frame.TextLabel.Text = fullName
+			entry.Parent = unsavedModelWidgetFrame
+
+			entry.IgnoreButton.Activated:Connect(function()
+				changedModels[object] = nil
+				updateChangedModelUi()
+			end)
+			entry.IgnoreButton.MouseEnter:Connect(function()
+				entry.IgnoreButton.BackgroundColor3 = entry.IgnoreButton:GetAttribute("BackgroundHover")
+				entry.IgnoreButton.TextColor3 = entry.IgnoreButton:GetAttribute("TextHover")
+			end)
+			entry.IgnoreButton.MouseLeave:Connect(function()
+				entry.IgnoreButton.BackgroundColor3 = entry.IgnoreButton:GetAttribute("Background")
+				entry.IgnoreButton.TextColor3 = entry.IgnoreButton:GetAttribute("Text")
+			end)
+			entry.IgnoreButton.MouseButton1Down:Connect(function()
+				entry.IgnoreButton.BackgroundColor3 = entry.IgnoreButton:GetAttribute("BackgroundPressed")
+				entry.IgnoreButton.TextColor3 = entry.IgnoreButton:GetAttribute("TextPressed")
+			end)
+			entry.IgnoreButton.MouseButton1Up:Connect(function()
+				entry.IgnoreButton.BackgroundColor3 = entry.IgnoreButton:GetAttribute("Background")
+				entry.IgnoreButton.TextColor3 = entry.IgnoreButton:GetAttribute("Text")
+			end)
+
+			entry.SaveButton.Activated:Connect(function()
+				Selection:Set({object})
+				if plugin:PromptSaveSelection() then
+					changedModels[object] = nil
+					updateChangedModelUi()
+				end
+			end)
+			entry.SaveButton.MouseEnter:Connect(function()
+				entry.SaveButton.BackgroundColor3 = entry.SaveButton:GetAttribute("BackgroundHover")
+				entry.SaveButton.TextColor3 = entry.SaveButton:GetAttribute("TextHover")
+			end)
+			entry.SaveButton.MouseLeave:Connect(function()
+				entry.SaveButton.BackgroundColor3 = entry.SaveButton:GetAttribute("Background")
+				entry.SaveButton.TextColor3 = entry.SaveButton:GetAttribute("Text")
+			end)
+			entry.SaveButton.MouseButton1Down:Connect(function()
+				entry.SaveButton.BackgroundColor3 = entry.SaveButton:GetAttribute("BackgroundPressed")
+				entry.SaveButton.TextColor3 = entry.SaveButton:GetAttribute("TextPressed")
+			end)
+			entry.SaveButton.MouseButton1Up:Connect(function()
+				entry.SaveButton.BackgroundColor3 = entry.SaveButton:GetAttribute("Background")
+				entry.SaveButton.TextColor3 = entry.SaveButton:GetAttribute("Text")
+			end)
+
+			unsavedModelWarning.Enabled = true
+		end
+	end
+
+	-- Hide UI if empty
+	if not next(changedModels) then
+		unsavedModelWidget.Enabled = false
+		unsavedModelWarning.Enabled = false
+	end
+end
+
 local function setActiveTheme()
-	local connectBackground = (connecting or connected) and Enum.StudioStyleGuideColor.DialogButton or Enum.StudioStyleGuideColor.DialogMainButton
+	local connectBackground = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButton else Enum.StudioStyleGuideColor.DialogMainButton
 	connect:SetAttribute("Background", theme:GetColor(connectBackground))
 	connect:SetAttribute("BackgroundHover", theme:GetColor(connectBackground, Enum.StudioStyleGuideModifier.Hover))
 	connect:SetAttribute("BackgroundPressed", theme:GetColor(connectBackground, Enum.StudioStyleGuideModifier.Pressed))
 	connect.BackgroundColor3 = connect:GetAttribute("Background")
-	local connectText = (connecting or connected) and Enum.StudioStyleGuideColor.DialogButtonText or Enum.StudioStyleGuideColor.DialogMainButtonText
+	local connectText = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButtonText else Enum.StudioStyleGuideColor.DialogMainButtonText
 	connect:SetAttribute("Text", theme:GetColor(connectText))
 	connect:SetAttribute("TextHover", theme:GetColor(connectText, Enum.StudioStyleGuideModifier.Hover))
 	connect:SetAttribute("TextPressed", theme:GetColor(connectText, Enum.StudioStyleGuideModifier.Pressed))
@@ -70,22 +174,55 @@ local function setActiveTheme()
 end
 
 local function setTheme()
-	frame.Frame.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
-	frame.Frame.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
-	frame.Frame.TextBox.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
-	frame.Frame.TextBox.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
-	frame.Frame.TextButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
-	frame.Frame.Version.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+	-- Main Widget
+	mainWidgetFrame.Frame.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
+	mainWidgetFrame.Frame.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
+	mainWidgetFrame.Frame.TextBox.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+	mainWidgetFrame.Frame.TextBox.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
+	mainWidgetFrame.Frame.TextButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+	mainWidgetFrame.Frame.Version.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
 	local PortBorder = Enum.StudioStyleGuideColor.InputFieldBorder
-	frame.Frame:SetAttribute("Border", theme:GetColor(PortBorder))
-	frame.Frame:SetAttribute("BorderHover", theme:GetColor(PortBorder, Enum.StudioStyleGuideModifier.Hover))
-	frame.Frame:SetAttribute("BorderSelected", theme:GetColor(PortBorder, Enum.StudioStyleGuideModifier.Selected))
-	frame.Frame.UIStroke.Color = frame.Frame:GetAttribute("Border")
+	mainWidgetFrame.Frame:SetAttribute("Border", theme:GetColor(PortBorder))
+	mainWidgetFrame.Frame:SetAttribute("BorderHover", theme:GetColor(PortBorder, Enum.StudioStyleGuideModifier.Hover))
+	mainWidgetFrame.Frame:SetAttribute("BorderSelected", theme:GetColor(PortBorder, Enum.StudioStyleGuideModifier.Selected))
+	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
 	setActiveTheme()
+
+	-- Unsaved Model Widget
+	script.UnsavedModelListItem.Frame.TextLabel.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
+	local ignoreBackground = Enum.StudioStyleGuideColor.DialogButton
+	script.UnsavedModelListItem.IgnoreButton:SetAttribute("Background", theme:GetColor(ignoreBackground))
+	script.UnsavedModelListItem.IgnoreButton:SetAttribute("BackgroundHover", theme:GetColor(ignoreBackground, Enum.StudioStyleGuideModifier.Hover))
+	script.UnsavedModelListItem.IgnoreButton:SetAttribute("BackgroundPressed", theme:GetColor(ignoreBackground, Enum.StudioStyleGuideModifier.Pressed))
+	script.UnsavedModelListItem.IgnoreButton.BackgroundColor3 = script.UnsavedModelListItem.IgnoreButton:GetAttribute("Background")
+	local ignoreText = Enum.StudioStyleGuideColor.DialogButtonText
+	script.UnsavedModelListItem.IgnoreButton:SetAttribute("Text", theme:GetColor(ignoreText))
+	script.UnsavedModelListItem.IgnoreButton:SetAttribute("TextHover", theme:GetColor(ignoreText, Enum.StudioStyleGuideModifier.Hover))
+	script.UnsavedModelListItem.IgnoreButton:SetAttribute("TextPressed", theme:GetColor(ignoreText, Enum.StudioStyleGuideModifier.Pressed))
+	script.UnsavedModelListItem.IgnoreButton.TextColor3 = script.UnsavedModelListItem.IgnoreButton:GetAttribute("Text")
+	script.UnsavedModelListItem.IgnoreButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+	local saveBackground = Enum.StudioStyleGuideColor.DialogMainButton
+	script.UnsavedModelListItem.SaveButton:SetAttribute("Background", theme:GetColor(saveBackground))
+	script.UnsavedModelListItem.SaveButton:SetAttribute("BackgroundHover", theme:GetColor(saveBackground, Enum.StudioStyleGuideModifier.Hover))
+	script.UnsavedModelListItem.SaveButton:SetAttribute("BackgroundPressed", theme:GetColor(saveBackground, Enum.StudioStyleGuideModifier.Pressed))
+	script.UnsavedModelListItem.SaveButton.BackgroundColor3 = script.UnsavedModelListItem.SaveButton:GetAttribute("Background")
+	local saveText = Enum.StudioStyleGuideColor.DialogMainButtonText
+	script.UnsavedModelListItem.SaveButton:SetAttribute("Text", theme:GetColor(saveText))
+	script.UnsavedModelListItem.SaveButton:SetAttribute("TextHover", theme:GetColor(saveText, Enum.StudioStyleGuideModifier.Hover))
+	script.UnsavedModelListItem.SaveButton:SetAttribute("TextPressed", theme:GetColor(saveText, Enum.StudioStyleGuideModifier.Pressed))
+	script.UnsavedModelListItem.SaveButton.TextColor3 = script.UnsavedModelListItem.SaveButton:GetAttribute("Text")
+	script.UnsavedModelListItem.SaveButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+
+	for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
+		if modelEntry:IsA("Frame") then
+			modelEntry:Destroy()
+		end
+	end
+	updateChangedModelUi()
 end
 
 local function getPort(): string
-	return port.Text ~= "" and port.Text or port.PlaceholderText
+	return portTextBox.Text ~= "" and portTextBox.Text or portTextBox.PlaceholderText
 end
 
 local function terminate(errorMessage: string)
@@ -107,10 +244,55 @@ local function getObjects(url: string): {Instance}?
 	return if success then result else nil
 end
 
+local function listenForChanges(object: Instance)
+	if not changedModels[object] then
+		local function makeDirty(descendant: Instance, property: string?)
+			if not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end) then
+				if debugPrints then warn("[Lync] - Modified synced object:", object, property) end
+				changedModels[object] = true
+				updateChangedModelUi()
+			end
+		end
+
+		-- Modification events
+		object.Changed:Connect(function(property)
+			if property ~= "Parent" then
+				makeDirty(object, property)
+			end
+		end)
+		object.AttributeChanged:Connect(function(_)
+			makeDirty(object)
+		end)
+		object.DescendantAdded:Connect(function(descendant)
+			makeDirty(object)
+			descendant.Changed:Connect(function(property)
+				makeDirty(descendant, property)
+			end)
+			descendant.AttributeChanged:Connect(function(_)
+				makeDirty(descendant)
+			end)
+		end)
+		for _, descendant in object:GetDescendants() do
+			descendant.Changed:Connect(function(property)
+				makeDirty(descendant, property)
+			end)
+			descendant.AttributeChanged:Connect(function(_)
+				makeDirty(descendant)
+			end)
+		end
+
+		-- Clear on destruction
+		object.Destroying:Connect(function()
+			changedModels[object] = nil
+			updateChangedModelUi()
+		end)
+	end
+end
+
 --offline-start
 
 local function trim6(s: string): string
-	return s:match'^()%s*$' and '' or s:match'^%s*(.*%S)' :: string
+	return (if s:match('^()%s*$') then '' else s:match('^%s*(.*%S)')) :: string
 end
 
 local function validateLuaProperty(lua: string): boolean
@@ -307,6 +489,7 @@ local function buildPath(path: string)
 			if objects and #objects == 1 then
 				objects[1].Name = name
 				objects[1].Parent = target
+				listenForChanges(objects[1])
 			else
 				task.spawn(error, `[Lync] - '{data.Path}' cannot contain zero or multiple root Instances`)
 			end
@@ -450,7 +633,7 @@ local function setConnected(newConnected: boolean)
 	if connecting then return end
 	if connected ~= newConnected then
 		connecting = true
-		port.TextEditable = false
+		portTextBox.TextEditable = false
 		connect.Text = ""
 		connect.Frame.Visible = true
 		setActiveTheme()
@@ -509,7 +692,7 @@ local function setConnected(newConnected: boolean)
 		end
 		connecting = false
 		connected = newConnected
-		port.TextEditable = not connected
+		portTextBox.TextEditable = not connected
 		connect.Text = connected and "Pause" or map and "Resume" or "Sync"
 		setActiveTheme()
 		if newConnected then
@@ -526,10 +709,10 @@ local toolbar = plugin:CreateToolbar("Lync " .. VERSION)
 local widgetButton = toolbar:CreateButton("Lync Client", "Toggle Lync Client widget", "rbxassetid://11619251438")
 
 widgetButton.ClickableWhenViewportHidden = true
-widgetButton:SetActive(widget.Enabled)
+widgetButton:SetActive(mainWidget.Enabled)
 
 widgetButton.Click:Connect(function()
-	widget.Enabled = not widget.Enabled
+	mainWidget.Enabled = not mainWidget.Enabled
 end)
 
 do
@@ -546,18 +729,18 @@ do
 	end)
 end
 
--- Widget
+-- Main Widget
 
 do
 	local widgetEnabled = plugin:GetSetting("Widget")
-	widget.Enabled = widgetEnabled == nil or widgetEnabled
+	mainWidget.Enabled = widgetEnabled == nil or widgetEnabled
 end
-widgetButton:SetActive(widget.Enabled)
+widgetButton:SetActive(mainWidget.Enabled)
 
-widget:GetPropertyChangedSignal("Enabled"):Connect(function()
-	widgetButton:SetActive(not widget.Enabled)
-	widgetButton:SetActive(widget.Enabled)
-	plugin:SetSetting("Widget", widget.Enabled)
+mainWidget:GetPropertyChangedSignal("Enabled"):Connect(function()
+	widgetButton:SetActive(not mainWidget.Enabled)
+	widgetButton:SetActive(mainWidget.Enabled)
+	plugin:SetSetting("Widget", mainWidget.Enabled)
 end)
 
 -- Connect
@@ -588,25 +771,33 @@ end)
 
 -- Port
 
-port.MouseEnter:Connect(function()
-	if port:IsFocused() then return end
-	frame.Frame.UIStroke.Color = frame.Frame:GetAttribute("BorderHover")
+portTextBox.MouseEnter:Connect(function()
+	if portTextBox:IsFocused() then return end
+	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderHover")
 end)
 
-port.MouseLeave:Connect(function()
-	if port:IsFocused() then return end
-	frame.Frame.UIStroke.Color = frame.Frame:GetAttribute("Border")
+portTextBox.MouseLeave:Connect(function()
+	if portTextBox:IsFocused() then return end
+	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
 end)
 
-port.Focused:Connect(function()
-	frame.Frame.UIStroke.Color = frame.Frame:GetAttribute("BorderSelected")
+portTextBox.Focused:Connect(function()
+	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderSelected")
 end)
 
-port.FocusLost:Connect(function(_enterPressed)
-	local entry = math.clamp(tonumber(port.Text) or 0, 0, 65535)
-	port.Text = entry > 0 and entry or ""
-	frame.Frame.UIStroke.Color = frame.Frame:GetAttribute("Border")
+portTextBox.FocusLost:Connect(function(_enterPressed)
+	local entry = math.clamp(tonumber(portTextBox.Text) or 0, 0, 65535)
+	portTextBox.Text = entry > 0 and entry or ""
+	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
 	plugin:SetSetting("Port", entry > 0 and entry or nil)
+end)
+
+-- Changed Model Widget
+
+unsavedModelWarning.MainButton.Activated:Connect(function()
+	unsavedModelWidget.Enabled = true
+	unsavedModelWidget.Enabled = false
+	unsavedModelWidget.Enabled = true
 end)
 
 -- Theme
