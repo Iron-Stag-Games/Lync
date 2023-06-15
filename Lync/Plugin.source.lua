@@ -98,55 +98,55 @@ local function updateChangedModelUi()
 			end
 
 			local fullName = object:GetFullName()
-			local entry = script.UnsavedModelListItem:Clone()
-			entry.Name = fullName
-			entry.Object.Value = object
-			entry.Frame.TextLabel.Text = fullName
-			entry.Parent = unsavedModelWidgetFrame
+			local modelEntry = script.UnsavedModelListItem:Clone()
+			modelEntry.Name = fullName
+			modelEntry.Object.Value = object
+			modelEntry.Frame.TextLabel.Text = fullName
+			modelEntry.Parent = unsavedModelWidgetFrame
 
-			entry.IgnoreButton.Activated:Connect(function()
+			modelEntry.IgnoreButton.Activated:Connect(function()
 				changedModels[object] = nil
 				updateChangedModelUi()
 			end)
-			entry.IgnoreButton.MouseEnter:Connect(function()
-				entry.IgnoreButton.BackgroundColor3 = entry.IgnoreButton:GetAttribute("BackgroundHover")
-				entry.IgnoreButton.TextColor3 = entry.IgnoreButton:GetAttribute("TextHover")
+			modelEntry.IgnoreButton.MouseEnter:Connect(function()
+				modelEntry.IgnoreButton.BackgroundColor3 = modelEntry.IgnoreButton:GetAttribute("BackgroundHover")
+				modelEntry.IgnoreButton.TextColor3 = modelEntry.IgnoreButton:GetAttribute("TextHover")
 			end)
-			entry.IgnoreButton.MouseLeave:Connect(function()
-				entry.IgnoreButton.BackgroundColor3 = entry.IgnoreButton:GetAttribute("Background")
-				entry.IgnoreButton.TextColor3 = entry.IgnoreButton:GetAttribute("Text")
+			modelEntry.IgnoreButton.MouseLeave:Connect(function()
+				modelEntry.IgnoreButton.BackgroundColor3 = modelEntry.IgnoreButton:GetAttribute("Background")
+				modelEntry.IgnoreButton.TextColor3 = modelEntry.IgnoreButton:GetAttribute("Text")
 			end)
-			entry.IgnoreButton.MouseButton1Down:Connect(function()
-				entry.IgnoreButton.BackgroundColor3 = entry.IgnoreButton:GetAttribute("BackgroundPressed")
-				entry.IgnoreButton.TextColor3 = entry.IgnoreButton:GetAttribute("TextPressed")
+			modelEntry.IgnoreButton.MouseButton1Down:Connect(function()
+				modelEntry.IgnoreButton.BackgroundColor3 = modelEntry.IgnoreButton:GetAttribute("BackgroundPressed")
+				modelEntry.IgnoreButton.TextColor3 = modelEntry.IgnoreButton:GetAttribute("TextPressed")
 			end)
-			entry.IgnoreButton.MouseButton1Up:Connect(function()
-				entry.IgnoreButton.BackgroundColor3 = entry.IgnoreButton:GetAttribute("Background")
-				entry.IgnoreButton.TextColor3 = entry.IgnoreButton:GetAttribute("Text")
+			modelEntry.IgnoreButton.MouseButton1Up:Connect(function()
+				modelEntry.IgnoreButton.BackgroundColor3 = modelEntry.IgnoreButton:GetAttribute("Background")
+				modelEntry.IgnoreButton.TextColor3 = modelEntry.IgnoreButton:GetAttribute("Text")
 			end)
 
-			entry.SaveButton.Activated:Connect(function()
+			modelEntry.SaveButton.Activated:Connect(function()
 				Selection:Set({object})
 				if plugin:PromptSaveSelection(object.Name) then
 					changedModels[object] = nil
 					updateChangedModelUi()
 				end
 			end)
-			entry.SaveButton.MouseEnter:Connect(function()
-				entry.SaveButton.BackgroundColor3 = entry.SaveButton:GetAttribute("BackgroundHover")
-				entry.SaveButton.TextColor3 = entry.SaveButton:GetAttribute("TextHover")
+			modelEntry.SaveButton.MouseEnter:Connect(function()
+				modelEntry.SaveButton.BackgroundColor3 = modelEntry.SaveButton:GetAttribute("BackgroundHover")
+				modelEntry.SaveButton.TextColor3 = modelEntry.SaveButton:GetAttribute("TextHover")
 			end)
-			entry.SaveButton.MouseLeave:Connect(function()
-				entry.SaveButton.BackgroundColor3 = entry.SaveButton:GetAttribute("Background")
-				entry.SaveButton.TextColor3 = entry.SaveButton:GetAttribute("Text")
+			modelEntry.SaveButton.MouseLeave:Connect(function()
+				modelEntry.SaveButton.BackgroundColor3 = modelEntry.SaveButton:GetAttribute("Background")
+				modelEntry.SaveButton.TextColor3 = modelEntry.SaveButton:GetAttribute("Text")
 			end)
-			entry.SaveButton.MouseButton1Down:Connect(function()
-				entry.SaveButton.BackgroundColor3 = entry.SaveButton:GetAttribute("BackgroundPressed")
-				entry.SaveButton.TextColor3 = entry.SaveButton:GetAttribute("TextPressed")
+			modelEntry.SaveButton.MouseButton1Down:Connect(function()
+				modelEntry.SaveButton.BackgroundColor3 = modelEntry.SaveButton:GetAttribute("BackgroundPressed")
+				modelEntry.SaveButton.TextColor3 = modelEntry.SaveButton:GetAttribute("TextPressed")
 			end)
-			entry.SaveButton.MouseButton1Up:Connect(function()
-				entry.SaveButton.BackgroundColor3 = entry.SaveButton:GetAttribute("Background")
-				entry.SaveButton.TextColor3 = entry.SaveButton:GetAttribute("Text")
+			modelEntry.SaveButton.MouseButton1Up:Connect(function()
+				modelEntry.SaveButton.BackgroundColor3 = modelEntry.SaveButton:GetAttribute("Background")
+				modelEntry.SaveButton.TextColor3 = modelEntry.SaveButton:GetAttribute("Text")
 			end)
 
 			unsavedModelWarning.Enabled = true
@@ -246,7 +246,7 @@ local function getObjects(url: string): {Instance}?
 end
 
 local function makeDirty(object: Instance, descendant: any, property: string?)
-	if not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end) then
+	if not changedModels[object] and (not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end)) then
 		if debugPrints then warn("[Lync] - Modified synced object:", object, property) end
 		changedModels[object] = true
 		updateChangedModelUi()
@@ -258,6 +258,16 @@ local function listenForChanges(object: Instance)
 		-- Modification events
 		object.Changed:Connect(function(property)
 			if property ~= "Parent" then
+				if property == "Name" then
+					for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
+						if modelEntry:IsA("Frame") and modelEntry.Object.Value == object then
+							local fullName = object:GetFullName()
+							modelEntry.Name = fullName
+							modelEntry.Frame.TextLabel.Text = fullName
+							break
+						end
+					end
+				end
 				makeDirty(object, object, property)
 			end
 		end)
