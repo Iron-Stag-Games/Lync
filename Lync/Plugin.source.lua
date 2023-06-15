@@ -57,9 +57,10 @@ portTextBox.Text = plugin:GetSetting("Port") or ""
 
 -- Unsaved Model Widget
 
-local unsavedModelWidget = plugin:CreateDockWidgetPluginGui("Lync_UnsavedModel", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, true, 512, 256, 256, 128))
+local unsavedModelWidget = plugin:CreateDockWidgetPluginGui("Lync_UnsavedModel", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 512, 256, 256, 128))
 unsavedModelWidget.Name = "Lync - Unsaved Models"
 unsavedModelWidget.Title = unsavedModelWidget.Name
+unsavedModelWidget.Enabled = false
 
 local unsavedModelWidgetFrame = script.UnsavedModelListGui.ScrollingFrame
 unsavedModelWidgetFrame.Parent = unsavedModelWidget
