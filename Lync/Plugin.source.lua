@@ -101,8 +101,12 @@ local function updateChangedModelUi()
 			local modelEntry = script.UnsavedModelListItem:Clone()
 			modelEntry.Name = fullName
 			modelEntry.Object.Value = object
-			modelEntry.Frame.TextLabel.Text = fullName
+			modelEntry.SelectButton.TextLabel.Text = fullName
 			modelEntry.Parent = unsavedModelWidgetFrame
+
+			modelEntry.SelectButton.Activated:Connect(function()
+				Selection:Set({object})
+			end)
 
 			modelEntry.IgnoreButton.Activated:Connect(function()
 				changedModels[object] = nil
@@ -190,7 +194,7 @@ local function setTheme()
 	setActiveTheme()
 
 	-- Unsaved Model Widget
-	script.UnsavedModelListItem.Frame.TextLabel.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
+	script.UnsavedModelListItem.SelectButton.TextLabel.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
 	local ignoreBackground = Enum.StudioStyleGuideColor.DialogButton
 	script.UnsavedModelListItem.IgnoreButton:SetAttribute("Background", theme:GetColor(ignoreBackground))
 	script.UnsavedModelListItem.IgnoreButton:SetAttribute("BackgroundHover", theme:GetColor(ignoreBackground, Enum.StudioStyleGuideModifier.Hover))
