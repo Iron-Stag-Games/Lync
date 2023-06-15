@@ -127,7 +127,7 @@ local function updateChangedModelUi()
 
 			entry.SaveButton.Activated:Connect(function()
 				Selection:Set({object})
-				if plugin:PromptSaveSelection() then
+				if plugin:PromptSaveSelection(object.Name) then
 					changedModels[object] = nil
 					updateChangedModelUi()
 				end
@@ -717,7 +717,7 @@ widgetButton.Click:Connect(function()
 end)
 
 do
-	local saveTerrain = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion RBXM / RBXMX", "")
+	local saveTerrain = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion", "")
 
 	saveTerrain.ClickableWhenViewportHidden = true
 
@@ -725,7 +725,7 @@ do
 		local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents);
 		terrainRegion.Parent = workspace
 		Selection:Set({terrainRegion})
-		plugin:PromptSaveSelection()
+		plugin:PromptSaveSelection(terrainRegion.Name)
 		terrainRegion:Destroy()
 	end)
 end
