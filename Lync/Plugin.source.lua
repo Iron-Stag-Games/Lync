@@ -39,7 +39,7 @@ local connected = false
 local connecting = false
 local map = nil
 local activeSourceRequests = 0
-local changedModels = {}
+local changedModels: {[Instance]: boolean} = {}
 
 -- Main Widget
 
@@ -244,40 +244,40 @@ local function getObjects(url: string): {Instance}?
 	return if success then result else nil
 end
 
+local function makeDirty(object: Instance, descendant: any, property: string?)
+	if not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end) then
+		if debugPrints then warn("[Lync] - Modified synced object:", object, property) end
+		changedModels[object] = true
+		updateChangedModelUi()
+	end
+end
+
 local function listenForChanges(object: Instance)
 	if not changedModels[object] then
-		local function makeDirty(descendant: Instance, property: string?)
-			if not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end) then
-				if debugPrints then warn("[Lync] - Modified synced object:", object, property) end
-				changedModels[object] = true
-				updateChangedModelUi()
-			end
-		end
-
 		-- Modification events
 		object.Changed:Connect(function(property)
 			if property ~= "Parent" then
-				makeDirty(object, property)
+				makeDirty(object, object, property)
 			end
 		end)
 		object.AttributeChanged:Connect(function(_)
-			makeDirty(object)
+			makeDirty(object, object)
 		end)
 		object.DescendantAdded:Connect(function(descendant)
-			makeDirty(object)
+			makeDirty(object, object)
 			descendant.Changed:Connect(function(property)
-				makeDirty(descendant, property)
+				makeDirty(object, descendant, property)
 			end)
 			descendant.AttributeChanged:Connect(function(_)
-				makeDirty(descendant)
+				makeDirty(object, descendant)
 			end)
 		end)
 		for _, descendant in object:GetDescendants() do
 			descendant.Changed:Connect(function(property)
-				makeDirty(descendant, property)
+				makeDirty(object, descendant, property)
 			end)
 			descendant.AttributeChanged:Connect(function(_)
-				makeDirty(descendant)
+				makeDirty(object, descendant)
 			end)
 		end
 
