@@ -43,7 +43,7 @@ local changedModels = {}
 
 -- Main Widget
 
-local mainWidget = plugin:CreateDockWidgetPluginGui("Lync_Main", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 268 + 8, 40 + 8, 268 + 8, 40 + 8))
+local mainWidget = plugin:CreateDockWidgetPluginGui("Lync_Main", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, false, 268 + 8, 40 + 8, 268 + 8, 40 + 8))
 mainWidget.Name = "Lync Client"
 mainWidget.Title = mainWidget.Name
 
@@ -731,16 +731,9 @@ end
 
 -- Main Widget
 
-do
-	local widgetEnabled = plugin:GetSetting("Widget")
-	mainWidget.Enabled = widgetEnabled == nil or widgetEnabled
-end
-widgetButton:SetActive(mainWidget.Enabled)
-
 mainWidget:GetPropertyChangedSignal("Enabled"):Connect(function()
 	widgetButton:SetActive(not mainWidget.Enabled)
 	widgetButton:SetActive(mainWidget.Enabled)
-	plugin:SetSetting("Widget", mainWidget.Enabled)
 end)
 
 -- Connect
