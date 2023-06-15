@@ -676,6 +676,9 @@ async function getAsync(url, responseType) {
 
 					// Changed
 					} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
+						for (const hardLinkPath of hardLinkPaths) {
+							hardLinkRecursive(hardLinkPath, localPath)
+						}
 						console.log('M', cyan(localPath))
 						for (const key in map) {
 							if (map[key].InitParent == parentPathString) {
