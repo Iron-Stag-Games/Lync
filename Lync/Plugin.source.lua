@@ -43,6 +43,10 @@ local activeSourceRequests = 0
 local changedModels: {[Instance]: boolean} = {}
 local syncDuringTest = plugin:GetSetting("SyncDuringTest") or false
 
+if not IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
+	workspace:SetAttribute("__lyncactive", nil)
+end
+
 -- Main Widget
 
 local mainWidget = plugin:CreateDockWidgetPluginGui("Lync_Main", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, false, 268 + 8, 40 + 8, 268 + 8, 40 + 8))
@@ -648,12 +652,14 @@ end
 
 local function setConnected(newConnected: boolean)
 	if connecting then return end
+
 	if connected ~= newConnected then
 		connecting = true
 		portTextBox.TextEditable = false
 		connect.Text = ""
 		connect.Frame.Visible = true
 		setActiveTheme()
+
 		local Spin; Spin = RunService.RenderStepped:connect(function()
 			if not connecting then
 				Spin:Disconnect()
@@ -662,6 +668,7 @@ local function setConnected(newConnected: boolean)
 			end
 			connect.Frame.UIStroke.UIGradient.Rotation = (tick() % 1) * 360
 		end)
+
 		if newConnected then
 			if not map then
 				local success, result = pcall(function()
@@ -682,6 +689,7 @@ local function setConnected(newConnected: boolean)
 						task.spawn(error, `[Lync] - Version mismatch ({result.Version} ~= {VERSION}). Please restart Studio`)
 						newConnected = false
 					end
+
 					if result.ServePlaceIds then
 						local placeIdMatch = false
 						for _, placeId in result.ServePlaceIds do
@@ -709,13 +717,16 @@ local function setConnected(newConnected: boolean)
 				end
 			end
 		end
+
 		connecting = false
 		connected = newConnected
+		workspace:SetAttribute("__lyncactive", if newConnected then true else nil)
 		portTextBox.TextEditable = not connected
-		connect.Text = connected and "Pause" or map and "Resume" or "Sync"
+		connect.Text = if connected then "Pause" elseif map then "Resume" else "Sync"
 		setActiveTheme()
+
 		if newConnected then
-			--workspace:SetAttribute("__lyncbuildfile", nil)
+			workspace:SetAttribute("__lyncbuildfile", nil)
 			ChangeHistoryService:ResetWaypoints()
 			ChangeHistoryService:SetWaypoint("Initial Sync")
 		end
@@ -839,8 +850,8 @@ end
 
 -- Sync
 
-if workspace:GetAttribute("__lyncbuildfile") and (not IS_PLAYTEST_SERVER or syncDuringTest) then
-	if IS_PLAYTEST_SERVER and syncDuringTest then warn("[Lync] - Playtest Sync is active.") end
+if workspace:GetAttribute("__lyncbuildfile") or syncDuringTest and IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
+	if syncDuringTest and IS_PLAYTEST_SERVER then warn("[Lync] - Playtest Sync is active.") end
 	setConnected(true)
 end
 
