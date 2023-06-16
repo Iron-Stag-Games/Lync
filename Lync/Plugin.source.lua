@@ -131,7 +131,7 @@ local function updateChangedModelUi()
 
 			modelEntry.SaveButton.Activated:Connect(function()
 				Selection:Set({object})
-				if plugin:PromptSaveSelection(object.Name) then
+				if next(Selection:Get()) and plugin:PromptSaveSelection(object.Name) then
 					changedModels[object] = nil
 					updateChangedModelUi()
 				end
@@ -250,7 +250,7 @@ local function getObjects(url: string): {Instance}?
 end
 
 local function makeDirty(object: Instance, descendant: any, property: string?)
-	if not changedModels[object] and (not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end)) then
+	if not changedModels[object] and object.Parent and (not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end)) then
 		if debugPrints then warn("[Lync] - Modified synced object:", object, property) end
 		changedModels[object] = true
 		updateChangedModelUi()
