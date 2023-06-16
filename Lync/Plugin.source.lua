@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 14
+	Lync Client - Alpha 15
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -20,7 +20,7 @@
 	USA
 ]]
 
-if not plugin or game:GetService("RunService"):IsRunning() then return end
+if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local CollectionService = game:GetService("CollectionService")
@@ -29,7 +29,8 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local Selection = game:GetService("Selection")
 
-local VERSION = "Alpha 14"
+local VERSION = "Alpha 15"
+local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
 
 local LuaCsv = require(script.LuaCsv)
 
@@ -40,6 +41,7 @@ local connecting = false
 local map = nil
 local activeSourceRequests = 0
 local changedModels: {[Instance]: boolean} = {}
+local syncDuringTest = plugin:GetSetting("SyncDuringTest") or false
 
 -- Main Widget
 
@@ -663,7 +665,7 @@ local function setConnected(newConnected: boolean)
 		if newConnected then
 			if not map then
 				local success, result = pcall(function()
-					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Map"})
+					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 					return get ~= "{}" and HttpService:JSONDecode(get) or nil
 				end)
 				if success then
@@ -671,9 +673,11 @@ local function setConnected(newConnected: boolean)
 						debugPrints = result.Debug
 						result.Debug = nil
 						map = result
-						if debugPrints then warn("[Lync] - Map:", result) end
-						task.spawn(buildAll)
-						repeat task.wait() until activeSourceRequests == 0
+						if not IS_PLAYTEST_SERVER then
+							if debugPrints then warn("[Lync] - Map:", result) end
+							task.spawn(buildAll)
+							repeat task.wait() until activeSourceRequests == 0
+						end
 					else
 						task.spawn(error, `[Lync] - Version mismatch ({result.Version} ~= {VERSION}). Please restart Studio`)
 						newConnected = false
@@ -697,7 +701,7 @@ local function setConnected(newConnected: boolean)
 				end
 			else
 				local success, result = pcall(function()
-					HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Map"})
+					HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 				end)
 				if not success then
 					task.spawn(error, "[Lync] - " .. result)
@@ -711,27 +715,101 @@ local function setConnected(newConnected: boolean)
 		connect.Text = connected and "Pause" or map and "Resume" or "Sync"
 		setActiveTheme()
 		if newConnected then
-			workspace:SetAttribute("__lyncbuildfile", nil)
+			--workspace:SetAttribute("__lyncbuildfile", nil)
 			ChangeHistoryService:ResetWaypoints()
 			ChangeHistoryService:SetWaypoint("Initial Sync")
 		end
 	end
 end
 
--- Toolbar Buttons
+------------------------------------------------------------------------------
 
-local toolbar = plugin:CreateToolbar("Lync " .. VERSION)
-local widgetButton = toolbar:CreateButton("Lync Client", "Toggle Lync Client widget", "rbxassetid://11619251438")
+local toolbar: PluginToolbar;
+local widgetButton: PluginToolbarButton;
 
-widgetButton.ClickableWhenViewportHidden = true
-widgetButton:SetActive(mainWidget.Enabled)
+if not IS_PLAYTEST_SERVER then
 
-widgetButton.Click:Connect(function()
-	mainWidget.Enabled = not mainWidget.Enabled
-end)
+	-- Lync Client
 
-do
-	local saveTerrain = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion", "")
+	toolbar = plugin:CreateToolbar("Lync " .. VERSION)
+	widgetButton = toolbar:CreateButton("Lync Client", "Toggle Lync Client widget", "rbxassetid://11619251438") :: PluginToolbarButton
+
+	widgetButton.ClickableWhenViewportHidden = true
+	widgetButton:SetActive(mainWidget.Enabled)
+
+	widgetButton.Click:Connect(function()
+		mainWidget.Enabled = not mainWidget.Enabled
+	end)
+
+	mainWidget:GetPropertyChangedSignal("Enabled"):Connect(function()
+		widgetButton:SetActive(mainWidget.Enabled)
+	end)
+
+	-- Connect
+
+	connect.Activated:Connect(function()
+		setConnected(not connected)
+	end)
+
+	connect.MouseEnter:Connect(function()
+		connect.BackgroundColor3 = connect:GetAttribute("BackgroundHover")
+		connect.TextColor3 = connect:GetAttribute("TextHover")
+	end)
+
+	connect.MouseLeave:Connect(function()
+		connect.BackgroundColor3 = connect:GetAttribute("Background")
+		connect.TextColor3 = connect:GetAttribute("Text")
+	end)
+
+	connect.MouseButton1Down:Connect(function()
+		connect.BackgroundColor3 = connect:GetAttribute("BackgroundPressed")
+		connect.TextColor3 = connect:GetAttribute("TextPressed")
+	end)
+
+	connect.MouseButton1Up:Connect(function()
+		connect.BackgroundColor3 = connect:GetAttribute("Background")
+		connect.TextColor3 = connect:GetAttribute("Text")
+	end)
+
+	-- Port
+
+	portTextBox.MouseEnter:Connect(function()
+		if portTextBox:IsFocused() then return end
+		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderHover")
+	end)
+
+	portTextBox.MouseLeave:Connect(function()
+		if portTextBox:IsFocused() then return end
+		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
+	end)
+
+	portTextBox.Focused:Connect(function()
+		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderSelected")
+	end)
+
+	portTextBox.FocusLost:Connect(function(_enterPressed)
+		local entry = math.clamp(tonumber(portTextBox.Text) or 0, 0, 65535)
+		portTextBox.Text = entry > 0 and entry or ""
+		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
+		plugin:SetSetting("Port", entry > 0 and entry or nil)
+	end)
+
+	-- Playtest Sync
+
+	local toggleSyncDuringTest = toolbar:CreateButton("Playtest Sync", "Apply changes to files during solo playtests", "rbxassetid://13771245795") :: PluginToolbarButton
+
+	toggleSyncDuringTest.ClickableWhenViewportHidden = true
+	toggleSyncDuringTest:SetActive(syncDuringTest)
+
+	toggleSyncDuringTest.Click:Connect(function()
+		syncDuringTest = not syncDuringTest
+		plugin:SetSetting("SyncDuringTest", syncDuringTest)
+		toggleSyncDuringTest:SetActive(syncDuringTest)
+	end)
+
+	-- Save Terrain
+
+	local saveTerrain = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion", "rbxassetid://13771218804") :: PluginToolbarButton
 
 	saveTerrain.ClickableWhenViewportHidden = true
 
@@ -742,89 +820,34 @@ do
 		plugin:PromptSaveSelection(terrainRegion.Name)
 		terrainRegion:Destroy()
 	end)
-end
 
--- Main Widget
+	-- Changed Model Widget
 
-mainWidget:GetPropertyChangedSignal("Enabled"):Connect(function()
-	widgetButton:SetActive(not mainWidget.Enabled)
-	widgetButton:SetActive(mainWidget.Enabled)
-end)
+	unsavedModelWarning.MainButton.Activated:Connect(function()
+		unsavedModelWidget.Enabled = true
+	end)
 
--- Connect
+	-- Theme
 
-connect.Activated:Connect(function()
-	setConnected(not connected)
-end)
-
-connect.MouseEnter:Connect(function()
-	connect.BackgroundColor3 = connect:GetAttribute("BackgroundHover")
-	connect.TextColor3 = connect:GetAttribute("TextHover")
-end)
-
-connect.MouseLeave:Connect(function()
-	connect.BackgroundColor3 = connect:GetAttribute("Background")
-	connect.TextColor3 = connect:GetAttribute("Text")
-end)
-
-connect.MouseButton1Down:Connect(function()
-	connect.BackgroundColor3 = connect:GetAttribute("BackgroundPressed")
-	connect.TextColor3 = connect:GetAttribute("TextPressed")
-end)
-
-connect.MouseButton1Up:Connect(function()
-	connect.BackgroundColor3 = connect:GetAttribute("Background")
-	connect.TextColor3 = connect:GetAttribute("Text")
-end)
-
--- Port
-
-portTextBox.MouseEnter:Connect(function()
-	if portTextBox:IsFocused() then return end
-	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderHover")
-end)
-
-portTextBox.MouseLeave:Connect(function()
-	if portTextBox:IsFocused() then return end
-	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
-end)
-
-portTextBox.Focused:Connect(function()
-	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderSelected")
-end)
-
-portTextBox.FocusLost:Connect(function(_enterPressed)
-	local entry = math.clamp(tonumber(portTextBox.Text) or 0, 0, 65535)
-	portTextBox.Text = entry > 0 and entry or ""
-	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
-	plugin:SetSetting("Port", entry > 0 and entry or nil)
-end)
-
--- Changed Model Widget
-
-unsavedModelWarning.MainButton.Activated:Connect(function()
-	unsavedModelWidget.Enabled = true
-end)
-
--- Theme
-
-setTheme()
-
-settings().Studio.ThemeChanged:Connect(function()
-	theme = settings().Studio.Theme :: StudioTheme
 	setTheme()
-end)
+
+	settings().Studio.ThemeChanged:Connect(function()
+		theme = settings().Studio.Theme :: StudioTheme
+		setTheme()
+	end)
+end
 
 -- Sync
 
-if workspace:GetAttribute("__lyncbuildfile") then
+if workspace:GetAttribute("__lyncbuildfile") and (not IS_PLAYTEST_SERVER or syncDuringTest) then
+	if IS_PLAYTEST_SERVER and syncDuringTest then warn("[Lync] - Playtest Sync is active.") end
 	setConnected(true)
 end
 
 while task.wait(0.5) do
 	if connected then
 		local success, result = pcall(function()
-			local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Modified"})
+			local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Modified", Playtest = IS_PLAYTEST_SERVER})
 			return get ~= "{}" and HttpService:JSONDecode(get) or nil
 		end)
 		if success then

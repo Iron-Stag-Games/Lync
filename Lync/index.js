@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 14
+	Lync Server - Alpha 15
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,7 +29,7 @@ const minimatch = require('minimatch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 14'
+const VERSION = 'Alpha 15'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -45,6 +45,7 @@ const OFFLINE = ARGS[1] == 'OFFLINE'
 var map = {}
 var mTimes = {}
 var modified = {}
+var modified_playtest = {}
 var projectJson
 var hardLinkPaths = []
 
@@ -118,6 +119,7 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 	}
 	map[robloxPath] = mapDetails
 	modified[robloxPath] = mapDetails
+	modified_playtest[robloxPath] = mapDetails
 	if (mapDetails.Path) mTimes[mapDetails.Path] = mtimeMs
 	if (mapDetails.Meta) mTimes[mapDetails.Meta] = fs.statSync(mapDetails.Meta).mtimeMs // Meta File stats are never retrieved before this, so they aren't in a function parameter
 }
@@ -639,6 +641,7 @@ async function getAsync(url, responseType) {
 									if (DEBUG) console.log('Cannot delete Path mapping', cyan(map[key].Path), green(key))
 								}
 								modified[key] = false
+								modified_playtest[key] = false
 								if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
 									mapDirectory(parentPathString, key, 'Modified')
 								}
@@ -654,6 +657,7 @@ async function getAsync(url, responseType) {
 									if (DEBUG) console.log('Cannot delete Meta mapping', cyan(map[key].Meta), green(key))
 								}
 								modified[key] = false
+								modified_playtest[key] = false
 								if (fs.existsSync(parentPathString)) {
 									mapDirectory(parentPathString, key, 'Modified')
 								}
@@ -669,6 +673,7 @@ async function getAsync(url, responseType) {
 								}
 								delete map[key]
 								modified[key] = false
+								modified_playtest[key] = false
 								if (DEBUG) console.log('Deleted ProjectJson mapping', green(key))
 							}
 						}
@@ -811,13 +816,22 @@ async function getAsync(url, responseType) {
 				delete map['Version']
 				delete map['Debug']
 				delete map['ServePlaceIds']
-				modified = {}
+				if ('playtest' in req.headers) {
+					modified_playtest = {}
+				} else {
+					modified = {}
+				}
 				res.writeHead(200)
 				res.end(jsonString)
 				break
 			case 'Modified':
-				jsonString = JSON.stringify(modified)
-				modified = {}
+				if ('playtest' in req.headers) {
+					jsonString = JSON.stringify(modified_playtest)
+					modified_playtest = {}
+				} else {
+					jsonString = JSON.stringify(modified)
+					modified = {}
+				}
 				res.writeHead(200)
 				res.end(jsonString)
 				break
