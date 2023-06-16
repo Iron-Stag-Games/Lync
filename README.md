@@ -52,8 +52,8 @@ Simple expressions like `Color3.new(0, 0, 0)` are easy for other tools to interp
 
 # Games made with Lync
 
-- [RB Battles](https://www.roblox.com/games/5036207802) - RB Battles Games
-- [NDA title #1](https://www.roblox.com/games/8875360163) - Fund For Games
-- NDA title #2 - Fund For Games
-- NDA title #3 - Fund For Games
 - [ExoTech](https://www.roblox.com/games/7634484468) - Iron Stag Games
+- [RB Battles](https://www.roblox.com/games/5036207802) - RB Battles Games
+- NDA title - RB Battles PVP
+- NDA title #1 - Fund For Games
+- NDA title #2 - Fund For Games
