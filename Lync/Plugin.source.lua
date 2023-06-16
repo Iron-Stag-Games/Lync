@@ -804,8 +804,6 @@ end)
 
 unsavedModelWarning.MainButton.Activated:Connect(function()
 	unsavedModelWidget.Enabled = true
-	unsavedModelWidget.Enabled = false
-	unsavedModelWidget.Enabled = true
 end)
 
 -- Theme
