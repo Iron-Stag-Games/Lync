@@ -267,7 +267,7 @@ local function listenForChanges(object: Instance)
 						if modelEntry:IsA("Frame") and modelEntry.Object.Value == object then
 							local fullName = object:GetFullName()
 							modelEntry.Name = fullName
-							modelEntry.Frame.TextLabel.Text = fullName
+							modelEntry.SelectButton.TextLabel.Text = fullName
 							break
 						end
 					end
