@@ -185,7 +185,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 
 				// Model Files
 				if (localPathParsed.name.endsWith('.model')) {
-					assignMap(robloxPath.slice(0, -6), {
+					assignMap(robloxPath.endsWith('.model') && robloxPath.slice(0, -6) || robloxPath, {
 						'Type': 'JsonModel',
 						'Path': localPath
 					}, localPathStats.mtimeMs)
