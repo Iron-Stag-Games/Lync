@@ -176,8 +176,8 @@ function mapDirectory(localPath, robloxPath, flag) {
 
 			// Lua
 			} else if (localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau') {
-				let newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
-				if (flag == 'Json') newRobloxPath = robloxPath
+				let newRobloxPath = robloxPath
+				if (flag != 'Json' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
 				mapLua(localPath, newRobloxPath, properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
 
 			// JSON (non-meta)
@@ -185,7 +185,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 
 				// Model Files
 				if (localPathParsed.name.endsWith('.model')) {
-					assignMap(robloxPath.endsWith('.model') && robloxPath.slice(0, -6) || robloxPath, {
+					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
 						'Type': 'JsonModel',
 						'Path': localPath
 					}, localPathStats.mtimeMs)
