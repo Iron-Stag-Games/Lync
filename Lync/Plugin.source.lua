@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 15
+	Lync Client - Alpha 16
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,7 +29,7 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local Selection = game:GetService("Selection")
 
-local VERSION = "Alpha 15"
+local VERSION = "Alpha 16"
 local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
 
 local LuaCsv = require(script.LuaCsv)
@@ -850,7 +850,7 @@ end
 
 -- Sync
 
-if workspace:GetAttribute("__lyncbuildfile") or syncDuringTest and IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
+if workspace:GetAttribute("__lyncbuildfile") and not IS_PLAYTEST_SERVER or syncDuringTest and IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
 	if syncDuringTest and IS_PLAYTEST_SERVER then warn("[Lync] - Playtest Sync is active.") end
 	setConnected(true)
 end

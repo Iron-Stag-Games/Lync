@@ -58,17 +58,12 @@ local function loadstring(luau)
 	end
 end
 
-local function lpcall(context, func, ...)
-	local success, result = pcall(func, ...)
-	if not success then
-		terminate("[Lync] - " .. tostring(context) .. ": " .. tostring(result))
-	end
-	return success, result
+local function lpcall(_context, func, ...)
+	return true, func(...)
 end
 
 local function getObjects(url)
-	local success, result = lpcall("Get Objects", roblox.readModelFile, url:sub(17))
-	return if success then result else nil
+	return roblox.deserializeModel(fs.readFile(url:sub(17)))
 end
 
 local function listenForChanges()

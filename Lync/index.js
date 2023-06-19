@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 15
+	Lync Server - Alpha 16
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,7 +29,7 @@ const minimatch = require('minimatch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 15'
+const VERSION = 'Alpha 16'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -555,13 +555,13 @@ async function getAsync(url, responseType) {
 		// Write build script
 		if (DEBUG) console.log('Writing build script . . .')
 		let buildScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
-		buildScript += `local game = roblox.readPlaceFile("${projectJson.base}")\n`
+		buildScript += `local game = roblox.deserializePlace(fs.readFile("${projectJson.base}"))\n`
 		buildScript += 'local workspace = game:GetService("Workspace")\n'
 		buildScript += `${pluginSource}\n`
 		buildScript += `map = net.jsonDecode("${toEscapeSequence(JSON.stringify(map, null, '\t'))}")\n`
 		buildScript += `loadstringMap = {\n${loadstringMap}}\n`
 		buildScript += `buildAll()\n`
-		buildScript += `roblox.writePlaceFile("${projectJson.build}", game)\n`
+		buildScript += `fs.writeFile("${projectJson.build}", roblox.serializePlace(game))\n`
 		if (fs.existsSync(buildScriptPath))
 			fs.rmSync(buildScriptPath)
 		fs.writeFileSync(buildScriptPath, buildScript)
