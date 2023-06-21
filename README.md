@@ -1,5 +1,3 @@
-<p align="center"><a href="https://discord.gg/n33vdDr">Join the Iron Stag Games Discord!</a></p>
-
 # What is Lync?
 
 Lync is a file synchronization tool for Roblox which is offered as an alternative to Rojo focused on improving user experience and maintainability.
