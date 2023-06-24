@@ -1,0 +1,126 @@
+{
+	"name": "Example Build",
+	"className": "DataModel",
+	"filePaths": [
+		"default.project.json"
+	],
+	"children": [
+		{
+			"name": "Workspace",
+			"className": "Workspace",
+			"filePaths": [
+				"Assets/Workspace",
+				"default.project.json"
+			],
+			"children": [
+				{
+					"name": "Terrain",
+					"className": "Terrain",
+					"filePaths": [
+						"default.project.json"
+					],
+					"children": []
+				},
+				{
+					"name": "ExampleModule",
+					"className": "ModuleScript",
+					"filePaths": [
+						"Assets/Workspace/ExampleModule.lua"
+					],
+					"children": []
+				},
+				{
+					"name": "ExampleParentModule",
+					"className": "ModuleScript",
+					"filePaths": [
+						"Assets/Workspace/ExampleParentModule/ExampleParentModule.init.lua"
+					],
+					"children": [
+						{
+							"name": "ExampleChildModule",
+							"className": "ModuleScript",
+							"filePaths": [
+								"Assets/Workspace/ExampleParentModule/ExampleChildModule.lua"
+							],
+							"children": []
+						}
+					]
+				},
+				{
+					"name": "ExampleProjectModule",
+					"className": "ModuleScript",
+					"filePaths": [
+						"Assets/Workspace/ExampleProjectModule/src/src.init.lua",
+						"Assets/Workspace/ExampleProjectModule/default.project.json"
+					],
+					"children": [
+						{
+							"name": "ExampleProjectChildModule",
+							"className": "ModuleScript",
+							"filePaths": [
+								"Assets/Workspace/ExampleProjectModule/src/ExampleProjectChildModule.lua"
+							],
+							"children": []
+						}
+					]
+				},
+				{
+					"name": "ExampleScript",
+					"className": "Script",
+					"filePaths": [
+						"Assets/Workspace/ExampleScript.server.lua"
+					],
+					"children": []
+				},
+				{
+					"name": "Floppa",
+					"className": "Instance",
+					"filePaths": [
+						"Assets/Workspace/Floppa.rbxm"
+					],
+					"children": []
+				},
+				{
+					"name": "TestFolder",
+					"className": "Configuration",
+					"filePaths": [
+						"Assets/Workspace/TestFolder"
+					],
+					"children": []
+				},
+				{
+					"name": "TestModel",
+					"className": "Model",
+					"filePaths": [
+						"Assets/Workspace/TestModel.model.json"
+					],
+					"children": []
+				},
+				{
+					"name": "Test_csv",
+					"className": "LocalizationTable",
+					"filePaths": [
+						"Assets/Workspace/Test_csv.csv"
+					],
+					"children": []
+				},
+				{
+					"name": "Test_json",
+					"className": "ModuleScript",
+					"filePaths": [
+						"Assets/Workspace/Test_json.json"
+					],
+					"children": []
+				},
+				{
+					"name": "Test_txt",
+					"className": "StringValue",
+					"filePaths": [
+						"Assets/Workspace/Test_txt.txt"
+					],
+					"children": []
+				}
+			]
+		}
+	]
+}

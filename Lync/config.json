@@ -10,5 +10,6 @@
 	"RobloxContentPath_MacOS": "/Applications/RobloxStudio.app/Contents/Resources/content",
 	"RobloxPluginsPath_MacOS": "$HOME/Documents/Roblox/Plugins",
 
+	"GenerateSourcemap": true,
 	"LunePath": "lune"
 }

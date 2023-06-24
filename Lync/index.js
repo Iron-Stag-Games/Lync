@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 16
+	Lync Server - Alpha 17
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,7 +29,7 @@ const minimatch = require('minimatch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 16'
+const VERSION = 'Alpha 17'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -50,6 +50,8 @@ var projectJson
 var hardLinkPaths = []
 
 
+// Output Functions
+
 function red(s) {
 	return '\x1b[31m' + s + '\x1b[0m'
 }
@@ -69,6 +71,9 @@ function cyan(s) {
 		return '\x1b[36m[' + s.replace(/\\/g, '/') + ']\x1b[0m'
 	}
 }
+
+
+// Mapping Functions
 
 function toEscapeSequence(str) {
 	let escapeSequence = ''
@@ -363,6 +368,9 @@ function changedJson() {
 	}
 }
 
+
+// Sync Functions
+
 function hardLinkRecursive(hardLinkPath, localPath) {
 	try {
 		const stats = fs.statSync(localPath)
@@ -389,10 +397,10 @@ async function getAsync(url, responseType) {
 			headers: { 'user-agent': 'node.js' }
 		}, (res) => {
 			let data = []
-			res.on("data", (chunk) => {
+			res.on('data', (chunk) => {
 				data.push(chunk)
 			})
-			res.on("end", () => {
+			res.on('end', () => {
 				try {
 					let buffer = Buffer.concat(data)
 					switch (responseType) {
@@ -413,6 +421,83 @@ async function getAsync(url, responseType) {
 		req.end()
 	})
 }
+
+
+// Sourcemap Functions
+
+function generateSourcemap() {
+	if (CONFIG.GenerateSourcemap) {
+		try {
+			const sourcemapJsonPath = path.resolve(PROJECT_JSON, '../sourcemap.json')
+			let sourcemapJson = {
+				'name': projectJson.name,
+				'className': 'DataModel',
+				'filePaths': [ PROJECT_JSON ],
+				'children': []
+			}
+
+			for (const key in map) {
+				let target = sourcemapJson
+				let paths = key.split('/')
+				paths.shift()
+
+				for (const path of paths) {
+					// Map under existing child
+					let hasChild = false
+					for (const child of target.children) {
+						if (child.name == path) {
+							target = child
+							hasChild = true
+							break
+						}
+					}
+
+					// Add new child
+					if (!hasChild) {
+						target = target.children[target.children.push({
+							'name': path,
+							'className': 'Folder',
+							'filePaths': [],
+							'children': []
+						}) - 1]
+					}
+				}
+
+				// Write map info
+
+				const mapping = map[key]
+
+				if (mapping.Type == 'Instance')
+					target.className = key == 'tree/Workspace/Terrain' && 'Terrain' || mapping.ClassName
+				else if (mapping.Type == 'Lua')
+					target.className = mapping.Context == 'Client' && 'LocalScript' || mapping.Context == 'Server' && 'Script' || 'ModuleScript'
+				else if (mapping.Type == 'Model')
+					target.className = 'Instance'
+				else if (mapping.Type == 'Json')
+					target.className = 'ModuleScript'
+				else if (mapping.Type == 'JsonModel')
+					target.className = JSON.parse(fs.readFileSync(mapping.Path)).ClassName || 'Instance'
+				else if (mapping.Type == 'PlainText')
+					target.className = 'StringValue'
+				else if (mapping.Type == 'Localization')
+					target.className = 'LocalizationTable'
+
+				if (mapping.Path)
+					target.filePaths.push(mapping.Path)
+				if (mapping.ProjectJson)
+					target.filePaths.push(mapping.ProjectJson)
+			}
+
+			// Write Sourcemap JSON
+			fs.writeFileSync(sourcemapJsonPath, JSON.stringify(sourcemapJson, null, '\t'))
+		} catch (e) {
+			console.error(red('Sourcemap error:'), yellow(e))
+		}
+	}
+}
+
+
+// Main
 
 (async function () {
 
@@ -503,6 +588,7 @@ async function getAsync(url, responseType) {
 	// Map project
 	
 	changedJson()
+	generateSourcemap()
 
 	// Build
 
@@ -512,10 +598,10 @@ async function getAsync(url, responseType) {
 		// Map loadstring calls (needed until Lune implements loadstring)
 		let loadstringMapEntries = {}
 		let loadstringMap = ''
-		for (key in map) {
+		for (const key in map) {
 			let mapping = map[key]
 			if ('Properties' in mapping) {
-				for (property in mapping.Properties) {
+				for (const property in mapping.Properties) {
 					let value = mapping.Properties[property]
 					if (Array.isArray(value) && !(value in loadstringMapEntries)) {
 						loadstringMap += `\t[ "${toEscapeSequence('return ' + value)}" ] = ${value};\n`
@@ -534,7 +620,7 @@ async function getAsync(url, responseType) {
 		let validationScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
 		validationScript += `${pluginSource}\n`
 		validationScript += `for _, lua in {\n`
-		for (entry in loadstringMapEntries) {
+		for (const entry in loadstringMapEntries) {
 			validationScript += `\t"${toEscapeSequence(entry)}";\n`
 		}
 		validationScript += '} do\n\tlocal HttpService;\n\tif not validateLuaProperty(lua) then\n\t\terror(`Security - Lua string [ {lua} ] failed validation`)\n\tend\nend\n'
@@ -753,6 +839,8 @@ async function getAsync(url, responseType) {
 						if (!mTimes[localPath]) console.error(red('Lync bug:'), yellow('Failed to add'), cyan(localPath))
 					}
 				}
+
+				generateSourcemap()
 			}
 		}
 	})
