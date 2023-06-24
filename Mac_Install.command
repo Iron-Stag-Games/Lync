@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+cd ${0%/*}
 rm -r $HOME/Documents/Roblox/Lync
 cp -R Lync $HOME/Documents/Roblox
 echo
