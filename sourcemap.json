@@ -1,0 +1,17 @@
+{
+	"name": "Lync",
+	"className": "Script",
+	"filePaths": [
+        "Lync/RobloxPluginSource/Plugin.lua"
+    ],
+	"children": [
+		{
+			"name": "LuaCsv",
+			"className": "ModuleScript",
+			"filePaths": [
+                "Lync/RobloxPluginSource/LuaCsv.lua"
+            ],
+			"children": []
+		}
+	]
+}
