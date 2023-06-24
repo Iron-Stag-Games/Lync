@@ -38,7 +38,7 @@ local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
 local connected = false
 local connecting = false
-local map = nil
+local map: {[string]: {[string]: any}}
 local activeSourceRequests = 0
 local changedModels: {[Instance]: boolean} = {}
 local syncDuringTest = plugin:GetSetting("SyncDuringTest") or false
@@ -49,7 +49,7 @@ end
 
 -- Main Widget
 
-local mainWidget = plugin:CreateDockWidgetPluginGui("Lync_Main", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, false, 268 + 8, 40 + 8, 268 + 8, 40 + 8))
+local mainWidget = plugin:CreateDockWidgetPluginGui("Lync_Main", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Left, true, false, 268 + 8, 40 + 8, 268 + 8, 40 + 8))
 mainWidget.Name = "Lync Client"
 mainWidget.Title = mainWidget.Name
 
@@ -63,7 +63,7 @@ portTextBox.Text = plugin:GetSetting("Port") or ""
 
 -- Unsaved Model Widget
 
-local unsavedModelWidget = plugin:CreateDockWidgetPluginGui("Lync_UnsavedModel", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 512, 256, 256, 128))
+local unsavedModelWidget = plugin:CreateDockWidgetPluginGui("Lync_UnsavedModel", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Right, false, false, 512, 256, 256, 128))
 unsavedModelWidget.Name = "Lync - Unsaved Models"
 unsavedModelWidget.Title = unsavedModelWidget.Name
 unsavedModelWidget.Enabled = false
@@ -432,16 +432,16 @@ end
 local function buildPath(path: string)
 	local data = map[path]
 	local createInstance = false
-	local target = game
+	local target: any = game
 	local subpaths = path:split("/")
 	local name = subpaths[#subpaths]
 	for index = 2, #subpaths do
 		local subpath = subpaths[index]
+		local nextTarget = target:FindFirstChild(subpath)
 		if target == game then
-			target = game:GetService(subpath)
-		elseif target:FindFirstChild(subpath) then
-			local nextTarget = target:FindFirstChild(subpath)
-			if nextTarget and target ~= game and index == #subpaths then
+			target = game:GetService(subpath :: any)
+		elseif nextTarget then
+			if target ~= game and index == #subpaths then
 				if not data or data.Type ~= "Lua" or nextTarget.ClassName ~= (if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript") then
 					if not pcall(function()
 							nextTarget.Parent = nil
@@ -614,7 +614,7 @@ local function buildPath(path: string)
 				if objects and #objects == 1 then
 					lpcall("Set Terrain Region", function()
 						workspace.Terrain:Clear()
-						workspace.Terrain:PasteRegion(objects[1], eval(data.TerrainRegion[2]), data.TerrainRegion[3])
+						workspace.Terrain:PasteRegion(objects[1] :: TerrainRegion, eval(data.TerrainRegion[2]), data.TerrainRegion[3])
 					end)
 				else
 					task.spawn(error, `[Lync] - '{data.TerrainRegion[1]}' cannot contain zero or multiple root Instances`)
@@ -660,7 +660,7 @@ local function setConnected(newConnected: boolean)
 		connect.Frame.Visible = true
 		setActiveTheme()
 
-		local Spin; Spin = RunService.RenderStepped:connect(function()
+		local Spin; Spin = RunService.RenderStepped:Connect(function()
 			if not connecting then
 				Spin:Disconnect()
 				connect.Frame.Visible = false

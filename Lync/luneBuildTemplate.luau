@@ -1,3 +1,4 @@
+--!nocheck
 local fs = require("@lune/fs")
 local net = require("@lune/net")
 local roblox = require("@lune/roblox")
