@@ -612,7 +612,7 @@ function generateSourcemap() {
 		}
 
 		// Fetch script functions
-		let pluginSource = fs.readFileSync(path.resolve(__dirname, 'plugin.source.lua'), { encoding: 'utf8' })
+		let pluginSource = fs.readFileSync(path.resolve(__dirname, 'RobloxPluginSource/Plugin.lua'), { encoding: 'utf8' })
 		pluginSource = pluginSource.substring(pluginSource.indexOf('--offline-start') + 15, pluginSource.indexOf('--offline-end'))
 
 		// Write validation script
