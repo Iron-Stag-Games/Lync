@@ -3,3 +3,4 @@ desktop.ini
 Temp/*
 !Temp/.gitkeep
 *.lock
+Sample Project/sourcemap.json
