@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 17
+	Lync Client - Alpha 18
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -28,8 +28,10 @@ local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local Selection = game:GetService("Selection")
+local StudioService = game:GetService("StudioService")
+local TweenService = game:GetService("TweenService")
 
-local VERSION = "Alpha 17"
+local VERSION = "Alpha 18"
 local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
 
 local LuaCsv = require(script.LuaCsv)
@@ -57,9 +59,10 @@ local mainWidgetFrame = script.WidgetGui.Frame
 mainWidgetFrame.Parent = mainWidget
 mainWidgetFrame.Frame.Version.Text = VERSION:lower()
 
-local connect = mainWidgetFrame.Frame.TextButton
-local portTextBox = mainWidgetFrame.Frame.TextBox
+local connect = mainWidgetFrame.Frame.Connect
+local portTextBox = mainWidgetFrame.Frame.Port
 portTextBox.Text = plugin:GetSetting("Port") or ""
+local saveScript = mainWidgetFrame.SaveScript
 
 -- Unsaved Model Widget
 
@@ -71,7 +74,7 @@ unsavedModelWidget.Enabled = false
 local unsavedModelWidgetFrame = script.UnsavedModelListGui.ScrollingFrame
 unsavedModelWidgetFrame.Parent = unsavedModelWidget
 
--- Unsaved Model Widget
+-- Unsaved Model Warning
 
 local unsavedModelWarning = script.UnsavedModelWarningGui
 unsavedModelWarning.Parent = CoreGui
@@ -170,7 +173,7 @@ local function updateChangedModelUi()
 	end
 end
 
-local function setActiveTheme()
+local function setConnectTheme()
 	local connectBackground = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButton else Enum.StudioStyleGuideColor.DialogMainButton
 	connect:SetAttribute("Background", theme:GetColor(connectBackground))
 	connect:SetAttribute("BackgroundHover", theme:GetColor(connectBackground, Enum.StudioStyleGuideModifier.Hover))
@@ -184,20 +187,34 @@ local function setActiveTheme()
 	connect.Frame.UIStroke.Color = connect:GetAttribute("Text")
 end
 
+local function setSaveScriptTheme()
+	local saveScriptBackground = if saveScript.Active then Enum.StudioStyleGuideColor.DialogMainButton else Enum.StudioStyleGuideColor.DialogButton
+	saveScript:SetAttribute("Background", theme:GetColor(saveScriptBackground))
+	saveScript:SetAttribute("BackgroundHover", theme:GetColor(saveScriptBackground, Enum.StudioStyleGuideModifier.Hover))
+	saveScript:SetAttribute("BackgroundPressed", theme:GetColor(saveScriptBackground, Enum.StudioStyleGuideModifier.Pressed))
+	saveScript.BackgroundColor3 = saveScript:GetAttribute("Background")
+	local saveScriptText = if saveScript.Active then Enum.StudioStyleGuideColor.DialogMainButtonText else Enum.StudioStyleGuideColor.DialogButtonText
+	saveScript:SetAttribute("Text", theme:GetColor(saveScriptText))
+	saveScript:SetAttribute("TextHover", theme:GetColor(saveScriptText, Enum.StudioStyleGuideModifier.Hover))
+	saveScript:SetAttribute("TextPressed", theme:GetColor(saveScriptText, Enum.StudioStyleGuideModifier.Pressed))
+	saveScript.TextColor3 = saveScript:GetAttribute("Text")
+end
+
 local function setTheme()
 	-- Main Widget
 	mainWidgetFrame.Frame.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
 	mainWidgetFrame.Frame.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
-	mainWidgetFrame.Frame.TextBox.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
-	mainWidgetFrame.Frame.TextBox.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
-	mainWidgetFrame.Frame.TextButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+	mainWidgetFrame.Frame.Connect.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+	mainWidgetFrame.Frame.Port.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+	mainWidgetFrame.Frame.Port.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
 	mainWidgetFrame.Frame.Version.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
 	local PortBorder = Enum.StudioStyleGuideColor.InputFieldBorder
 	mainWidgetFrame.Frame:SetAttribute("Border", theme:GetColor(PortBorder))
 	mainWidgetFrame.Frame:SetAttribute("BorderHover", theme:GetColor(PortBorder, Enum.StudioStyleGuideModifier.Hover))
 	mainWidgetFrame.Frame:SetAttribute("BorderSelected", theme:GetColor(PortBorder, Enum.StudioStyleGuideModifier.Selected))
 	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
-	setActiveTheme()
+	setConnectTheme()
+	setSaveScriptTheme()
 
 	-- Unsaved Model Widget
 	script.UnsavedModelListItem.SelectButton.TextLabel.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
@@ -488,6 +505,7 @@ local function buildPath(path: string)
 				newInstance.Parent = target
 				target = newInstance
 			end
+			data.Instance = target
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
@@ -658,7 +676,7 @@ local function setConnected(newConnected: boolean)
 		portTextBox.TextEditable = false
 		connect.Text = ""
 		connect.Frame.Visible = true
-		setActiveTheme()
+		setConnectTheme()
 
 		local Spin; Spin = RunService.RenderStepped:Connect(function()
 			if not connecting then
@@ -723,7 +741,7 @@ local function setConnected(newConnected: boolean)
 		workspace:SetAttribute("__lyncactive", if newConnected then true else nil)
 		portTextBox.TextEditable = not connected
 		connect.Text = if connected then "Pause" elseif map then "Resume" else "Sync"
-		setActiveTheme()
+		setConnectTheme()
 
 		if newConnected then
 			workspace:SetAttribute("__lyncbuildfile", nil)
@@ -804,6 +822,65 @@ if not IS_PLAYTEST_SERVER then
 		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
 		plugin:SetSetting("Port", entry > 0 and entry or nil)
 	end)
+
+	-- Save Script
+
+	StudioService:GetPropertyChangedSignal("ActiveScript"):Connect(function()
+		local syncedScriptActive = false
+
+		if StudioService.ActiveScript then
+			for _, data in map do
+				if data.Instance == StudioService.ActiveScript then
+					syncedScriptActive = true
+					break
+				end
+			end
+		end
+
+		saveScript.Active = syncedScriptActive
+		setSaveScriptTheme()
+	end)
+
+	--local saveScriptHeldTask: thread;
+	local saveScriptHeldTween: Tween?;
+
+	saveScript.MouseButton1Down:Connect(function()
+		if not saveScriptHeldTween then
+			saveScriptHeldTween = TweenService:Create(saveScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
+			saveScriptHeldTween:Play()
+			saveScriptHeldTween.Completed:Connect(function(playbackState: Enum.PlaybackState)
+				if playbackState == Enum.PlaybackState.Completed then
+					for _, data in map do
+						if data.Instance == StudioService.ActiveScript then
+							local success, result = pcall(function()
+								return HttpService:PostAsync("http://localhost:" .. getPort(), StudioService.ActiveScript.Source, Enum.HttpContentType.TextPlain, false, {Type = "ReverseSync", Path = data.Path})
+							end)
+							if success then
+								print("[Lync] - Saved script:", data.Path)
+								saveScript.TextLabel.Text = "Saved!"
+							else
+								warn("[Lync] - Failed to save script:", data.Path, "-", result)
+							end
+							break
+						end
+					end
+				end
+			end)
+		end
+	end)
+
+	local function cancelSaveScript()
+		if saveScriptHeldTween then
+			saveScriptHeldTween:Cancel()
+			saveScriptHeldTween = nil
+		end
+		saveScript.TextLabel.Text = "Saving..."
+		saveScript.TextLabel.UIGradient.Offset = Vector2.new(-0.51, 0)
+	end
+
+	saveScript.MouseButton1Up:Connect(cancelSaveScript)
+
+	saveScript.MouseLeave:Connect(cancelSaveScript)
 
 	-- Playtest Sync
 

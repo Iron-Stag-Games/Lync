@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 17
+	Lync Server - Alpha 18
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,7 +29,7 @@ const minimatch = require('minimatch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 17'
+const VERSION = 'Alpha 18'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -854,7 +854,7 @@ function generateSourcemap() {
 			res.end()
 			return
 		}
-		let jsonString, read;
+		let jsonString;
 		switch(req.headers.type) {
 			case 'Map':
 				// Create content hard links
@@ -925,7 +925,7 @@ function generateSourcemap() {
 				break
 			case 'Source':
 				try {
-					read = fs.readFileSync(req.headers.path)
+					let read = fs.readFileSync(req.headers.path)
 					res.writeHead(200)
 					res.end(read)
 				} catch (e) {
@@ -934,16 +934,28 @@ function generateSourcemap() {
 					res.end()
 				}
 				break
+			case 'ReverseSync':
+				let data = []
+				req.on('data', (chunk) => {
+					data.push(chunk)
+				})
+				req.on('end', () => {
+					try {
+						let buffer = Buffer.concat(data)
+						fs.writeFileSync(req.headers.path, buffer.toString())
+						res.writeHead(200)
+						res.end()
+					} catch (e) {
+						console.error(red('Server error:'), yellow(e))
+						res.writeHead(404)
+						res.end()
+					}
+				})
+				break
 			default:
-				if ('type' in req.headers) {
-					console.error(red('Server error:'), yellow('Unknown type header from Client; must be Map, Modified, or Source'))
-					res.writeHead(400)
-					res.end('Unknown type header')
-				} else {
-					console.error(red('Server error:'), yellow('Missing type header from Client; must be Map, Modified, or Source'))
-					res.writeHead(400)
-					res.end('Missing type header')
-				}
+				console.error(red('Server error:'), yellow('Missing type header from Client; must be Map, Modified, Source, or ReverseSync'))
+				res.writeHead(400)
+				res.end('Missing type header')
 		}
 	})
 	.on('error', function(e) {
