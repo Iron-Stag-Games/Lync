@@ -845,7 +845,7 @@ if not IS_PLAYTEST_SERVER then
 	local saveScriptHeldTween: Tween?;
 
 	saveScript.MouseButton1Down:Connect(function()
-		if not saveScriptHeldTween then
+		if StudioService.ActiveScript and not saveScriptHeldTween then
 			saveScriptHeldTween = TweenService:Create(saveScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
 			saveScriptHeldTween:Play()
 			saveScriptHeldTween.Completed:Connect(function(playbackState: Enum.PlaybackState)
