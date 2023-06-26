@@ -20,6 +20,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 # How does Lync compare to Rojo?
 
 ### Feature Additions
+- Manual Reverse Script Sync
 - Playtest Sync
 - Unsaved Model Warnings
 
