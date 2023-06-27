@@ -63,6 +63,7 @@ local connect = mainWidgetFrame.Frame.Connect
 local portTextBox = mainWidgetFrame.Frame.Port
 portTextBox.Text = plugin:GetSetting("Port") or ""
 local saveScript = mainWidgetFrame.SaveScript
+local revertScript = mainWidgetFrame.RevertScript
 
 -- Unsaved Model Widget
 
@@ -80,6 +81,28 @@ local unsavedModelWarning = script.UnsavedModelWarningGui
 unsavedModelWarning.Parent = CoreGui
 
 -- Functions
+
+local function connectButtonColors(button: TextButton)
+	button.MouseEnter:Connect(function()
+		if not button.Active then return end
+		button.BackgroundColor3 = button:GetAttribute("BackgroundHover")
+		button.TextColor3 = button:GetAttribute("TextHover")
+	end)
+	button.MouseLeave:Connect(function()
+		button.BackgroundColor3 = button:GetAttribute("Background")
+		button.TextColor3 = button:GetAttribute("Text")
+	end)
+	button.MouseButton1Down:Connect(function()
+		if not button.Active then return end
+		button.BackgroundColor3 = button:GetAttribute("BackgroundPressed")
+		button.TextColor3 = button:GetAttribute("TextPressed")
+	end)
+	button.MouseButton1Up:Connect(function()
+		if not button.Active then return end
+		button.BackgroundColor3 = button:GetAttribute("Background")
+		button.TextColor3 = button:GetAttribute("Text")
+	end)
+end
 
 local function updateChangedModelUi()
 	-- Destroy hidden or old entries
@@ -121,22 +144,7 @@ local function updateChangedModelUi()
 				changedModels[object] = nil
 				updateChangedModelUi()
 			end)
-			modelEntry.IgnoreButton.MouseEnter:Connect(function()
-				modelEntry.IgnoreButton.BackgroundColor3 = modelEntry.IgnoreButton:GetAttribute("BackgroundHover")
-				modelEntry.IgnoreButton.TextColor3 = modelEntry.IgnoreButton:GetAttribute("TextHover")
-			end)
-			modelEntry.IgnoreButton.MouseLeave:Connect(function()
-				modelEntry.IgnoreButton.BackgroundColor3 = modelEntry.IgnoreButton:GetAttribute("Background")
-				modelEntry.IgnoreButton.TextColor3 = modelEntry.IgnoreButton:GetAttribute("Text")
-			end)
-			modelEntry.IgnoreButton.MouseButton1Down:Connect(function()
-				modelEntry.IgnoreButton.BackgroundColor3 = modelEntry.IgnoreButton:GetAttribute("BackgroundPressed")
-				modelEntry.IgnoreButton.TextColor3 = modelEntry.IgnoreButton:GetAttribute("TextPressed")
-			end)
-			modelEntry.IgnoreButton.MouseButton1Up:Connect(function()
-				modelEntry.IgnoreButton.BackgroundColor3 = modelEntry.IgnoreButton:GetAttribute("Background")
-				modelEntry.IgnoreButton.TextColor3 = modelEntry.IgnoreButton:GetAttribute("Text")
-			end)
+			connectButtonColors(modelEntry.IgnoreButton)
 
 			modelEntry.SaveButton.Activated:Connect(function()
 				Selection:Set({object})
@@ -145,22 +153,7 @@ local function updateChangedModelUi()
 					updateChangedModelUi()
 				end
 			end)
-			modelEntry.SaveButton.MouseEnter:Connect(function()
-				modelEntry.SaveButton.BackgroundColor3 = modelEntry.SaveButton:GetAttribute("BackgroundHover")
-				modelEntry.SaveButton.TextColor3 = modelEntry.SaveButton:GetAttribute("TextHover")
-			end)
-			modelEntry.SaveButton.MouseLeave:Connect(function()
-				modelEntry.SaveButton.BackgroundColor3 = modelEntry.SaveButton:GetAttribute("Background")
-				modelEntry.SaveButton.TextColor3 = modelEntry.SaveButton:GetAttribute("Text")
-			end)
-			modelEntry.SaveButton.MouseButton1Down:Connect(function()
-				modelEntry.SaveButton.BackgroundColor3 = modelEntry.SaveButton:GetAttribute("BackgroundPressed")
-				modelEntry.SaveButton.TextColor3 = modelEntry.SaveButton:GetAttribute("TextPressed")
-			end)
-			modelEntry.SaveButton.MouseButton1Up:Connect(function()
-				modelEntry.SaveButton.BackgroundColor3 = modelEntry.SaveButton:GetAttribute("Background")
-				modelEntry.SaveButton.TextColor3 = modelEntry.SaveButton:GetAttribute("Text")
-			end)
+			connectButtonColors(modelEntry.SaveButton)
 
 			unsavedModelWarning.Enabled = true
 		end
@@ -174,47 +167,63 @@ local function updateChangedModelUi()
 end
 
 local function setConnectTheme()
-	local connectBackground = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButton else Enum.StudioStyleGuideColor.DialogMainButton
-	connect:SetAttribute("Background", theme:GetColor(connectBackground))
-	connect:SetAttribute("BackgroundHover", theme:GetColor(connectBackground, Enum.StudioStyleGuideModifier.Hover))
-	connect:SetAttribute("BackgroundPressed", theme:GetColor(connectBackground, Enum.StudioStyleGuideModifier.Pressed))
+	local backgroundColor = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButton else Enum.StudioStyleGuideColor.DialogMainButton
+	connect:SetAttribute("Background", theme:GetColor(backgroundColor))
+	connect:SetAttribute("BackgroundHover", theme:GetColor(backgroundColor, Enum.StudioStyleGuideModifier.Hover))
+	connect:SetAttribute("BackgroundPressed", theme:GetColor(backgroundColor, Enum.StudioStyleGuideModifier.Pressed))
 	connect.BackgroundColor3 = connect:GetAttribute("Background")
-	local connectText = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButtonText else Enum.StudioStyleGuideColor.DialogMainButtonText
-	connect:SetAttribute("Text", theme:GetColor(connectText))
-	connect:SetAttribute("TextHover", theme:GetColor(connectText, Enum.StudioStyleGuideModifier.Hover))
-	connect:SetAttribute("TextPressed", theme:GetColor(connectText, Enum.StudioStyleGuideModifier.Pressed))
+	local textColor = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButtonText else Enum.StudioStyleGuideColor.DialogMainButtonText
+	connect:SetAttribute("Text", theme:GetColor(textColor))
+	connect:SetAttribute("TextHover", theme:GetColor(textColor, Enum.StudioStyleGuideModifier.Hover))
+	connect:SetAttribute("TextPressed", theme:GetColor(textColor, Enum.StudioStyleGuideModifier.Pressed))
 	connect.TextColor3 = connect:GetAttribute("Text")
 	connect.Frame.UIStroke.Color = connect:GetAttribute("Text")
 end
 
-local function setSaveScriptTheme()
-	local saveScriptBackground = if saveScript.Active then Enum.StudioStyleGuideColor.DialogMainButton else Enum.StudioStyleGuideColor.DialogButton
-	saveScript:SetAttribute("Background", theme:GetColor(saveScriptBackground))
-	saveScript:SetAttribute("BackgroundHover", theme:GetColor(saveScriptBackground, Enum.StudioStyleGuideModifier.Hover))
-	saveScript:SetAttribute("BackgroundPressed", theme:GetColor(saveScriptBackground, Enum.StudioStyleGuideModifier.Pressed))
+local function setScriptActionsTheme()
+	local enabled = saveScript.Active
+	local idleModifier = if enabled then Enum.StudioStyleGuideModifier.Default else Enum.StudioStyleGuideModifier.Disabled
+
+	local saveScriptBackgroundColor = Enum.StudioStyleGuideColor.DialogMainButton
+	saveScript:SetAttribute("Background", theme:GetColor(saveScriptBackgroundColor, idleModifier))
+	saveScript:SetAttribute("BackgroundHover", theme:GetColor(saveScriptBackgroundColor, Enum.StudioStyleGuideModifier.Hover))
+	saveScript:SetAttribute("BackgroundPressed", theme:GetColor(saveScriptBackgroundColor, Enum.StudioStyleGuideModifier.Pressed))
 	saveScript.BackgroundColor3 = saveScript:GetAttribute("Background")
-	local saveScriptText = if saveScript.Active then Enum.StudioStyleGuideColor.DialogMainButtonText else Enum.StudioStyleGuideColor.DialogButtonText
-	saveScript:SetAttribute("Text", theme:GetColor(saveScriptText))
-	saveScript:SetAttribute("TextHover", theme:GetColor(saveScriptText, Enum.StudioStyleGuideModifier.Hover))
-	saveScript:SetAttribute("TextPressed", theme:GetColor(saveScriptText, Enum.StudioStyleGuideModifier.Pressed))
+	local saveScriptTextColor = Enum.StudioStyleGuideColor.DialogMainButtonText
+	saveScript:SetAttribute("Text", theme:GetColor(saveScriptTextColor, idleModifier))
+	saveScript:SetAttribute("TextHover", theme:GetColor(saveScriptTextColor, Enum.StudioStyleGuideModifier.Hover))
+	saveScript:SetAttribute("TextPressed", theme:GetColor(saveScriptTextColor, Enum.StudioStyleGuideModifier.Pressed))
 	saveScript.TextColor3 = saveScript:GetAttribute("Text")
+
+	local revertScriptBackgroundColor = Enum.StudioStyleGuideColor.DialogButton
+	revertScript:SetAttribute("Background", theme:GetColor(revertScriptBackgroundColor, idleModifier))
+	revertScript:SetAttribute("BackgroundHover", theme:GetColor(revertScriptBackgroundColor, Enum.StudioStyleGuideModifier.Hover))
+	revertScript:SetAttribute("BackgroundPressed", theme:GetColor(revertScriptBackgroundColor, Enum.StudioStyleGuideModifier.Pressed))
+	revertScript.BackgroundColor3 = revertScript:GetAttribute("Background")
+	local revertScriptTextColor = Enum.StudioStyleGuideColor.DialogButtonText
+	revertScript:SetAttribute("Text", theme:GetColor(revertScriptTextColor, idleModifier))
+	revertScript:SetAttribute("TextHover", theme:GetColor(revertScriptTextColor, Enum.StudioStyleGuideModifier.Hover))
+	revertScript:SetAttribute("TextPressed", theme:GetColor(revertScriptTextColor, Enum.StudioStyleGuideModifier.Pressed))
+	revertScript.TextColor3 = revertScript:GetAttribute("Text")
 end
 
 local function setTheme()
 	-- Main Widget
 	mainWidgetFrame.Frame.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
 	mainWidgetFrame.Frame.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
-	mainWidgetFrame.Frame.Connect.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
-	mainWidgetFrame.Frame.Port.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
-	mainWidgetFrame.Frame.Port.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
+	connect.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+	portTextBox.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+	portTextBox.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
 	mainWidgetFrame.Frame.Version.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
-	local PortBorder = Enum.StudioStyleGuideColor.InputFieldBorder
-	mainWidgetFrame.Frame:SetAttribute("Border", theme:GetColor(PortBorder))
-	mainWidgetFrame.Frame:SetAttribute("BorderHover", theme:GetColor(PortBorder, Enum.StudioStyleGuideModifier.Hover))
-	mainWidgetFrame.Frame:SetAttribute("BorderSelected", theme:GetColor(PortBorder, Enum.StudioStyleGuideModifier.Selected))
+	local portBorderColor = Enum.StudioStyleGuideColor.InputFieldBorder
+	mainWidgetFrame.Frame:SetAttribute("Border", theme:GetColor(portBorderColor))
+	mainWidgetFrame.Frame:SetAttribute("BorderHover", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Hover))
+	mainWidgetFrame.Frame:SetAttribute("BorderSelected", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Selected))
 	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
+	saveScript.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+	revertScript.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
 	setConnectTheme()
-	setSaveScriptTheme()
+	setScriptActionsTheme()
 
 	-- Unsaved Model Widget
 	script.UnsavedModelListItem.SelectButton.TextLabel.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
@@ -780,25 +789,7 @@ if not IS_PLAYTEST_SERVER then
 		setConnected(not connected)
 	end)
 
-	connect.MouseEnter:Connect(function()
-		connect.BackgroundColor3 = connect:GetAttribute("BackgroundHover")
-		connect.TextColor3 = connect:GetAttribute("TextHover")
-	end)
-
-	connect.MouseLeave:Connect(function()
-		connect.BackgroundColor3 = connect:GetAttribute("Background")
-		connect.TextColor3 = connect:GetAttribute("Text")
-	end)
-
-	connect.MouseButton1Down:Connect(function()
-		connect.BackgroundColor3 = connect:GetAttribute("BackgroundPressed")
-		connect.TextColor3 = connect:GetAttribute("TextPressed")
-	end)
-
-	connect.MouseButton1Up:Connect(function()
-		connect.BackgroundColor3 = connect:GetAttribute("Background")
-		connect.TextColor3 = connect:GetAttribute("Text")
-	end)
+	connectButtonColors(connect)
 
 	-- Port
 
@@ -825,23 +816,6 @@ if not IS_PLAYTEST_SERVER then
 
 	-- Save Script
 
-	StudioService:GetPropertyChangedSignal("ActiveScript"):Connect(function()
-		local syncedScriptActive = false
-
-		if StudioService.ActiveScript then
-			for _, data in map do
-				if data.Instance == StudioService.ActiveScript then
-					syncedScriptActive = true
-					break
-				end
-			end
-		end
-
-		saveScript.Active = syncedScriptActive
-		setSaveScriptTheme()
-	end)
-
-	--local saveScriptHeldTask: thread;
 	local saveScriptHeldTween: Tween?;
 
 	saveScript.MouseButton1Down:Connect(function()
@@ -853,13 +827,18 @@ if not IS_PLAYTEST_SERVER then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
 							local success, result = pcall(function()
-								return HttpService:PostAsync("http://localhost:" .. getPort(), StudioService.ActiveScript.Source, Enum.HttpContentType.TextPlain, false, {Type = "ReverseSync", Path = data.Path})
+								HttpService:PostAsync("http://localhost:" .. getPort(), StudioService.ActiveScript.Source, Enum.HttpContentType.TextPlain, false, {Type = "ReverseSync", Path = data.Path})
 							end)
 							if success then
 								print("[Lync] - Saved script:", data.Path)
-								saveScript.TextLabel.Text = "Saved!"
+								if saveScript.TextLabel.Text == "Saving..." then
+									saveScript.TextLabel.Text = "Saved!"
+								end
 							else
-								warn("[Lync] - Failed to save script:", data.Path, "-", result)
+								task.spawn(error, `[Lync] - Failed to save script: {data.Path}\n{tostring(result)}`)
+								if saveScript.TextLabel.Text == "Saving..." then
+									saveScript.TextLabel.Text = "Failed"
+								end
 							end
 							break
 						end
@@ -881,6 +860,76 @@ if not IS_PLAYTEST_SERVER then
 	saveScript.MouseButton1Up:Connect(cancelSaveScript)
 
 	saveScript.MouseLeave:Connect(cancelSaveScript)
+
+	connectButtonColors(saveScript)
+
+	-- Revert Script
+
+	local revertScriptHeldTween: Tween?;
+
+	revertScript.MouseButton1Down:Connect(function()
+		if StudioService.ActiveScript and not revertScriptHeldTween then
+			revertScriptHeldTween = TweenService:Create(revertScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
+			revertScriptHeldTween:Play()
+			revertScriptHeldTween.Completed:Connect(function(playbackState: Enum.PlaybackState)
+				if playbackState == Enum.PlaybackState.Completed then
+					for _, data in map do
+						if data.Instance == StudioService.ActiveScript then
+							local success, result = pcall(function()
+								data.Instance.Source = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Source", Path = data.Path})
+							end)
+							if success then
+								print("[Lync] - Reverted script:", data.Path)
+								if revertScript.TextLabel.Text == "Reverting..." then
+									revertScript.TextLabel.Text = "Reverted!"
+								end
+							else
+								task.spawn(error, `[Lync] - Failed to revert script: {data.Path}\n{tostring(result)}`)
+								if revertScript.TextLabel.Text == "Reverting..." then
+									revertScript.TextLabel.Text = "Failed"
+								end
+							end
+							break
+						end
+					end
+				end
+			end)
+		end
+	end)
+
+	local function cancelRevertScript()
+		if revertScriptHeldTween then
+			revertScriptHeldTween:Cancel()
+			revertScriptHeldTween = nil
+		end
+		revertScript.TextLabel.Text = "Reverting..."
+		revertScript.TextLabel.UIGradient.Offset = Vector2.new(-0.51, 0)
+	end
+
+	revertScript.MouseButton1Up:Connect(cancelRevertScript)
+
+	revertScript.MouseLeave:Connect(cancelRevertScript)
+
+	connectButtonColors(revertScript)
+
+	-- Enable Save / Revert Script
+
+	StudioService:GetPropertyChangedSignal("ActiveScript"):Connect(function()
+		local syncedScriptActive = false
+
+		if StudioService.ActiveScript then
+			for _, data in map do
+				if data.Instance == StudioService.ActiveScript then
+					syncedScriptActive = true
+					break
+				end
+			end
+		end
+
+		saveScript.Active = syncedScriptActive
+		revertScript.Active = syncedScriptActive
+		setScriptActionsTheme()
+	end)
 
 	-- Playtest Sync
 
