@@ -820,9 +820,10 @@ if not IS_PLAYTEST_SERVER then
 
 	saveScript.MouseButton1Down:Connect(function()
 		if StudioService.ActiveScript and not saveScriptHeldTween then
-			saveScriptHeldTween = TweenService:Create(saveScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
-			saveScriptHeldTween:Play()
-			saveScriptHeldTween.Completed:Connect(function(playbackState: Enum.PlaybackState)
+			local tween = TweenService:Create(saveScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
+			saveScriptHeldTween = tween
+			tween:Play()
+			tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
 				if playbackState == Enum.PlaybackState.Completed then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
@@ -869,9 +870,10 @@ if not IS_PLAYTEST_SERVER then
 
 	revertScript.MouseButton1Down:Connect(function()
 		if StudioService.ActiveScript and not revertScriptHeldTween then
-			revertScriptHeldTween = TweenService:Create(revertScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
-			revertScriptHeldTween:Play()
-			revertScriptHeldTween.Completed:Connect(function(playbackState: Enum.PlaybackState)
+			local tween = TweenService:Create(revertScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
+			revertScriptHeldTween =tween
+			tween:Play()
+			tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
 				if playbackState == Enum.PlaybackState.Completed then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
@@ -917,7 +919,7 @@ if not IS_PLAYTEST_SERVER then
 	StudioService:GetPropertyChangedSignal("ActiveScript"):Connect(function()
 		local syncedScriptActive = false
 
-		if StudioService.ActiveScript then
+		if StudioService.ActiveScript and map then
 			for _, data in map do
 				if data.Instance == StudioService.ActiveScript then
 					syncedScriptActive = true
