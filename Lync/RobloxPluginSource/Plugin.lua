@@ -293,17 +293,17 @@ local function listenForChanges(object: Instance)
 	if not changedModels[object] then
 		-- Modification events
 		object.Changed:Connect(function(property)
-			if property ~= "Parent" then
-				if property == "Name" then
-					for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
-						if modelEntry:IsA("Frame") and modelEntry.Object.Value == object then
-							local fullName = object:GetFullName()
-							modelEntry.Name = fullName
-							modelEntry.SelectButton.TextLabel.Text = fullName
-							break
-						end
+			if property == "Name" or property == "Parent" then
+				for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
+					if modelEntry:IsA("Frame") and modelEntry.Object.Value == object then
+						local fullName = object:GetFullName()
+						modelEntry.Name = fullName
+						modelEntry.SelectButton.TextLabel.Text = fullName
+						break
 					end
 				end
+			end
+			if property ~= "Parent" then
 				makeDirty(object, object, property)
 			end
 		end)
