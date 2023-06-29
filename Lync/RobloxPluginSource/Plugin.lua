@@ -819,7 +819,7 @@ if not IS_PLAYTEST_SERVER then
 	local saveScriptHeldTween: Tween?;
 
 	saveScript.MouseButton1Down:Connect(function()
-		if StudioService.ActiveScript and not saveScriptHeldTween then
+		if saveScript.Active and not saveScriptHeldTween then
 			local tween = TweenService:Create(saveScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
 			saveScriptHeldTween = tween
 			tween:Play()
@@ -869,7 +869,7 @@ if not IS_PLAYTEST_SERVER then
 	local revertScriptHeldTween: Tween?;
 
 	revertScript.MouseButton1Down:Connect(function()
-		if StudioService.ActiveScript and not revertScriptHeldTween then
+		if revertScript.Active and not revertScriptHeldTween then
 			local tween = TweenService:Create(revertScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
 			revertScriptHeldTween =tween
 			tween:Play()
