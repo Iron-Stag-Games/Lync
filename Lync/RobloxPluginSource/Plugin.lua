@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 18
+	Lync Client - Alpha 19
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -31,7 +31,7 @@ local Selection = game:GetService("Selection")
 local StudioService = game:GetService("StudioService")
 local TweenService = game:GetService("TweenService")
 
-local VERSION = "Alpha 18"
+local VERSION = "Alpha 19"
 local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
 
 local LuaCsv = require(script.LuaCsv)
@@ -40,10 +40,16 @@ local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
 local connected = false
 local connecting = false
+local serverKey = plugin:GetSetting("Lync_ServerKey")
 local map: {[string]: {[string]: any}}
 local activeSourceRequests = 0
 local changedModels: {[Instance]: boolean} = {}
-local syncDuringTest = plugin:GetSetting("SyncDuringTest") or false
+local syncDuringTest = plugin:GetSetting("Lync_SyncDuringTest") or false
+
+if not serverKey then
+	serverKey = HttpService:GenerateGUID(false)
+	plugin:SetSetting("Lync_ServerKey", serverKey)
+end
 
 if not IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
 	workspace:SetAttribute("__lyncactive", nil)
@@ -61,7 +67,7 @@ mainWidgetFrame.Frame.Version.Text = VERSION:lower()
 
 local connect = mainWidgetFrame.Frame.Connect
 local portTextBox = mainWidgetFrame.Frame.Port
-portTextBox.Text = plugin:GetSetting("Port") or ""
+portTextBox.Text = plugin:GetSetting("Lync_Port") or ""
 local saveScript = mainWidgetFrame.SaveScript
 local revertScript = mainWidgetFrame.RevertScript
 
@@ -518,7 +524,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Source", Path = data.Path})
+					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -551,7 +557,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Source", Path = data.Path})
+					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -564,7 +570,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Source", Path = data.Path})
+					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -592,7 +598,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Source", Path = data.Path})
+					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -611,7 +617,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Source", Path = data.Path})
+					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -699,7 +705,7 @@ local function setConnected(newConnected: boolean)
 		if newConnected then
 			if not map then
 				local success, result = pcall(function()
-					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(StudioService:GetUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 					return get ~= "{}" and HttpService:JSONDecode(get) or nil
 				end)
 				if success then
@@ -736,7 +742,7 @@ local function setConnected(newConnected: boolean)
 				end
 			else
 				local success, result = pcall(function()
-					HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+					HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 				end)
 				if not success then
 					task.spawn(error, "[Lync] - " .. result)
@@ -811,7 +817,7 @@ if not IS_PLAYTEST_SERVER then
 		local entry = math.clamp(tonumber(portTextBox.Text) or 0, 0, 65535)
 		portTextBox.Text = entry > 0 and entry or ""
 		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
-		plugin:SetSetting("Port", entry > 0 and entry or nil)
+		plugin:SetSetting("Lync_Port", entry > 0 and entry or nil)
 	end)
 
 	-- Save Script
@@ -828,7 +834,7 @@ if not IS_PLAYTEST_SERVER then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
 							local success, result = pcall(function()
-								HttpService:PostAsync("http://localhost:" .. getPort(), StudioService.ActiveScript.Source, Enum.HttpContentType.TextPlain, false, {Type = "ReverseSync", Path = data.Path})
+								HttpService:PostAsync("http://localhost:" .. getPort(), StudioService.ActiveScript.Source, Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
 							end)
 							if success then
 								print("[Lync] - Saved script:", data.Path)
@@ -878,7 +884,7 @@ if not IS_PLAYTEST_SERVER then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
 							local success, result = pcall(function()
-								data.Instance.Source = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Source", Path = data.Path})
+								data.Instance.Source = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 							end)
 							if success then
 								print("[Lync] - Reverted script:", data.Path)
@@ -942,7 +948,7 @@ if not IS_PLAYTEST_SERVER then
 
 	toggleSyncDuringTest.Click:Connect(function()
 		syncDuringTest = not syncDuringTest
-		plugin:SetSetting("SyncDuringTest", syncDuringTest)
+		plugin:SetSetting("Lync_SyncDuringTest", syncDuringTest)
 		toggleSyncDuringTest:SetActive(syncDuringTest)
 	end)
 
@@ -986,7 +992,7 @@ end
 while task.wait(0.5) do
 	if connected then
 		local success, result = pcall(function()
-			local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Type = "Modified", Playtest = IS_PLAYTEST_SERVER})
+			local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Modified", Playtest = IS_PLAYTEST_SERVER})
 			return get ~= "{}" and HttpService:JSONDecode(get) or nil
 		end)
 		if success then

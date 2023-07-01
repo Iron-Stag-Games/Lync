@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 18
+	Lync Server - Alpha 19
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -29,7 +29,7 @@ const minimatch = require('minimatch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 18'
+const VERSION = 'Alpha 19'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0]
@@ -42,6 +42,7 @@ const SYNC_ONLY = ARGS[2] == 'SYNC_ONLY' || ARGS[3] == 'SYNC_ONLY'
 // Offline build args
 const OFFLINE = ARGS[1] == 'OFFLINE'
 
+var securityKey = null
 var map = {}
 var mTimes = {}
 var modified = {}
@@ -104,8 +105,8 @@ function localPathIsIgnored(localPath) {
 function jsonParse(fileRead, localPath) {
 	try {
 		return JSON.parse(fileRead)
-	} catch (e) {
-		console.error(red('Project error:'), cyan(localPath), yellow(e))
+	} catch (err) {
+		console.error(red('Project error:'), cyan(localPath), yellow(err))
 		return {}
 	}
 }
@@ -388,7 +389,7 @@ function hardLinkRecursive(hardLinkPath, localPath) {
 			}
 			fs.linkSync(localPath, target)
 		}
-	} catch (e) {}
+	} catch (err) {}
 }
 
 async function getAsync(url, responseType) {
@@ -490,8 +491,8 @@ function generateSourcemap() {
 
 			// Write Sourcemap JSON
 			fs.writeFileSync(sourcemapJsonPath, JSON.stringify(sourcemapJson, null, '\t'))
-		} catch (e) {
-			console.error(red('Sourcemap error:'), yellow(e))
+		} catch (err) {
+			console.error(red('Sourcemap error:'), yellow(err))
 		}
 	}
 }
@@ -510,7 +511,7 @@ function generateSourcemap() {
 		let currentId = 0
 		try {
 			currentId = fs.readFileSync(versionFile)
-		} catch (e) {}
+		} catch (err) {}
 		try {
 			// Grab latest version info
 			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
@@ -564,9 +565,9 @@ function generateSourcemap() {
 				process.exit()
 			}
 			console.clear()
-		} catch (e) {
+		} catch (err) {
 			console.clear()
-			console.error(red('Failed to update:'), e)
+			console.error(red('Failed to update:'), err)
 			console.log()
 		}
 	}
@@ -678,9 +679,9 @@ function generateSourcemap() {
 		if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
 		fs.copyFileSync(projectJson.base, projectJson.build)
 	}
-	
+
 	// Copy plugin
-	
+
 	const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
 	if (!fs.existsSync(pluginsPath)) {
 		if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
@@ -688,9 +689,9 @@ function generateSourcemap() {
 	}
 	if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
 	fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
-	
+
 	// Open Studio
-	
+
 	if (!SYNC_ONLY) {
 		if (DEBUG) console.log('Opening', cyan(projectJson.build))
 		spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
@@ -709,7 +710,7 @@ function generateSourcemap() {
 			if (path.resolve(localPath) != path.resolve(PROJECT_JSON) && !localPathIsIgnored(localPath)) {
 				localPath = localPath.replace(/\\/g, '/')
 				const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-				let localPathStats; try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (e) { return }
+				let localPathStats; try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (err) { return }
 				if (localPath in mTimes) {
 
 					// Deleted
@@ -849,10 +850,24 @@ function generateSourcemap() {
 
 	http.createServer(function(req, res) {
 		if (req.socket.remoteAddress != '::1' && req.socket.remoteAddress != '127.0.0.1' & req.socket.remoteAddress != '::ffff:127.0.0.1') {
-			console.error(red('Server error:'), yellow(`Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`))
 			res.writeHead(403)
-			res.end()
+			res.end(`Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`)
 			return
+		}
+		if (!securityKey) {
+			const pluginSettings = path.resolve(
+				process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME),
+				`../${req.headers.userid}/InstalledPlugins/0/settings.json`
+			)
+			securityKey = JSON.parse(fs.readFileSync(pluginSettings)).Lync_ServerKey
+			if (DEBUG) console.log('Client connected.')
+		}
+		if (req.headers.key != securityKey) {
+			const errText = `Security key mismatch. The current session will now be terminated. (Key = ${req.headers.key})\nPlease check for any malicious plugins or scripts and try again.`
+			console.error(red('Server error:'), yellow(errText))
+			res.writeHead(403)
+			res.end(errText)
+			process.exit()
 		}
 		let jsonString;
 		switch(req.headers.type) {
@@ -892,7 +907,7 @@ function generateSourcemap() {
 					if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
 					try {
 						fs.rmSync(hardLinkPath, { force: true, recursive: true })
-					} catch (e) {}
+					} catch (err) {}
 					hardLinkRecursive(hardLinkPath, path.resolve())
 				}
 
@@ -928,10 +943,10 @@ function generateSourcemap() {
 					let read = fs.readFileSync(req.headers.path)
 					res.writeHead(200)
 					res.end(read)
-				} catch (e) {
-					console.error(red('Server error:'), yellow(e))
+				} catch (err) {
+					console.error(red('Server error:'), yellow(err))
 					res.writeHead(404)
-					res.end()
+					res.end(err.toString())
 				}
 				break
 			case 'ReverseSync':
@@ -945,17 +960,16 @@ function generateSourcemap() {
 						fs.writeFileSync(req.headers.path, buffer.toString())
 						res.writeHead(200)
 						res.end()
-					} catch (e) {
-						console.error(red('Server error:'), yellow(e))
-						res.writeHead(404)
-						res.end()
+					} catch (err) {
+						console.error(red('Server error:'), yellow(err))
+						res.writeHead(400)
+						res.end(err.toString())
 					}
 				})
 				break
 			default:
-				console.error(red('Server error:'), yellow('Missing type header from Client; must be Map, Modified, Source, or ReverseSync'))
 				res.writeHead(400)
-				res.end('Missing type header')
+				res.end('Missing / invalid type header')
 		}
 	})
 	.on('error', function(e) {
