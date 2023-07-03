@@ -85,13 +85,14 @@ function toEscapeSequence(str) {
 }
 
 function localPathExtensionIsMappable(localPath) {
-	const localPathParsed = path.parse(localPath)
-	return localPathParsed.ext == '.rbxm' || localPathParsed.ext == '.rbxmx' || localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau' || localPathParsed.ext == '.json' || localPathParsed.ext == '.txt' || localPathParsed.ext == '.csv'
+	const localPathExt = path.parse(localPath).ext.toLowerCase()
+	return localPathExt == '.rbxm' || localPathExt == '.rbxmx' || localPathExt == '.lua' || localPathExt == '.luau' || localPathExt == '.json' || localPathExt == '.txt' || localPathExt == '.csv'
 }
 
 function localPathIsInit(localPath) {
 	const localPathParsed = path.parse(localPath)
-	return (localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau') && (localPathParsed.name == 'init' || localPathParsed.name == 'init.client' || localPathParsed.name == 'init.server' || localPathParsed.name.endsWith('.init') || localPathParsed.name.endsWith('.init.client') || localPathParsed.name.endsWith('.init.server'))
+	const localPathExt = localPathParsed.ext.toLowerCase()
+	return (localPathExt == '.lua' || localPathExt == '.luau') && (localPathParsed.name == 'init' || localPathParsed.name == 'init.client' || localPathParsed.name == 'init.server' || localPathParsed.name.endsWith('.init') || localPathParsed.name.endsWith('.init.client') || localPathParsed.name.endsWith('.init.server'))
 }
 
 function localPathIsIgnored(localPath) {
@@ -154,14 +155,15 @@ function mapDirectory(localPath, robloxPath, flag) {
 		if (localPathExtensionIsMappable(localPath)) {
 			mTimes[localPath] = localPathStats.mtimeMs
 			const localPathParsed = path.parse(localPath)
+			const localPathExt = localPathParsed.ext.toLowerCase()
 			let properties;
 			let attributes;
 			let tags;
 			let metaLocalPath;
 
 			// Lua Meta Files
-			if (localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau' || localPathParsed.ext == '.txt' || localPathParsed.ext == '.csv') {
-				const title = (localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau') && (localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name
+			if (localPathExt == '.lua' || localPathExt == '.luau' || localPathExt == '.txt' || localPathExt == '.csv') {
+				const title = (localPathExt == '.lua' || localPathExt == '.luau') && (localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name
 				const metaLocalPathCheck = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.json'
 				if (fs.existsSync(metaLocalPathCheck)) {
 					const metaJson = jsonParse(fs.readFileSync(metaLocalPathCheck), metaLocalPathCheck)
@@ -173,7 +175,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 			}
 
 			// Models
-			if (localPathParsed.ext == '.rbxm' || localPathParsed.ext == '.rbxmx') {
+			if (localPathExt == '.rbxm' || localPathExt == '.rbxmx') {
 				assignMap(robloxPath, {
 					'Type': 'Model',
 					'Path': localPath,
@@ -181,13 +183,13 @@ function mapDirectory(localPath, robloxPath, flag) {
 				}, localPathStats.mtimeMs)
 
 			// Lua
-			} else if (localPathParsed.ext == '.lua' || localPathParsed.ext == '.luau') {
+			} else if (localPathExt == '.lua' || localPathExt == '.luau') {
 				let newRobloxPath = robloxPath
 				if (flag != 'Json' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
 				mapLua(localPath, newRobloxPath, properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
 
 			// JSON (non-meta)
-			} else if (localPathParsed.ext == '.json' && !localPathParsed.name.endsWith('.meta')) {
+			} else if (localPathExt == '.json' && !localPathParsed.name.endsWith('.meta')) {
 
 				// Model Files
 				if (localPathParsed.name.endsWith('.model')) {
@@ -213,7 +215,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				}
 
 			// Plain Text
-			} else if (localPathParsed.ext == '.txt') {
+			} else if (localPathExt == '.txt') {
 				assignMap(robloxPath, {
 					'Type': 'PlainText',
 					'Properties': properties,
@@ -223,7 +225,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				}, localPathStats.mtimeMs)
 
 			// Localization Tables
-			} else if (localPathParsed.ext == '.csv') {
+			} else if (localPathExt == '.csv') {
 				assignMap(robloxPath, {
 					'Type': 'Localization',
 					'Properties': properties,
@@ -795,9 +797,10 @@ function generateSourcemap() {
 						for (const key in map) {
 							if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
 								const localPathParsed = path.parse(localPath)
+								const localPathExt = localPathParsed.ext.toLowerCase()
 
 								// Remap adjacent matching file
-								if (localPathParsed.name != 'init.meta'  && localPathParsed.name.endsWith('.meta') && localPathParsed.ext == '.json') {
+								if (localPathParsed.name != 'init.meta'  && localPathParsed.name.endsWith('.meta') && localPathExt == '.json') {
 									const title = localPathParsed.name.slice(0, -5)
 									if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
 										delete map[key]
@@ -869,7 +872,9 @@ function generateSourcemap() {
 			res.end(errText)
 			process.exit()
 		}
+
 		let jsonString;
+
 		switch(req.headers.type) {
 			case 'Map':
 				// Create content hard links
@@ -927,6 +932,7 @@ function generateSourcemap() {
 				res.writeHead(200)
 				res.end(jsonString)
 				break
+
 			case 'Modified':
 				if ('playtest' in req.headers) {
 					jsonString = JSON.stringify(modified_playtest)
@@ -938,9 +944,10 @@ function generateSourcemap() {
 				res.writeHead(200)
 				res.end(jsonString)
 				break
+
 			case 'Source':
 				try {
-					let read = fs.readFileSync(req.headers.path)
+					const read = fs.readFileSync(req.headers.path)
 					res.writeHead(200)
 					res.end(read)
 				} catch (err) {
@@ -949,7 +956,20 @@ function generateSourcemap() {
 					res.end(err.toString())
 				}
 				break
+
 			case 'ReverseSync':
+				const workingDir = path.resolve()
+				if (path.resolve(req.headers.path).substring(0, workingDir.length) != workingDir) {
+					res.writeHead(403)
+					res.end('File not located in project directory')
+					break
+				}
+				const localPathExt = path.parse(req.headers.path).ext.toLowerCase()
+				if (localPathExt != '.lua' && localPathExt != '.luau') {
+					res.writeHead(403)
+					res.end('File extension must be lua or luau')
+					break
+				}
 				let data = []
 				req.on('data', (chunk) => {
 					data.push(chunk)
@@ -967,6 +987,7 @@ function generateSourcemap() {
 					}
 				})
 				break
+
 			default:
 				res.writeHead(400)
 				res.end('Missing / invalid type header')
