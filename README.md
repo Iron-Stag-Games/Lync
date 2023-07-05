@@ -31,6 +31,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 | Server IP Address | ❌️ | ✅️ |
 | Server Port | ✅️ | ✅️ |
 | Offline Builds | ✅️ | ✅️ |
+| Automatic Shell Scripts | ❌️ | ❌️ |
 | Place to Project Tool | ❌️ | ⚠️ |
 
 ### Pros
