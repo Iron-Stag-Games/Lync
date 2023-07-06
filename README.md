@@ -22,6 +22,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 ### Features
 | | Lync | Rojo |
 |-|-|-|
+| Offline Builds | ✅️ | ✅️ |
 | MeshPart Sync | ✅️ | ❌️ |
 | Full Reverse Sync | ❌️ | ⚠️ |
 | Manual Reverse Script Sync | ✅️ | ❌️ |
@@ -31,7 +32,6 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 | Multiple Project Serving | ❌️ | ✅️ |
 | Server IP Address | ❌️ | ✅️ |
 | Server Port | ✅️ | ✅️ |
-| Offline Builds | ✅️ | ✅️ |
 | Automatic Shell Scripts | ⚠️ | ❌️ |
 | Place to Project Tool | ❌️ | ⚠️ |
 
