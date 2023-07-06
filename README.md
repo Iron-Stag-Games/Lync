@@ -22,6 +22,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 ### Features
 | | Lync | Rojo |
 |-|-|-|
+| MeshPart Sync | ✅️ | ❌️ |
 | Full Reverse Sync | ❌️ | ⚠️ |
 | Manual Reverse Script Sync | ✅️ | ❌️ |
 | Playtest Sync | ✅️ | ❌️ |
@@ -31,12 +32,15 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 | Server IP Address | ❌️ | ✅️ |
 | Server Port | ✅️ | ✅️ |
 | Offline Builds | ✅️ | ✅️ |
-| Automatic Shell Scripts | ❌️ | ❌️ |
+| Automatic Shell Scripts | ⚠️ | ❌️ |
 | Place to Project Tool | ❌️ | ⚠️ |
+
+⚠️ = Broken or WIP
 
 ### Pros
 - Much faster live sync.
 - Designed from the ground up to be compatible with all future Roblox properties.
+- Several important bugs fixed, like Model duplication.
 - No compilation of Lync necessary - edit and go!
 
 ### Cons
