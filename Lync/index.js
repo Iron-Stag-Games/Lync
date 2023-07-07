@@ -597,6 +597,7 @@ function generateSourcemap() {
 
 	if (OFFLINE) {
 		const buildScriptPath = projectJson.build + '.luau'
+		const lunePath = process.platform == 'win32' && CONFIG.LunePath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.LunePath.replace('$HOME', process.env.HOME)
 
 		// Map loadstring calls (needed until Lune implements loadstring)
 		let loadstringMapEntries = {}
@@ -633,12 +634,15 @@ function generateSourcemap() {
 
 		// Validate loadstrings
 		if (DEBUG) console.log('Validating loadstrings . . .')
-		const validationStatus = spawnSync(`${CONFIG.LunePath}`, [ `${buildScriptPath}` ], {
+		const validationStatus = spawnSync(lunePath, [ `${buildScriptPath}` ], {
 			cwd: process.cwd(),
 			detached: false,
 			stdio: 'inherit'
 		}).status
-		if (validationStatus != 0) {
+		if (validationStatus == null) {
+			console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
+			process.exit()
+		} else if (validationStatus != 0) {
 			console.error(red('Build error:'), yellow(`Validation script failed with status [${validationStatus}].`))
 			process.exit()
 		}
@@ -659,12 +663,15 @@ function generateSourcemap() {
 
 		// Build RBXL
 		if (DEBUG) console.log('Building RBXL . . .')
-		const buildStatus = spawnSync(`${CONFIG.LunePath}`, [ `${buildScriptPath}` ], {
+		const buildStatus = spawnSync(lunePath, [ `${buildScriptPath}` ], {
 			cwd: process.cwd(),
 			detached: false,
 			stdio: 'inherit'
 		}).status
-		if (buildStatus != 0) {
+		if (buildStatus == null) {
+			console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
+			process.exit()
+		} else if (buildStatus != 0) {
 			console.error(red('Build error:'), yellow(`Build script failed with status [${buildStatus}].`))
 			process.exit()
 		}
