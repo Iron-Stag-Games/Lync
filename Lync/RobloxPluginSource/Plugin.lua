@@ -717,7 +717,7 @@ local function setConnected(newConnected: boolean)
 		if newConnected then
 			if not map then
 				local success, result = pcall(function()
-					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 					return get ~= "{}" and HttpService:JSONDecode(get) or nil
 				end)
 				if success then
