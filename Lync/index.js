@@ -633,11 +633,13 @@ function generateSourcemap() {
 
 		// Validate loadstrings
 		if (DEBUG) console.log('Validating loadstrings . . .')
-		if (spawnSync(`${CONFIG.LunePath}`, [ `${buildScriptPath}` ], {
+		const validationStatus = spawnSync(`${CONFIG.LunePath}`, [ `${buildScriptPath}` ], {
 			cwd: process.cwd(),
 			detached: false,
 			stdio: 'inherit'
-		}).status != 0) {
+		}).status
+		if (validationStatus != 0) {
+			console.error(red('Build error:'), yellow(`Validation script failed with status [${validationStatus}].`))
 			process.exit()
 		}
 
@@ -657,11 +659,13 @@ function generateSourcemap() {
 
 		// Build RBXL
 		if (DEBUG) console.log('Building RBXL . . .')
-		if (spawnSync(`${CONFIG.LunePath}`, [ `${buildScriptPath}` ], {
+		const buildStatus = spawnSync(`${CONFIG.LunePath}`, [ `${buildScriptPath}` ], {
 			cwd: process.cwd(),
 			detached: false,
 			stdio: 'inherit'
-		}).status != 0) {
+		}).status
+		if (buildStatus != 0) {
+			console.error(red('Build error:'), yellow(`Build script failed with status [${buildStatus}].`))
 			process.exit()
 		}
 		console.log('Build saved to', cyan(projectJson.build))

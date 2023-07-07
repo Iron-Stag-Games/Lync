@@ -683,6 +683,18 @@ end
 
 --offline-end
 
+local function getUserId(): number
+	while true do
+		local userId = StudioService:GetUserId()
+		if userId and userId ~= 0 then
+			return userId
+		else
+			task.wait()
+		end
+	end
+	return 0
+end
+
 local function setConnected(newConnected: boolean)
 	if connecting then return end
 
@@ -705,7 +717,7 @@ local function setConnected(newConnected: boolean)
 		if newConnected then
 			if not map then
 				local success, result = pcall(function()
-					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(StudioService:GetUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 					return get ~= "{}" and HttpService:JSONDecode(get) or nil
 				end)
 				if success then
