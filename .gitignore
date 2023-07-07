@@ -1,6 +1,6 @@
 desktop.ini
 .DS_Store
-Temp/*
-!Temp/.gitkeep
+BuildScripts/Build/*
+!BuildScripts/Build/.gitkeep
 *.lock
 Sample Project/sourcemap.json

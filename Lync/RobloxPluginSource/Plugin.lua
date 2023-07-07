@@ -36,6 +36,7 @@ local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "tr
 
 local LuaCsv = require(script.LuaCsv)
 
+local isBuildScript = false
 local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
 local connected = false
@@ -423,7 +424,7 @@ local function setDetails(target: any, data: any)
 	if data.Properties then
 		for property, value in data.Properties do
 			lpcall("Set Property " .. property, function()
-				if target:IsA("Model") and property == "Scale" then
+				if not isBuildScript and target:IsA("Model") and property == "Scale" then
 					target:ScaleTo(eval(value))
 				else
 					target[property] = eval(value)
@@ -494,12 +495,20 @@ local function buildPath(path: string)
 		end
 	end
 	if data then
-		if path == "tree/Workspace/Terrain" then
+		if path == "tree/Workspace/Camera" then
+			data.ClassName = "Camera"
+		elseif path == "tree/Workspace/Terrain" then
 			data.ClassName = "Terrain"
 		elseif path == "tree/StarterPlayer/StarterCharacterScripts" then
 			data.ClassName = "StarterCharacterScripts"
 		elseif path == "tree/StarterPlayer/StarterPlayerScripts" then
 			data.ClassName = "StarterPlayerScripts"
+		elseif path == "tree/TextChatService/ChatWindowConfiguration" then
+			data.ClassName = "ChatWindowConfiguration"
+		elseif path == "tree/TextChatService/ChatInputBarConfiguration" then
+			data.ClassName = "ChatInputBarConfiguration"
+		elseif path == "tree/TextChatService/BubbleChatConfiguration" then
+			data.ClassName = "BubbleChatConfiguration"
 		end
 		if data.ClearOnSync and not createInstance then
 			for _, child in target:GetChildren() do
@@ -633,7 +642,11 @@ local function buildPath(path: string)
 						table.insert(entries, {Key = entry[1], Source = entry[2], Context = entry[3], Example = entry[4], Values = values})
 					end
 					lpcall("Set Entries", function()
-						target:SetEntries(entries)
+						if isBuildScript then
+							print("Localization entries unimplemented!")
+						else
+							target:SetEntries(entries)
+						end
 					end)
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
@@ -646,8 +659,12 @@ local function buildPath(path: string)
 				local objects = getObjects("rbxasset://lync/" .. data.TerrainRegion[1])
 				if objects and #objects == 1 then
 					lpcall("Set Terrain Region", function()
-						workspace.Terrain:Clear()
-						workspace.Terrain:PasteRegion(objects[1] :: TerrainRegion, eval(data.TerrainRegion[2]), data.TerrainRegion[3])
+						if isBuildScript then
+							workspace.Terrain.SmoothGrid = (objects[1] :: any).SmoothGrid
+						else
+							workspace.Terrain:Clear()
+							workspace.Terrain:PasteRegion(objects[1] :: TerrainRegion, eval(data.TerrainRegion[2]), data.TerrainRegion[3])
+						end
 					end)
 				else
 					task.spawn(error, `[Lync] - '{data.TerrainRegion[1]}' cannot contain zero or multiple root Instances`)
@@ -660,7 +677,11 @@ local function buildPath(path: string)
 			if target == workspace.Terrain then
 				for material, value in data.TerrainMaterialColors do
 					lpcall("Set Terrain Material Color", function()
-						workspace.Terrain:SetMaterialColor(material, eval(value))
+						if isBuildScript then
+							print("Material colors unimplemented!")
+						else
+							workspace.Terrain:SetMaterialColor(material, eval(value))
+						end
 					end)
 				end
 			else

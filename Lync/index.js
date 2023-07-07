@@ -602,17 +602,31 @@ function generateSourcemap() {
 		// Map loadstring calls (needed until Lune implements loadstring)
 		let loadstringMapEntries = {}
 		let loadstringMap = ''
-		for (const key in map) {
-			let mapping = map[key]
-			if ('Properties' in mapping) {
-				for (const property in mapping.Properties) {
-					let value = mapping.Properties[property]
-					if (Array.isArray(value) && !(value in loadstringMapEntries)) {
-						loadstringMap += `\t[ "${toEscapeSequence('return ' + value)}" ] = ${value};\n`
-						loadstringMapEntries[value] = true
-					}
+		function mapProperties(properties) {
+			for (const property in properties) {
+				let value = properties[property]
+				if (Array.isArray(value) && !(value in loadstringMapEntries)) {
+					loadstringMap += `\t[ "${toEscapeSequence('return ' + value)}" ] = ${value};\n`
+					loadstringMapEntries[value] = true
 				}
 			}
+		}
+		for (const key in map) {
+			let mapping = map[key]
+			if (mapping.Type == 'JsonModel') {
+				function mapJsonModel(arr) {
+					for (const key in arr) {
+						let jsonModelMapping = arr[key]
+						if (typeof jsonModelMapping == 'object') {
+							if ('Properties' in jsonModelMapping)
+								mapProperties(jsonModelMapping.Properties)
+							mapJsonModel(jsonModelMapping)
+						}
+					}
+				}
+				mapJsonModel(JSON.parse(fs.readFileSync(mapping.Path)))
+			} else if ('Properties' in mapping)
+				mapProperties(mapping.Properties)
 		}
 
 		// Fetch script functions

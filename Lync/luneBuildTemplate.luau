@@ -28,6 +28,7 @@ local Vector2int16 = roblox.Vector2int16
 local Vector3 = roblox.Vector3
 local Vector3int16 = roblox.Vector3int16
 
+local isBuildScript = true
 local map = {}
 local loadstringMap = {}
 local activeSourceRequests = 0
@@ -55,6 +56,9 @@ local HttpService = {
 
 local function loadstring(luau)
 	return function()
+		if not loadstringMap[luau] then
+			error(`Lua missing from loadstring map: [ {luau} ]`)
+		end
 		return loadstringMap[luau]
 	end
 end
