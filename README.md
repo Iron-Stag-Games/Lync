@@ -19,22 +19,33 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 
 # How does Lync compare to Rojo?
 
-### Feature Additions
-- Manual Reverse Script Sync
-- Playtest Sync
-- Unsaved Model Warnings
+### Features
+| | Lync | Rojo |
+|-|-|-|
+| Offline Builds | ✅️ | ✅️ |
+| MeshPart Sync | ✅️ | ❌️ |
+| Full Reverse Sync | ❌️ | ⚠️ |
+| Manual Reverse Script Sync | ✅️ | ❌️ |
+| Playtest Sync | ✅️ | ❌️ |
+| Unsaved Model Warnings | ✅️ | ❌️ |
+| Diff Viewer | ❌️ | ✅️ |
+| Multiple Project Serving | ❌️ | ✅️ |
+| Server IP Address | ❌️ | ✅️ |
+| Server Port | ✅️ | ✅️ |
+| Automatic Shell Scripts | ⚠️ | ❌️ |
+| Place to Project Tool | ❌️ | ⚠️ |
+
+⚠️ = Broken or WIP
 
 ### Pros
 - Much faster live sync.
 - Designed from the ground up to be compatible with all future Roblox properties.
-- Mesh loading bug and duplication bug fixed.
+- Several important bugs fixed, like Model duplication.
 - No compilation of Lync necessary - edit and go!
 
 ### Cons
 - Nearly fully compatibile with existing Rojo projects. JSON files, including [the project JSON](https://github.com/Iron-Stag-Games/Lync/blob/main/Sample%20Project/default.project.json) must be changed.
 - Currently unable to use Terrain in an offline RBXL build.
-- Currently unable to convert RBXL to a Lync project.
-- Not possible to serve multiple projects simultaneously.
 - Lack of documentation.
 
 
