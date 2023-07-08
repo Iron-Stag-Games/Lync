@@ -1,0 +1,41 @@
+name: Publish main
+
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+
+  publish-main:
+    runs-on: windows-latest
+    steps:
+
+    - name: Download repository
+      uses: actions/checkout@master
+
+    - name: Extract Sample Project (exclusive to this workflow; please remove)
+      run: move "Sample Project/*" ./
+
+    - name: Setup Aftman
+      uses: ok-nick/setup-aftman@main
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download Wally packages (sample only; keep if your project uses Wally packages)
+      run: wally install
+
+    - name: Install Node.js
+      uses: actions/setup-node@master
+
+    - name: Download Lync
+      uses: actions/checkout@master
+      with:
+        repository: Iron-Stag-Games/Lync
+        path: Lync
+
+    - name: Build
+      run: node "Lync/Lync/index.js" default.project.json OFFLINE
+
+    - name: Publish
+      run: rbxcloud experience publish -f "BuildScripts/Build/Build.rbxl" -p ${{ secrets.PLACE_ID }} -u ${{ secrets.EXPERIENCE_ID }} -t published -a ${{ secrets.API_KEY }}

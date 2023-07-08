@@ -1,0 +1,8 @@
+[package]
+name = "iron-stag-games/sample-project"
+version = "0.0.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "server"
+private = true
+
+[dependencies]
