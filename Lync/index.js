@@ -627,6 +627,8 @@ function generateSourcemap() {
 				mapJsonModel(JSON.parse(fs.readFileSync(mapping.Path)))
 			} else if ('Properties' in mapping)
 				mapProperties(mapping.Properties)
+			if ('TerrainMaterialColors' in mapping)
+				mapProperties(mapping.TerrainMaterialColors)
 		}
 
 		// Fetch script functions

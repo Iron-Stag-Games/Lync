@@ -420,6 +420,18 @@ local function eval(value: any): any
 	end
 end
 
+local function color3sToInts(...: Color3): (...number)
+	local ints = {}
+
+	for _, value in {...} do
+		table.insert(ints, value.R * 255)
+		table.insert(ints, value.G * 255)
+		table.insert(ints, value.B * 255)
+	end
+
+	return table.unpack(ints)
+end
+
 local function setDetails(target: any, data: any)
 	if data.Properties then
 		for property, value in data.Properties do
@@ -675,14 +687,40 @@ local function buildPath(path: string)
 		end
 		if data.TerrainMaterialColors then
 			if target == workspace.Terrain then
-				for material, value in data.TerrainMaterialColors do
-					lpcall("Set Terrain Material Color", function()
-						if isBuildScript then
-							print("Material colors unimplemented!")
-						else
+				if isBuildScript then
+					workspace.Terrain.MaterialColors = string.pack(("I1"):rep(3):rep(23),
+						color3sToInts(
+							Color3.new(),
+							Color3.new(),
+							eval(data.TerrainMaterialColors.Grass) or Color3.fromRGB(106, 127, 63),
+							eval(data.TerrainMaterialColors.Slate) or Color3.fromRGB(63, 127, 107),
+							eval(data.TerrainMaterialColors.Concrete) or Color3.fromRGB(127, 102, 63),
+							eval(data.TerrainMaterialColors.Brick) or Color3.fromRGB(138, 86, 62),
+							eval(data.TerrainMaterialColors.Sand) or Color3.fromRGB(143, 126, 95),
+							eval(data.TerrainMaterialColors.WoodPlanks) or Color3.fromRGB(139, 109, 79),
+							eval(data.TerrainMaterialColors.Rock) or Color3.fromRGB(102, 108, 111),
+							eval(data.TerrainMaterialColors.Glacier) or Color3.fromRGB(101, 176, 234),
+							eval(data.TerrainMaterialColors.Snow) or Color3.fromRGB(195, 199, 218),
+							eval(data.TerrainMaterialColors.Sandstone) or Color3.fromRGB(137, 90, 71),
+							eval(data.TerrainMaterialColors.Mud) or Color3.fromRGB(58, 46, 36),
+							eval(data.TerrainMaterialColors.Basalt) or Color3.fromRGB(30, 30, 37),
+							eval(data.TerrainMaterialColors.Ground) or Color3.fromRGB(102, 92, 59),
+							eval(data.TerrainMaterialColors.CrackedLava) or Color3.fromRGB(232, 156, 74),
+							eval(data.TerrainMaterialColors.Asphalt) or Color3.fromRGB(115, 123, 107),
+							eval(data.TerrainMaterialColors.Cobblestone) or Color3.fromRGB(132, 123, 90),
+							eval(data.TerrainMaterialColors.Ice) or Color3.fromRGB(129, 194, 224),
+							eval(data.TerrainMaterialColors.LeafyGrass) or Color3.fromRGB(115, 132, 74),
+							eval(data.TerrainMaterialColors.Salt) or Color3.fromRGB(198, 189, 181),
+							eval(data.TerrainMaterialColors.Limestone) or Color3.fromRGB(206, 173, 148),
+							eval(data.TerrainMaterialColors.Pavement) or Color3.fromRGB(148, 148, 140)
+						)
+					)
+				else
+					for material, value in data.TerrainMaterialColors do
+						lpcall("Set Terrain Material Color", function()
 							workspace.Terrain:SetMaterialColor(material, eval(value))
-						end
-					end)
+						end)
+					end
 				end
 			else
 				task.spawn(error, "[Lync] - Cannot use $terrainMaterialColors property with " .. tostring(target))
