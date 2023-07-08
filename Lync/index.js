@@ -103,7 +103,7 @@ function localPathIsIgnored(localPath) {
 	return false
 }
 
-function jsonParse(fileRead, localPath) {
+function tryJsonParse(fileRead, localPath) {
 	try {
 		return JSON.parse(fileRead)
 	} catch (err) {
@@ -166,7 +166,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				const title = (localPathExt == '.lua' || localPathExt == '.luau') && (localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name
 				const metaLocalPathCheck = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.json'
 				if (fs.existsSync(metaLocalPathCheck)) {
-					const metaJson = jsonParse(fs.readFileSync(metaLocalPathCheck), metaLocalPathCheck)
+					const metaJson = tryJsonParse(fs.readFileSync(metaLocalPathCheck), metaLocalPathCheck)
 					properties = metaJson['properties']
 					attributes = metaJson['attributes']
 					tags = metaJson['tags']
@@ -185,7 +185,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 			// Lua
 			} else if (localPathExt == '.lua' || localPathExt == '.luau') {
 				let newRobloxPath = robloxPath
-				if (flag != 'Json' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
+				if (flag != 'JSON' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
 				mapLua(localPath, newRobloxPath, properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
 
 			// JSON (non-meta)
@@ -201,7 +201,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				// Project Files
 				} else if (localPathParsed.name.endsWith('.project')) {
 					mTimes[localPath] = localPathStats.mtimeMs
-					const subProjectJson = jsonParse(fs.readFileSync(localPath), localPath)
+					const subProjectJson = tryJsonParse(fs.readFileSync(localPath), localPath)
 					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
 					const externalPackageAppend = parentPathString != '' && parentPathString + '/' || ''
 					mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
@@ -209,7 +209,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				// Modules
 				} else {
 					assignMap(robloxPath, {
-						'Type': 'Json',
+						'Type': 'JSON',
 						'Path': localPath
 					}, localPathStats.mtimeMs)
 				}
@@ -234,7 +234,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 					'Path': localPath
 				}, localPathStats.mtimeMs)
 			}
-		} else if (flag == 'Json') {
+		} else if (flag == 'JSON') {
 			console.error(red('Project error:'), yellow(`File [${localPath}] is not a mappable file type`))
 		}
 	} else if (localPathStats.isDirectory()) {
@@ -243,7 +243,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 			// Projects
 			mTimes[localPath] = localPathStats.mtimeMs
 			const subProjectJsonPath = localPath + '/default.project.json'
-			const subProjectJson = jsonParse(fs.readFileSync(subProjectJsonPath), subProjectJsonPath)
+			const subProjectJson = tryJsonParse(fs.readFileSync(subProjectJsonPath), subProjectJsonPath)
 			const subProjectJsonStats = fs.statSync(localPath + '/default.project.json')
 			mapJsonRecursive(subProjectJsonPath, subProjectJson, robloxPath, 'tree', true, localPath + '/', subProjectJsonStats.mtimeMs)
 
@@ -261,7 +261,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 			// Init Meta Files
 			const metaLocalPathCheck = localPath + '/init.meta.json'
 			if (fs.existsSync(metaLocalPathCheck)) {
-				const metaJson = jsonParse(fs.readFileSync(metaLocalPathCheck), metaLocalPathCheck)
+				const metaJson = tryJsonParse(fs.readFileSync(metaLocalPathCheck), metaLocalPathCheck)
 				className = metaJson['className'] || 'Folder'
 				properties = metaJson['properties']
 				attributes = metaJson['attributes']
@@ -299,7 +299,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				mapLua(localPath + '/init.server.luau', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
 
 			// Folders
-			} else if (flag != 'Json') {
+			} else if (flag != 'JSON') {
 				assignMap(robloxPath, {
 					'Type': 'Instance',
 					'ClassName': className,
@@ -348,7 +348,7 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExterna
 	}
 	if (localPath) {
 		if (fs.existsSync(localPath)) {
-			mapDirectory(localPath, nextRobloxPath, 'Json')
+			mapDirectory(localPath, nextRobloxPath, 'JSON')
 		} else {
 			console.error(red('Project error:'), yellow(`Path [${localPath}] does not exist`))
 		}
@@ -408,7 +408,7 @@ async function getAsync(url, responseType) {
 					let buffer = Buffer.concat(data)
 					switch (responseType) {
 						case 'json':
-							resolve(JSON.parse(buffer.toString()))
+							resolve(tryJsonParse(buffer.toString()))
 							break
 						default:
 							resolve(buffer)
@@ -476,10 +476,10 @@ function generateSourcemap() {
 					target.className = mapping.Context == 'Client' && 'LocalScript' || mapping.Context == 'Server' && 'Script' || 'ModuleScript'
 				else if (mapping.Type == 'Model')
 					target.className = 'Instance'
-				else if (mapping.Type == 'Json')
+				else if (mapping.Type == 'JSON')
 					target.className = 'ModuleScript'
 				else if (mapping.Type == 'JsonModel')
-					target.className = JSON.parse(fs.readFileSync(mapping.Path)).ClassName || 'Instance'
+					target.className = tryJsonParse(fs.readFileSync(mapping.Path)).ClassName || 'Instance'
 				else if (mapping.Type == 'PlainText')
 					target.className = 'StringValue'
 				else if (mapping.Type == 'Localization')
@@ -624,7 +624,7 @@ function generateSourcemap() {
 						}
 					}
 				}
-				mapJsonModel(JSON.parse(fs.readFileSync(mapping.Path)))
+				mapJsonModel(tryJsonParse(fs.readFileSync(mapping.Path)))
 			} else if ('Properties' in mapping)
 				mapProperties(mapping.Properties)
 			if ('TerrainMaterialColors' in mapping)
@@ -657,10 +657,10 @@ function generateSourcemap() {
 		}).status
 		if (validationStatus == null) {
 			console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
-			process.exit()
+			process.exit(1)
 		} else if (validationStatus != 0) {
 			console.error(red('Build error:'), yellow(`Validation script failed with status [${validationStatus}].`))
-			process.exit()
+			process.exit(2)
 		}
 
 		// Write build script
@@ -686,10 +686,10 @@ function generateSourcemap() {
 		}).status
 		if (buildStatus == null) {
 			console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
-			process.exit()
+			process.exit(1)
 		} else if (buildStatus != 0) {
 			console.error(red('Build error:'), yellow(`Build script failed with status [${buildStatus}].`))
-			process.exit()
+			process.exit(3)
 		}
 		console.log('Build saved to', cyan(projectJson.build))
 
@@ -779,7 +779,7 @@ function generateSourcemap() {
 								}
 							}
 
-							// Json member
+							// JSON member
 							if (key in map && map[key].ProjectJson == localPath) {
 								if (map[key].Path in mTimes) {
 									delete mTimes[map[key].Path]

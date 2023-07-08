@@ -568,7 +568,7 @@ local function buildPath(path: string)
 			else
 				task.spawn(error, `[Lync] - '{data.Path}' cannot contain zero or multiple root Instances`)
 			end
-		elseif data.Type == "Json" then
+		elseif data.Type == "JSON" then
 			if createInstance then
 				local newInstance = Instance.new("ModuleScript")
 				newInstance.Name = name
