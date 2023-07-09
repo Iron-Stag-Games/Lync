@@ -16,7 +16,11 @@ jobs:
 
     # Exclusive to the sample workflow; please this step!
     - name: Extract Sample Project
-      run: move "Sample Project/*" ./
+      run: |
+        MOVE "Sample Project" "../temp"
+        Get-ChildItem "./" -Recurse | Remove-Item -Recurse
+        MOVE "../temp/*" "./"
+        DIR
 
     # aftman.toml is currently required to download Lune and build offline.
     - name: Setup Aftman
