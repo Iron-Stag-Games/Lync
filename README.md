@@ -26,10 +26,10 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 |-|-|-|
 | Offline Builds | ✅️ | ✅️ |
 | Automatic Sourcemap Generation | ✅️ | ❌️ |
+| Playtest Sync | ✅️ | ❌️ |
 | MeshPart Sync | ✅️ | ❌️ |
 | Full Reverse Sync | ❌️ | ⚠️ |
 | Manual Reverse Script Sync | ✅️ | ❌️ |
-| Playtest Sync | ✅️ | ❌️ |
 | Unsaved Model Warnings | ✅️ | ❌️ |
 | Diff Viewer | ❌️ | ✅️ |
 | Multiple Project Serving | ❌️ | ✅️ |
