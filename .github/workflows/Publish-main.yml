@@ -14,15 +14,18 @@ jobs:
     - name: Download repository
       uses: actions/checkout@master
 
-    - name: Extract Sample Project (exclusive to this workflow; please remove)
+    # Exclusive to the sample workflow; please this step!
+    - name: Extract Sample Project
       run: move "Sample Project/*" ./
 
+    # aftman.toml is currently required to download Lune and build offline.
     - name: Setup Aftman
       uses: ok-nick/setup-aftman@main
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Download Wally packages (sample only; keep if your project uses Wally packages)
+    # Example - Keep if your project uses Wally packages.
+    - name: Download Wally packages
       run: wally install
 
     - name: Install Node.js
@@ -37,5 +40,6 @@ jobs:
     - name: Build
       run: node "Lync/Lync/index.js" default.project.json OFFLINE
 
+    # Remove this step to test build success without publishing.
     - name: Publish
       run: rbxcloud experience publish -f "BuildScripts/Build/Build.rbxl" -p ${{ secrets.PLACE_ID }} -u ${{ secrets.EXPERIENCE_ID }} -t published -a ${{ secrets.API_KEY }}
