@@ -25,6 +25,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 | | Lync | Rojo |
 |-|-|-|
 | Offline Builds | ✅️ | ✅️ |
+| Automatic Sourcemap Generation | ✅️ | ❌️ |
 | MeshPart Sync | ✅️ | ❌️ |
 | Full Reverse Sync | ❌️ | ⚠️ |
 | Manual Reverse Script Sync | ✅️ | ❌️ |
