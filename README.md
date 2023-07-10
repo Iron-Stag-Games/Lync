@@ -31,7 +31,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 | Full Reverse Sync | ❌️ | ⚠️ |
 | Manual Reverse Script Sync | ✅️ | ❌️ |
 | Unsaved Model Warnings | ✅️ | ❌️ |
-| Diff Viewer | ❌️ | ✅️ |
+| Patch Viewer | ❌️ | ✅️ |
 | Multiple Project Serving | ❌️ | ✅️ |
 | Server IP Address | ❌️ | ✅️ |
 | Server Port | ✅️ | ✅️ |
