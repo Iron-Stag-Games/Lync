@@ -734,145 +734,149 @@ function generateSourcemap() {
 	// Sync file changes
 
 	fs.watch(path.resolve(), { recursive: true }, function(event, localPath) {
-		if (localPath) {
-			localPath = path.relative(path.resolve(), localPath)
-			if (path.resolve(localPath) != path.resolve(PROJECT_JSON) && !localPathIsIgnored(localPath)) {
-				localPath = localPath.replace(/\\/g, '/')
-				const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-				let localPathStats; try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (err) { return }
-				if (localPath in mTimes) {
+		try {
+			if (localPath) {
+				localPath = path.relative(path.resolve(), localPath)
+				if (path.resolve(localPath) != path.resolve(PROJECT_JSON) && !localPathIsIgnored(localPath)) {
+					localPath = localPath.replace(/\\/g, '/')
+					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
+					let localPathStats; try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (err) { return }
+					if (localPath in mTimes) {
 
-					// Deleted
-					if (!localPathStats) {
-						console.log('D', cyan(localPath))
-						for (const key in map) {
+						// Deleted
+						if (!localPathStats) {
+							console.log('D', cyan(localPath))
+							for (const key in map) {
 
-							// Direct
-							if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
-								if (!map[key].ProjectJson) {
-									delete mTimes[map[key].Path]
+								// Direct
+								if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
+									if (!map[key].ProjectJson) {
+										delete mTimes[map[key].Path]
+										delete map[key]
+										if (DEBUG) console.log('Deleted Path mapping', green(key))
+									} else {
+										if (DEBUG) console.log('Cannot delete Path mapping', cyan(map[key].Path), green(key))
+									}
+									modified[key] = false
+									modified_playtest[key] = false
+									if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
+										mapDirectory(parentPathString, key, 'Modified')
+									}
+								}
+
+								// Meta
+								if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
+									if (!map[key].ProjectJson) {
+										delete mTimes[map[key].Meta]
+										delete map[key]
+										if (DEBUG) console.log('Deleted Meta mapping', green(key))
+									} else {
+										if (DEBUG) console.log('Cannot delete Meta mapping', cyan(map[key].Meta), green(key))
+									}
+									modified[key] = false
+									modified_playtest[key] = false
+									if (fs.existsSync(parentPathString)) {
+										mapDirectory(parentPathString, key, 'Modified')
+									}
+								}
+
+								// JSON member
+								if (key in map && map[key].ProjectJson == localPath) {
+									if (map[key].Path in mTimes) {
+										delete mTimes[map[key].Path]
+									}
+									if (map[key].Meta in mTimes) {
+										delete mTimes[map[key].Meta]
+									}
 									delete map[key]
-									if (DEBUG) console.log('Deleted Path mapping', green(key))
-								} else {
-									if (DEBUG) console.log('Cannot delete Path mapping', cyan(map[key].Path), green(key))
-								}
-								modified[key] = false
-								modified_playtest[key] = false
-								if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
-									mapDirectory(parentPathString, key, 'Modified')
+									modified[key] = false
+									modified_playtest[key] = false
+									if (DEBUG) console.log('Deleted ProjectJson mapping', green(key))
 								}
 							}
+							delete mTimes[localPath]
 
-							// Meta
-							if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
-								if (!map[key].ProjectJson) {
-									delete mTimes[map[key].Meta]
-									delete map[key]
-									if (DEBUG) console.log('Deleted Meta mapping', green(key))
-								} else {
-									if (DEBUG) console.log('Cannot delete Meta mapping', cyan(map[key].Meta), green(key))
-								}
-								modified[key] = false
-								modified_playtest[key] = false
-								if (fs.existsSync(parentPathString)) {
+						// Changed
+						} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
+							for (const hardLinkPath of hardLinkPaths) {
+								hardLinkRecursive(hardLinkPath, localPath)
+							}
+							console.log('M', cyan(localPath))
+							for (const key in map) {
+								if (map[key].InitParent == parentPathString) {
 									mapDirectory(parentPathString, key, 'Modified')
+								} else if (map[key].Meta == localPath) {
+									mapDirectory(map[key].Path, key, 'Modified')
+								} else if (map[key].Path == localPath) {
+									mapDirectory(localPath, key, 'Modified')
 								}
 							}
-
-							// JSON member
-							if (key in map && map[key].ProjectJson == localPath) {
-								if (map[key].Path in mTimes) {
-									delete mTimes[map[key].Path]
-								}
-								if (map[key].Meta in mTimes) {
-									delete mTimes[map[key].Meta]
-								}
-								delete map[key]
-								modified[key] = false
-								modified_playtest[key] = false
-								if (DEBUG) console.log('Deleted ProjectJson mapping', green(key))
-							}
+							mTimes[localPath] = localPathStats.mtimeMs
 						}
-						delete mTimes[localPath]
 
-					// Changed
-					} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
+					} else if (event == 'rename' && localPathStats) {
+
+						// Added
 						for (const hardLinkPath of hardLinkPaths) {
 							hardLinkRecursive(hardLinkPath, localPath)
 						}
-						console.log('M', cyan(localPath))
-						for (const key in map) {
-							if (map[key].InitParent == parentPathString) {
-								mapDirectory(parentPathString, key, 'Modified')
-							} else if (map[key].Meta == localPath) {
-								mapDirectory(map[key].Path, key, 'Modified')
-							} else if (map[key].Path == localPath) {
-								mapDirectory(localPath, key, 'Modified')
-							}
-						}
-						mTimes[localPath] = localPathStats.mtimeMs
-					}
+						if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
+							console.log('A', cyan(localPath))
+							for (const key in map) {
+								if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
+									const localPathParsed = path.parse(localPath)
+									const localPathExt = localPathParsed.ext.toLowerCase()
 
-				} else if (event == 'rename' && localPathStats) {
+									// Remap adjacent matching file
+									if (localPathParsed.name != 'init.meta'  && localPathParsed.name.endsWith('.meta') && localPathExt == '.json') {
+										const title = localPathParsed.name.slice(0, -5)
+										if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
+											delete map[key]
+											mapDirectory(localPath, title + '.lua')
+										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.lua')) {
+											delete map[key]
+											mapDirectory(localPath, title + '.client.lua')
+										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.lua')) {
+											delete map[key]
+											mapDirectory(localPath, title + '.server.lua')
+										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
+											delete map[key]
+											mapDirectory(localPath, title + '.luau')
+										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.luau')) {
+											delete map[key]
+											mapDirectory(localPath, title + '.client.luau')
+										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.luau')) {
+											delete map[key]
+											mapDirectory(localPath, title + '.server.luau')
+										} else {
+											console.error(red('Project error:'), yellow(`Stray meta file [${localPath}]`))
+											return
+										}
 
-					// Added
-					for (const hardLinkPath of hardLinkPaths) {
-						hardLinkRecursive(hardLinkPath, localPath)
-					}
-					if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
-						console.log('A', cyan(localPath))
-						for (const key in map) {
-							if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
-								const localPathParsed = path.parse(localPath)
-								const localPathExt = localPathParsed.ext.toLowerCase()
+									// Remap parent folder
+									} else if (localPathIsInit(localPath) || localPathParsed.base == 'init.meta.json' || localPathParsed.base == 'default.project.json') {
+										delete map[key]
+										mapDirectory(parentPathString, key)
 
-								// Remap adjacent matching file
-								if (localPathParsed.name != 'init.meta'  && localPathParsed.name.endsWith('.meta') && localPathExt == '.json') {
-									const title = localPathParsed.name.slice(0, -5)
-									if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
-										delete map[key]
-										mapDirectory(localPath, title + '.lua')
-									} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.lua')) {
-										delete map[key]
-										mapDirectory(localPath, title + '.client.lua')
-									} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.lua')) {
-										delete map[key]
-										mapDirectory(localPath, title + '.server.lua')
-									} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
-										delete map[key]
-										mapDirectory(localPath, title + '.luau')
-									} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.luau')) {
-										delete map[key]
-										mapDirectory(localPath, title + '.client.luau')
-									} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.luau')) {
-										delete map[key]
-										mapDirectory(localPath, title + '.server.luau')
+									// Map only file
+									} else if (localPathStats.isFile()) {
+										mapDirectory(localPath, key + '/' + localPathParsed.name)
+
+									// Map only directory
 									} else {
-										console.error(red('Project error:'), yellow(`Stray meta file [${localPath}]`))
-										return
+										mapDirectory(localPath, key + '/' + localPathParsed.base)
 									}
-
-								// Remap parent folder
-								} else if (localPathIsInit(localPath) || localPathParsed.base == 'init.meta.json' || localPathParsed.base == 'default.project.json') {
-									delete map[key]
-									mapDirectory(parentPathString, key)
-
-								// Map only file
-								} else if (localPathStats.isFile()) {
-									mapDirectory(localPath, key + '/' + localPathParsed.name)
-
-								// Map only directory
-								} else {
-									mapDirectory(localPath, key + '/' + localPathParsed.base)
 								}
 							}
+							if (!mTimes[localPath]) console.error(red('Lync bug:'), yellow('Failed to add'), cyan(localPath))
 						}
-						if (!mTimes[localPath]) console.error(red('Lync bug:'), yellow('Failed to add'), cyan(localPath))
 					}
-				}
 
-				generateSourcemap()
+					generateSourcemap()
+				}
 			}
+		} catch (err) {
+			console.error(red('Sync error:'), err)
 		}
 	})
 
