@@ -1021,7 +1021,9 @@ function generateSourcemap() {
 		}
 	})
 	.on('error', function(e) {
+		console.log()
 		console.error(red('Server error:'), yellow(e))
+		process.exit()
 	})
 	.listen(PORT, function() {
 		console.log(`\nSyncing ${green(projectJson.name)} on port ${yellow(PORT)}\n`)

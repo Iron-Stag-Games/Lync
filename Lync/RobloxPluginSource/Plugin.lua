@@ -813,7 +813,7 @@ local function setConnected(newConnected: boolean)
 				end
 			else
 				local success, result = pcall(function()
-					HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+					HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 				end)
 				if not success then
 					task.spawn(error, "[Lync] - " .. result)
