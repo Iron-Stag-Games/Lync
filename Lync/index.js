@@ -48,7 +48,8 @@ var map = {}
 var mTimes = {}
 var modified = {}
 var modified_playtest = {}
-var projectJson
+var projectJson;
+var globIgnorePaths;
 var hardLinkPaths = []
 
 
@@ -97,9 +98,9 @@ function localPathIsInit(localPath) {
 }
 
 function localPathIsIgnored(localPath) {
-	if (localPath != undefined && ('globIgnorePaths' in projectJson))
-		for (const index in projectJson.globIgnorePaths)
-			if (picomatch(projectJson.globIgnorePaths[index])(localPath))
+	if (localPath != undefined && globIgnorePaths != undefined)
+		for (const index in globIgnorePaths)
+			if (picomatch(globIgnorePaths[index])(localPath))
 				return true
 	return false
 }
@@ -359,6 +360,7 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExterna
 function changedJson() {
 	if (DEBUG) console.log('Loading', cyan(PROJECT_JSON))
 	projectJson = JSON.parse(fs.readFileSync(PROJECT_JSON))
+	globIgnorePaths = projectJson.globIgnorePaths
 	if (!fs.existsSync(projectJson.base)) {
 		console.error(red('Project error:'), yellow(`Base [${projectJson.base}] does not exist`))
 		process.exit()
@@ -737,7 +739,7 @@ function generateSourcemap() {
 		cwd: path.resolve(),
 		disableGlobbing: true,
 		ignoreInitial: true,
-		ignored: `{${PROJECT_JSON},${path.resolve(PROJECT_JSON, '../sourcemap.json').replace(/\\/g, '/')},.git/*}`,
+		ignored: `{${PROJECT_JSON},${path.resolve(PROJECT_JSON, '../sourcemap.json').replace(/\\/g, '/')},.git/*,${globIgnorePaths}}`,
 		persistent: true,
 		atomic: true,
 		ignorePermissionErrors: true,
