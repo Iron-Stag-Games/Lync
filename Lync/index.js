@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 19
+	Lync Server - Alpha 20
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -23,16 +23,17 @@ const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const process = require('process')
+
+const chokidar = require('chokidar')
 const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
-const minimatch = require('minimatch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 19'
+const VERSION = 'Alpha 20'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
-const PROJECT_JSON = ARGS[0]
+const PROJECT_JSON = ARGS[0].replace(/\\/g, '/')
 const DEBUG = ARGS[2] == 'DEBUG' || ARGS[3] == 'DEBUG'
 
 // Sync args
@@ -98,7 +99,7 @@ function localPathIsInit(localPath) {
 function localPathIsIgnored(localPath) {
 	if (localPath != undefined && ('globIgnorePaths' in projectJson))
 		for (const index in projectJson.globIgnorePaths)
-			if (minimatch(localPath, projectJson.globIgnorePaths[index]))
+			if (picomatch(projectJson.globIgnorePaths[index])(localPath))
 				return true
 	return false
 }
@@ -118,7 +119,7 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 	if (robloxPath in map) {
 		if (map[robloxPath].Path != mapDetails.Path && !map[robloxPath].ProjectJson) {
 			console.warn(yellow(`Collision on '${robloxPath}'`))
-			console.warn(map[robloxPath], '->', mapDetails)
+			if (DEBUG) console.warn(map[robloxPath], '->', mapDetails)
 		}
 		if (map[robloxPath].ProjectJson) {
 			mapDetails.ProjectJson = map[robloxPath].ProjectJson
@@ -732,16 +733,23 @@ function generateSourcemap() {
 	}
 
 	// Sync file changes
-
-	fs.watch(path.resolve(), { recursive: true }, function(event, localPath) {
+	chokidar.watch('.', {
+		cwd: path.resolve(),
+		disableGlobbing: true,
+		ignoreInitial: true,
+		ignored: `{${PROJECT_JSON},${path.resolve(PROJECT_JSON, '../sourcemap.json').replace(/\\/g, '/')},.git/*}`,
+		persistent: true,
+		atomic: true,
+		ignorePermissionErrors: true,
+		alwaysStat: true
+	}).on('all', (event, localPath, localPathStats) => {
+		if (DEBUG) console.log('E', yellow(event), cyan(localPath))
 		try {
 			if (localPath) {
 				localPath = path.relative(path.resolve(), localPath)
-				if (path.resolve(localPath) != path.resolve(PROJECT_JSON) && path.resolve(localPath) != path.resolve(PROJECT_JSON, '../sourcemap.json') && !localPathIsIgnored(localPath)) {
-					console.log('E', yellow(event), cyan(localPath))
+				if (!localPathIsIgnored(localPath)) {
 					localPath = localPath.replace(/\\/g, '/')
 					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-					let localPathStats; while (localPathStats == null) { try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (err) { console.error(red('File read error; retrying:'), cyan(localPath)) } }
 					if (localPath in mTimes) {
 
 						// Deleted
@@ -815,7 +823,7 @@ function generateSourcemap() {
 							mTimes[localPath] = localPathStats.mtimeMs
 						}
 
-					} else if (event == 'rename' && localPathStats) {
+					} else if ((event == 'add' | event == 'addDir') && localPathStats) {
 
 						// Added
 						for (const hardLinkPath of hardLinkPaths) {

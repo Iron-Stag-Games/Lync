@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 19
+	Lync Client - Alpha 20
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -31,7 +31,7 @@ local Selection = game:GetService("Selection")
 local StudioService = game:GetService("StudioService")
 local TweenService = game:GetService("TweenService")
 
-local VERSION = "Alpha 19"
+local VERSION = "Alpha 20"
 local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
 
 local LuaCsv = require(script.LuaCsv)
