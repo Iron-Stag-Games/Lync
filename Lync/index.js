@@ -740,7 +740,7 @@ function generateSourcemap() {
 				if (path.resolve(localPath) != path.resolve(PROJECT_JSON) && !localPathIsIgnored(localPath)) {
 					localPath = localPath.replace(/\\/g, '/')
 					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-					let localPathStats; try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (err) { return }
+					let localPathStats; while (localPathStats == undefined) { try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (err) { console.error(red('File read error; retrying:'), cyan(localPath)) } }
 					if (localPath in mTimes) {
 
 						// Deleted
