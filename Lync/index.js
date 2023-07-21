@@ -737,10 +737,11 @@ function generateSourcemap() {
 		try {
 			if (localPath) {
 				localPath = path.relative(path.resolve(), localPath)
-				if (path.resolve(localPath) != path.resolve(PROJECT_JSON) && !localPathIsIgnored(localPath)) {
+				if (path.resolve(localPath) != path.resolve(PROJECT_JSON) && path.resolve(localPath) != path.resolve(PROJECT_JSON, '../sourcemap.json') && !localPathIsIgnored(localPath)) {
+					console.log('E', yellow(event), cyan(localPath))
 					localPath = localPath.replace(/\\/g, '/')
 					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-					let localPathStats; while (localPathStats == undefined) { try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (err) { console.error(red('File read error; retrying:'), cyan(localPath)) } }
+					let localPathStats; while (localPathStats == null) { try { localPathStats = fs.statSync(localPath, { throwIfNoEntry: false }) } catch (err) { console.error(red('File read error; retrying:'), cyan(localPath)) } }
 					if (localPath in mTimes) {
 
 						// Deleted
