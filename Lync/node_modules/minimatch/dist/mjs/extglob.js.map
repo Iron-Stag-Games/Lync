@@ -1,1 +1,0 @@
-{"version":3,"file":"extglob.js","sourceRoot":"","sources":["../../src/extglob.ts"],"names":[],"mappings":"AAAA,iDAAiD","sourcesContent":["// translate an extglob into a regular expression\n\n// call into this when we get a [!?@+] followed by (\n// Walk down until we find the appropriate closing ),\n// and parse all the sections.\n\n\nexport {}\n"]}
