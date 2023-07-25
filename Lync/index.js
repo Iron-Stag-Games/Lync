@@ -27,6 +27,7 @@ const process = require('process')
 const chokidar = require('chokidar')
 const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
+const picomatch = require('picomatch')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
@@ -50,7 +51,8 @@ var modified = {}
 var modified_playtest = {}
 var projectJson;
 var globIgnorePaths;
-var hardLinkPaths = []
+var globIgnorePathsPicoMatch;
+var hardLinkPaths;
 
 
 // Output Functions
@@ -98,10 +100,10 @@ function localPathIsInit(localPath) {
 }
 
 function localPathIsIgnored(localPath) {
-	if (localPath != undefined && globIgnorePaths != undefined)
-		for (const index in globIgnorePaths)
-			if (picomatch(globIgnorePaths[index])(localPath))
-				return true
+	if (localPath != undefined) {
+		localPath = path.relative(path.resolve(), localPath)
+		return globIgnorePathsPicoMatch(localPath.replace(/\\/g, '/'))
+	}
 	return false
 }
 
@@ -150,6 +152,12 @@ function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPa
 
 function mapDirectory(localPath, robloxPath, flag) {
 	if (localPathIsIgnored(localPath)) return
+
+	// Update hard link (doesn't trigger during initial mapping)
+	if (hardLinkPaths)
+		for (const hardLinkPath of hardLinkPaths)
+			hardLinkRecursive(localPath, hardLinkPath)
+
 	const localPathStats = fs.statSync(localPath)
 	if (localPathStats.isFile()) {
 		const robloxPathParsed = path.parse(robloxPath)
@@ -360,7 +368,15 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExterna
 function changedJson() {
 	if (DEBUG) console.log('Loading', cyan(PROJECT_JSON))
 	projectJson = JSON.parse(fs.readFileSync(PROJECT_JSON))
-	globIgnorePaths = projectJson.globIgnorePaths
+	let globIgnorePathsArr = [
+		PROJECT_JSON,
+		path.relative(path.resolve(), path.resolve(PROJECT_JSON, '../sourcemap.json')).replace(/\\/g, '/'),
+		'.git/*'
+	]
+	if (projectJson.globIgnorePaths)
+		globIgnorePathsArr.push(projectJson.globIgnorePaths)
+	globIgnorePaths = `{${globIgnorePathsArr.join(',')}}`
+	globIgnorePathsPicoMatch = picomatch(globIgnorePaths)
 	if (!fs.existsSync(projectJson.base)) {
 		console.error(red('Project error:'), yellow(`Base [${projectJson.base}] does not exist`))
 		process.exit()
@@ -377,24 +393,31 @@ function changedJson() {
 
 // Sync Functions
 
-function hardLinkRecursive(hardLinkPath, localPath) {
+function hardLinkRecursive(existingPath, hardLinkPath) {
+	if (localPathIsIgnored(existingPath)) return
+	const stats = fs.statSync(existingPath)
+	const newPath = path.resolve(hardLinkPath, path.relative(path.resolve(), existingPath))
 	try {
-		const stats = fs.statSync(localPath)
-		const target = path.resolve(hardLinkPath, path.relative(path.resolve(), localPath))
+		const parentPath = path.resolve(newPath, '..')
+		if (!fs.existsSync(parentPath)) {
+			fs.mkdirSync(parentPath)
+		}
 		if (stats.isDirectory()) {
-			if (!fs.existsSync(target)) {
-				fs.mkdirSync(target)
+			if (!fs.existsSync(newPath)) {
+				fs.mkdirSync(newPath)
 			}
-			fs.readdirSync(localPath).forEach((dirNext) => {
-				hardLinkRecursive(hardLinkPath, path.resolve(localPath, dirNext))
+			fs.readdirSync(existingPath).forEach((dirNext) => {
+				hardLinkRecursive(path.resolve(existingPath, dirNext), hardLinkPath)
 			})
 		} else {
-			if (fs.existsSync(target)) {
-				fs.unlinkSync(target)
+			if (fs.existsSync(newPath)) {
+				fs.unlinkSync(newPath)
 			}
-			fs.linkSync(localPath, target)
+			fs.linkSync(existingPath, newPath)
 		}
-	} catch (err) {}
+	} catch (err) {
+		if (DEBUG) console.error(red('Hard link error:'), yellow(err))
+	}
 }
 
 async function getAsync(url, responseType) {
@@ -511,11 +534,11 @@ function generateSourcemap() {
 
 	if (CONFIG.AutoUpdate) {
 		console.log('Checking for updates . . .')
-		const versionFile = path.resolve(__dirname, 'version')
+		const latestIdFile = path.resolve(__dirname, 'latestId')
 		const configFile = path.resolve(__dirname, 'config.json')
 		let currentId = 0
 		try {
-			currentId = fs.readFileSync(versionFile)
+			currentId = fs.readFileSync(latestIdFile)
 		} catch (err) {}
 		try {
 			// Grab latest version info
@@ -533,12 +556,12 @@ function generateSourcemap() {
 				await extract(updateFile, { dir: __dirname })
 
 				// Write new version
-				fs.writeFileSync(versionFile, latest.id.toString())
+				fs.writeFileSync(latestIdFile, latest.id.toString())
 
 				// Delete old files
 				fs.readdirSync(__dirname).forEach((dirNext) => {
 					const next = path.resolve(__dirname, dirNext)
-					if (next != versionFile && next != extractedFolder) {
+					if (next != latestIdFile && next != extractedFolder) {
 						fs.rmSync(next, { force: true, recursive: true })
 					}
 				})
@@ -578,21 +601,21 @@ function generateSourcemap() {
 	}
 
 	// Begin
-	
+
 	console.log('Path:', cyan(path.resolve()))
 	console.log('Args:', ARGS)
-	
+
 	http.globalAgent.maxSockets = 65535
-	
+
 	// Check project file exists
-	
+
 	if (!fs.existsSync(PROJECT_JSON)) {
 		console.error(red('Project error:'), yellow(`Project [${PROJECT_JSON}] does not exist`))
 		process.exit()
 	}
-	
+
 	// Map project
-	
+
 	changedJson()
 	generateSourcemap()
 
@@ -739,9 +762,8 @@ function generateSourcemap() {
 		cwd: path.resolve(),
 		disableGlobbing: true,
 		ignoreInitial: true,
-		ignored: `{${PROJECT_JSON},${path.resolve(PROJECT_JSON, '../sourcemap.json').replace(/\\/g, '/')},.git/*,${globIgnorePaths}}`,
+		ignored: globIgnorePaths,
 		persistent: true,
-		atomic: true,
 		ignorePermissionErrors: true,
 		alwaysStat: true
 	}).on('all', (event, localPath, localPathStats) => {
@@ -809,9 +831,6 @@ function generateSourcemap() {
 
 						// Changed
 						} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
-							for (const hardLinkPath of hardLinkPaths) {
-								hardLinkRecursive(hardLinkPath, localPath)
-							}
 							console.log('M', cyan(localPath))
 							for (const key in map) {
 								if (map[key].InitParent == parentPathString) {
@@ -828,9 +847,6 @@ function generateSourcemap() {
 					} else if ((event == 'add' | event == 'addDir') && localPathStats) {
 
 						// Added
-						for (const hardLinkPath of hardLinkPaths) {
-							hardLinkRecursive(hardLinkPath, localPath)
-						}
 						if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
 							console.log('A', cyan(localPath))
 							for (const key in map) {
@@ -920,6 +936,7 @@ function generateSourcemap() {
 		switch(req.headers.type) {
 			case 'Map':
 				// Create content hard links
+
 				hardLinkPaths = []
 				if (process.platform == 'win32') {
 					const versionsPath = path.resolve(CONFIG.RobloxVersionsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
@@ -951,11 +968,10 @@ function generateSourcemap() {
 					hardLinkPaths.push(hardLinkPath)
 				}
 				for (const hardLinkPath of hardLinkPaths) {
-					if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
 					try {
 						fs.rmSync(hardLinkPath, { force: true, recursive: true })
 					} catch (err) {}
-					hardLinkRecursive(hardLinkPath, path.resolve())
+					hardLinkRecursive(path.resolve(), hardLinkPath)
 				}
 
 				// Send map
@@ -1035,9 +1051,9 @@ function generateSourcemap() {
 				res.end('Missing / invalid type header')
 		}
 	})
-	.on('error', function(e) {
+	.on('error', function(err) {
 		console.log()
-		console.error(red('Server error:'), yellow(e))
+		console.error(red('Server error:'), yellow(err))
 		process.exit()
 	})
 	.listen(PORT, function() {

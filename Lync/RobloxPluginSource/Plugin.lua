@@ -22,6 +22,11 @@
 
 if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Dependencies
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+-- Services
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local CollectionService = game:GetService("CollectionService")
 local CoreGui = game:GetService("CoreGui")
@@ -31,11 +36,18 @@ local Selection = game:GetService("Selection")
 local StudioService = game:GetService("StudioService")
 local TweenService = game:GetService("TweenService")
 
+-- Child Modules
+local LuaCsv = require(script.LuaCsv)
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Helper Variables
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+-- Constants
 local VERSION = "Alpha 20"
 local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
 
-local LuaCsv = require(script.LuaCsv)
-
+-- Defines
 local isBuildScript = false
 local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
@@ -47,14 +59,9 @@ local activeSourceRequests = 0
 local changedModels: {[Instance]: boolean} = {}
 local syncDuringTest = plugin:GetSetting("Lync_SyncDuringTest") or false
 
-if not serverKey then
-	serverKey = HttpService:GenerateGUID(false)
-	plugin:SetSetting("Lync_ServerKey", serverKey)
-end
-
-if not IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
-	workspace:SetAttribute("__lyncactive", nil)
-end
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Widget setup
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 -- Main Widget
 
@@ -87,7 +94,9 @@ unsavedModelWidgetFrame.Parent = unsavedModelWidget
 local unsavedModelWarning = script.UnsavedModelWarningGui
 unsavedModelWarning.Parent = CoreGui
 
--- Functions
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Helper Functions
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 local function connectButtonColors(button: TextButton)
 	button.MouseEnter:Connect(function()
@@ -561,12 +570,14 @@ local function buildPath(path: string)
 				OriginalTarget.Parent = nil
 			end
 			local objects = getObjects("rbxasset://lync/" .. data.Path)
-			if objects and #objects == 1 then
-				objects[1].Name = name
-				objects[1].Parent = target
-				listenForChanges(objects[1])
-			else
-				task.spawn(error, `[Lync] - '{data.Path}' cannot contain zero or multiple root Instances`)
+			if objects then
+				if #objects == 1 then
+					objects[1].Name = name
+					objects[1].Parent = target
+					listenForChanges(objects[1])
+				else
+					task.spawn(error, `[Lync] - '{data.Path}' cannot contain zero or multiple root Instances`)
+				end
 			end
 		elseif data.Type == "JSON" then
 			if createInstance then
@@ -669,17 +680,19 @@ local function buildPath(path: string)
 		if data.TerrainRegion then
 			if target == workspace.Terrain then
 				local objects = getObjects("rbxasset://lync/" .. data.TerrainRegion[1])
-				if objects and #objects == 1 then
-					lpcall("Set Terrain Region", function()
-						if isBuildScript then
-							workspace.Terrain.SmoothGrid = (objects[1] :: any).SmoothGrid
-						else
-							workspace.Terrain:Clear()
-							workspace.Terrain:PasteRegion(objects[1] :: TerrainRegion, eval(data.TerrainRegion[2]), data.TerrainRegion[3])
-						end
-					end)
-				else
-					task.spawn(error, `[Lync] - '{data.TerrainRegion[1]}' cannot contain zero or multiple root Instances`)
+				if objects then
+					if #objects == 1 then
+						lpcall("Set Terrain Region", function()
+							if isBuildScript then
+								workspace.Terrain.SmoothGrid = (objects[1] :: any).SmoothGrid
+							else
+								workspace.Terrain:Clear()
+								workspace.Terrain:PasteRegion(objects[1] :: TerrainRegion, eval(data.TerrainRegion[2]), data.TerrainRegion[3])
+							end
+						end)
+					else
+						task.spawn(error, `[Lync] - '{data.TerrainRegion[1]}' cannot contain zero or multiple root Instances`)
+					end
 				end
 			else
 				task.spawn(error, "[Lync] - Cannot use $terrainRegion property with " .. tostring(target))
@@ -837,17 +850,16 @@ local function setConnected(newConnected: boolean)
 	end
 end
 
-------------------------------------------------------------------------------
-
-local toolbar: PluginToolbar;
-local widgetButton: PluginToolbarButton;
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Toolbar
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 if not IS_PLAYTEST_SERVER then
 
 	-- Lync Client
 
-	toolbar = plugin:CreateToolbar("Lync " .. VERSION)
-	widgetButton = toolbar:CreateButton("Lync Client", "Toggle Lync Client widget", "rbxassetid://11619251438") :: PluginToolbarButton
+	local toolbar = plugin:CreateToolbar("Lync " .. VERSION)
+	local widgetButton = toolbar:CreateButton("Lync Client", "Toggle Lync Client widget", "rbxassetid://11619251438")
 
 	widgetButton.ClickableWhenViewportHidden = true
 	widgetButton:SetActive(mainWidget.Enabled)
@@ -1053,7 +1065,18 @@ if not IS_PLAYTEST_SERVER then
 	end)
 end
 
--- Sync
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Main Loop
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+if not serverKey then
+	serverKey = HttpService:GenerateGUID(false)
+	plugin:SetSetting("Lync_ServerKey", serverKey)
+end
+
+if not IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
+	workspace:SetAttribute("__lyncactive", nil)
+end
 
 if workspace:GetAttribute("__lyncbuildfile") and not IS_PLAYTEST_SERVER or syncDuringTest and IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
 	if syncDuringTest and IS_PLAYTEST_SERVER then warn("[Lync] - Playtest Sync is active.") end
