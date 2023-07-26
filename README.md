@@ -38,6 +38,23 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 | Automatic Shell Scripts | ⚠️ | ❌️ |
 | Place to Project Tool | ❌️ | ⚠️ |
 
+### File Types
+| | Lync | Rojo |
+|-|-|-|
+| LUA/LUAU | ✅️ | ✅️ |
+| Init Lua (Anonymous) | ✅️ | ✅️ |
+| Init Lua (Named) | ✅️ | ❌️ |
+| RBXM/RBXMX | ✅️ | ✅️ |
+| JSON | ✅️ | ✅️ |
+| Project JSON | ✅️ | ✅️ |
+| Meta JSON | ✅️ | ✅️ |
+| JSON Model | ✅️ | ✅️ |
+| YAML | ⚠️ | ❌️ |
+| TOML | ⚠️ | ❌️ |
+| Excel | ⚠️ | ❌️ |
+| TXT | ✅️ | ✅️ |
+| CSV | ✅️ | ✅️ |
+
 ⚠️ = Broken or WIP
 
 ### Pros

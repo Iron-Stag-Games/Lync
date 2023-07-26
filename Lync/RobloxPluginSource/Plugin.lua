@@ -579,7 +579,7 @@ local function buildPath(path: string)
 					task.spawn(error, `[Lync] - '{data.Path}' cannot contain zero or multiple root Instances`)
 				end
 			end
-		elseif data.Type == "JSON" then
+		elseif data.Type == "JSON" or data.Type == "YAML" or data.Type == "TOML" or data.Type == "Excel" then
 			if createInstance then
 				local newInstance = Instance.new("ModuleScript")
 				newInstance.Name = name
@@ -593,7 +593,18 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					target.Source = `return game:GetService("HttpService"):JSONDecode([===[{result}]===])`
+					if data.Type == 'YAML' then
+						-- Read and convert YAML to JSON
+						print("YAML unimplemented!")
+					elseif data.Type == 'TOML' then
+						-- Read and convert TOML to JSON
+						print("TOML unimplemented!")
+					elseif data.Type == 'Excel' then
+						-- Read and convert Excel to JSON
+						print("Excel unimplemented!")
+					else
+						target.Source = `return game:GetService("HttpService"):JSONDecode([===[{result}]===])`
+					end
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
 				end

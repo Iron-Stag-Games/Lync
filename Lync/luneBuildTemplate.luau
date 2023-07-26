@@ -45,9 +45,12 @@ local task = {
 }
 
 local HttpService = {
-	GetAsync = function(_, _, _, filePath)
-		local success, result = pcall(fs.readFile, filePath.Path)
-		return if success then result else nil
+	GetAsync = function(_, url, _nocache, headers)
+		return net.request({
+			url = url,
+			method = "GET",
+			headers = headers
+		}).body
 	end;
 	JSONDecode = function(_, json)
 		return net.jsonDecode(json)
@@ -75,7 +78,7 @@ local function listenForChanges()
 end
 
 local function getPort()
-	return ""
+	return "34873"
 end
 
 local function LuaCsv(_)

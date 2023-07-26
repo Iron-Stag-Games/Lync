@@ -38,7 +38,7 @@ const PROJECT_JSON = ARGS[0].replace(/\\/g, '/')
 const DEBUG = ARGS[2] == 'DEBUG' || ARGS[3] == 'DEBUG'
 
 // Sync args
-const PORT = ARGS[1]
+const PORT = ARGS[1] != 'OFFLINE' && ARGS[1] || '34873'
 const SYNC_ONLY = ARGS[2] == 'SYNC_ONLY' || ARGS[3] == 'SYNC_ONLY'
 
 // Offline build args
@@ -184,37 +184,44 @@ function mapDirectory(localPath, robloxPath, flag) {
 				}
 			}
 
+			// Lua
+			if (localPathExt == '.lua' || localPathExt == '.luau') {
+				let newRobloxPath = robloxPath
+				if (flag != 'JSON' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
+				mapLua(localPath, newRobloxPath, properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
+
 			// Models
-			if (localPathExt == '.rbxm' || localPathExt == '.rbxmx') {
+			} else if (localPathExt == '.rbxm' || localPathExt == '.rbxmx') {
 				assignMap(robloxPath, {
 					'Type': 'Model',
 					'Path': localPath,
 					'Meta': metaLocalPath
 				}, localPathStats.mtimeMs)
 
-			// Lua
-			} else if (localPathExt == '.lua' || localPathExt == '.luau') {
-				let newRobloxPath = robloxPath
-				if (flag != 'JSON' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
-				mapLua(localPath, newRobloxPath, properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
-
 			// JSON (non-meta)
 			} else if (localPathExt == '.json' && !localPathParsed.name.endsWith('.meta')) {
 
-				// Model Files
-				if (localPathParsed.name.endsWith('.model')) {
-					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
-						'Type': 'JsonModel',
-						'Path': localPath
-					}, localPathStats.mtimeMs)
-
 				// Project Files
-				} else if (localPathParsed.name.endsWith('.project')) {
+				if (localPathParsed.name.endsWith('.project')) {
 					mTimes[localPath] = localPathStats.mtimeMs
 					const subProjectJson = tryJsonParse(fs.readFileSync(localPath), localPath)
 					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
 					const externalPackageAppend = parentPathString != '' && parentPathString + '/' || ''
 					mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
+
+				// Model Files
+				} else if (localPathParsed.name.endsWith('.model')) {
+					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
+						'Type': 'JsonModel',
+						'Path': localPath
+					}, localPathStats.mtimeMs)
+
+				// Excel Tables
+				} else if (localPathParsed.name.endsWith('.excel')) {
+					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
+						'Type': 'Excel',
+						'Path': localPath
+					}, localPathStats.mtimeMs)
 
 				// Modules
 				} else {
@@ -223,6 +230,20 @@ function mapDirectory(localPath, robloxPath, flag) {
 						'Path': localPath
 					}, localPathStats.mtimeMs)
 				}
+
+			// YAML
+			} else if (localPathParsed.name.endsWith('.yaml')) {
+				assignMap(robloxPath, {
+					'Type': 'YAML',
+					'Path': localPath
+				}, localPathStats.mtimeMs)
+
+			// TOML
+			} else if (localPathParsed.name.endsWith('.toml')) {
+				assignMap(robloxPath, {
+					'Type': 'TOML',
+					'Path': localPath
+				}, localPathStats.mtimeMs)
 
 			// Plain Text
 			} else if (localPathExt == '.txt') {
@@ -705,207 +726,200 @@ function generateSourcemap() {
 
 		// Build RBXL
 		if (DEBUG) console.log('Building RBXL . . .')
-		const buildStatus = spawnSync(lunePath, [ `${buildScriptPath}` ], {
+		const build = spawn(lunePath, [ `${buildScriptPath}` ], {
 			cwd: process.cwd(),
 			detached: false,
 			stdio: 'inherit'
-		}).status
-		if (buildStatus == null) {
-			console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
-			process.exit(1)
-		} else if (buildStatus != 0) {
-			console.error(red('Build error:'), yellow(`Build script failed with status [${buildStatus}].`))
-			process.exit(3)
-		}
-		console.log('Build saved to', cyan(projectJson.build))
+		})
+		build.on('close', (status) => {
+			if (status == null) {
+				console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
+				process.exit(1)
+			} else if (status != 0) {
+				console.error(red('Build error:'), yellow(`Build script failed with status [${status}].`))
+				process.exit(3)
+			}
+			console.log('Build saved to', cyan(projectJson.build))
+			fs.rmSync(buildScriptPath)
+			process.exit()
+		})
 
-		// Open Studio (temporary)
-		/*spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
-			stdio: 'ignore',
-			detached: true,
-			shell: true,
-			windowsHide: true
-		})*/
-
-		// Cleanup
-		fs.rmSync(buildScriptPath)
-		process.exit()
 	} else {
+
+		// Copy base file
 		if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
 		fs.copyFileSync(projectJson.base, projectJson.build)
-	}
 
-	// Copy plugin
+		// Copy plugin
+		const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
+		if (!fs.existsSync(pluginsPath)) {
+			if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
+			fs.mkdirSync(pluginsPath)
+		}
+		if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
+		fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
+	
+		// Open Studio
+		if (!SYNC_ONLY) {
+			if (DEBUG) console.log('Opening', cyan(projectJson.build))
+			spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
+				stdio: 'ignore',
+				detached: true,
+				shell: true,
+				windowsHide: true
+			})
+		}
 
-	const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
-	if (!fs.existsSync(pluginsPath)) {
-		if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
-		fs.mkdirSync(pluginsPath)
-	}
-	if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
-	fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
-
-	// Open Studio
-
-	if (!SYNC_ONLY) {
-		if (DEBUG) console.log('Opening', cyan(projectJson.build))
-		spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
-			stdio: 'ignore',
-			detached: true,
-			shell: true,
-			windowsHide: true
+		// Sync file changes
+		chokidar.watch('.', {
+			cwd: path.resolve(),
+			disableGlobbing: true,
+			ignoreInitial: true,
+			ignored: globIgnorePaths,
+			persistent: true,
+			ignorePermissionErrors: true,
+			alwaysStat: true
+		}).on('all', (event, localPath, localPathStats) => {
+			if (DEBUG) console.log('E', yellow(event), cyan(localPath))
+			try {
+				if (localPath) {
+					localPath = path.relative(path.resolve(), localPath)
+					if (!localPathIsIgnored(localPath)) {
+						localPath = localPath.replace(/\\/g, '/')
+						const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
+						if (localPath in mTimes) {
+	
+							// Deleted
+							if (!localPathStats) {
+								console.log('D', cyan(localPath))
+								for (const key in map) {
+	
+									// Direct
+									if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
+										if (!map[key].ProjectJson) {
+											delete mTimes[map[key].Path]
+											delete map[key]
+											if (DEBUG) console.log('Deleted Path mapping', green(key))
+										} else {
+											if (DEBUG) console.log('Cannot delete Path mapping', cyan(map[key].Path), green(key))
+										}
+										modified[key] = false
+										modified_playtest[key] = false
+										if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
+											mapDirectory(parentPathString, key, 'Modified')
+										}
+									}
+	
+									// Meta
+									if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
+										if (!map[key].ProjectJson) {
+											delete mTimes[map[key].Meta]
+											delete map[key]
+											if (DEBUG) console.log('Deleted Meta mapping', green(key))
+										} else {
+											if (DEBUG) console.log('Cannot delete Meta mapping', cyan(map[key].Meta), green(key))
+										}
+										modified[key] = false
+										modified_playtest[key] = false
+										if (fs.existsSync(parentPathString)) {
+											mapDirectory(parentPathString, key, 'Modified')
+										}
+									}
+	
+									// JSON member
+									if (key in map && map[key].ProjectJson == localPath) {
+										if (map[key].Path in mTimes) {
+											delete mTimes[map[key].Path]
+										}
+										if (map[key].Meta in mTimes) {
+											delete mTimes[map[key].Meta]
+										}
+										delete map[key]
+										modified[key] = false
+										modified_playtest[key] = false
+										if (DEBUG) console.log('Deleted ProjectJson mapping', green(key))
+									}
+								}
+								delete mTimes[localPath]
+	
+							// Changed
+							} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
+								console.log('M', cyan(localPath))
+								for (const key in map) {
+									if (map[key].InitParent == parentPathString) {
+										mapDirectory(parentPathString, key, 'Modified')
+									} else if (map[key].Meta == localPath) {
+										mapDirectory(map[key].Path, key, 'Modified')
+									} else if (map[key].Path == localPath) {
+										mapDirectory(localPath, key, 'Modified')
+									}
+								}
+								mTimes[localPath] = localPathStats.mtimeMs
+							}
+	
+						} else if ((event == 'add' | event == 'addDir') && localPathStats) {
+	
+							// Added
+							if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
+								console.log('A', cyan(localPath))
+								for (const key in map) {
+									if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
+										const localPathParsed = path.parse(localPath)
+										const localPathExt = localPathParsed.ext.toLowerCase()
+	
+										// Remap adjacent matching file
+										if (localPathParsed.name != 'init.meta'  && localPathParsed.name.endsWith('.meta') && localPathExt == '.json') {
+											const title = localPathParsed.name.slice(0, -5)
+											if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
+												delete map[key]
+												mapDirectory(localPath, title + '.lua')
+											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.lua')) {
+												delete map[key]
+												mapDirectory(localPath, title + '.client.lua')
+											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.lua')) {
+												delete map[key]
+												mapDirectory(localPath, title + '.server.lua')
+											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
+												delete map[key]
+												mapDirectory(localPath, title + '.luau')
+											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.luau')) {
+												delete map[key]
+												mapDirectory(localPath, title + '.client.luau')
+											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.luau')) {
+												delete map[key]
+												mapDirectory(localPath, title + '.server.luau')
+											} else {
+												console.error(red('Project error:'), yellow(`Stray meta file [${localPath}]`))
+												return
+											}
+	
+										// Remap parent folder
+										} else if (localPathIsInit(localPath) || localPathParsed.base == 'init.meta.json' || localPathParsed.base == 'default.project.json') {
+											delete map[key]
+											mapDirectory(parentPathString, key)
+	
+										// Map only file
+										} else if (localPathStats.isFile()) {
+											mapDirectory(localPath, key + '/' + localPathParsed.name)
+	
+										// Map only directory
+										} else {
+											mapDirectory(localPath, key + '/' + localPathParsed.base)
+										}
+									}
+								}
+								if (!mTimes[localPath]) console.error(red('Lync bug:'), yellow('Failed to add'), cyan(localPath))
+							}
+						}
+	
+						generateSourcemap()
+					}
+				}
+			} catch (err) {
+				console.error(red('Sync error:'), err)
+			}
 		})
 	}
-
-	// Sync file changes
-	chokidar.watch('.', {
-		cwd: path.resolve(),
-		disableGlobbing: true,
-		ignoreInitial: true,
-		ignored: globIgnorePaths,
-		persistent: true,
-		ignorePermissionErrors: true,
-		alwaysStat: true
-	}).on('all', (event, localPath, localPathStats) => {
-		if (DEBUG) console.log('E', yellow(event), cyan(localPath))
-		try {
-			if (localPath) {
-				localPath = path.relative(path.resolve(), localPath)
-				if (!localPathIsIgnored(localPath)) {
-					localPath = localPath.replace(/\\/g, '/')
-					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-					if (localPath in mTimes) {
-
-						// Deleted
-						if (!localPathStats) {
-							console.log('D', cyan(localPath))
-							for (const key in map) {
-
-								// Direct
-								if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
-									if (!map[key].ProjectJson) {
-										delete mTimes[map[key].Path]
-										delete map[key]
-										if (DEBUG) console.log('Deleted Path mapping', green(key))
-									} else {
-										if (DEBUG) console.log('Cannot delete Path mapping', cyan(map[key].Path), green(key))
-									}
-									modified[key] = false
-									modified_playtest[key] = false
-									if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
-										mapDirectory(parentPathString, key, 'Modified')
-									}
-								}
-
-								// Meta
-								if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
-									if (!map[key].ProjectJson) {
-										delete mTimes[map[key].Meta]
-										delete map[key]
-										if (DEBUG) console.log('Deleted Meta mapping', green(key))
-									} else {
-										if (DEBUG) console.log('Cannot delete Meta mapping', cyan(map[key].Meta), green(key))
-									}
-									modified[key] = false
-									modified_playtest[key] = false
-									if (fs.existsSync(parentPathString)) {
-										mapDirectory(parentPathString, key, 'Modified')
-									}
-								}
-
-								// JSON member
-								if (key in map && map[key].ProjectJson == localPath) {
-									if (map[key].Path in mTimes) {
-										delete mTimes[map[key].Path]
-									}
-									if (map[key].Meta in mTimes) {
-										delete mTimes[map[key].Meta]
-									}
-									delete map[key]
-									modified[key] = false
-									modified_playtest[key] = false
-									if (DEBUG) console.log('Deleted ProjectJson mapping', green(key))
-								}
-							}
-							delete mTimes[localPath]
-
-						// Changed
-						} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
-							console.log('M', cyan(localPath))
-							for (const key in map) {
-								if (map[key].InitParent == parentPathString) {
-									mapDirectory(parentPathString, key, 'Modified')
-								} else if (map[key].Meta == localPath) {
-									mapDirectory(map[key].Path, key, 'Modified')
-								} else if (map[key].Path == localPath) {
-									mapDirectory(localPath, key, 'Modified')
-								}
-							}
-							mTimes[localPath] = localPathStats.mtimeMs
-						}
-
-					} else if ((event == 'add' | event == 'addDir') && localPathStats) {
-
-						// Added
-						if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
-							console.log('A', cyan(localPath))
-							for (const key in map) {
-								if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
-									const localPathParsed = path.parse(localPath)
-									const localPathExt = localPathParsed.ext.toLowerCase()
-
-									// Remap adjacent matching file
-									if (localPathParsed.name != 'init.meta'  && localPathParsed.name.endsWith('.meta') && localPathExt == '.json') {
-										const title = localPathParsed.name.slice(0, -5)
-										if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
-											delete map[key]
-											mapDirectory(localPath, title + '.lua')
-										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.lua')) {
-											delete map[key]
-											mapDirectory(localPath, title + '.client.lua')
-										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.lua')) {
-											delete map[key]
-											mapDirectory(localPath, title + '.server.lua')
-										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
-											delete map[key]
-											mapDirectory(localPath, title + '.luau')
-										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.luau')) {
-											delete map[key]
-											mapDirectory(localPath, title + '.client.luau')
-										} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.luau')) {
-											delete map[key]
-											mapDirectory(localPath, title + '.server.luau')
-										} else {
-											console.error(red('Project error:'), yellow(`Stray meta file [${localPath}]`))
-											return
-										}
-
-									// Remap parent folder
-									} else if (localPathIsInit(localPath) || localPathParsed.base == 'init.meta.json' || localPathParsed.base == 'default.project.json') {
-										delete map[key]
-										mapDirectory(parentPathString, key)
-
-									// Map only file
-									} else if (localPathStats.isFile()) {
-										mapDirectory(localPath, key + '/' + localPathParsed.name)
-
-									// Map only directory
-									} else {
-										mapDirectory(localPath, key + '/' + localPathParsed.base)
-									}
-								}
-							}
-							if (!mTimes[localPath]) console.error(red('Lync bug:'), yellow('Failed to add'), cyan(localPath))
-						}
-					}
-
-					generateSourcemap()
-				}
-			}
-		} catch (err) {
-			console.error(red('Sync error:'), err)
-		}
-	})
 
 	// Start server
 
@@ -915,20 +929,22 @@ function generateSourcemap() {
 			res.end(`Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`)
 			return
 		}
-		if (!securityKey) {
-			const pluginSettings = path.resolve(
-				process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME),
-				`../${req.headers.userid}/InstalledPlugins/0/settings.json`
-			)
-			securityKey = JSON.parse(fs.readFileSync(pluginSettings)).Lync_ServerKey
-			if (DEBUG) console.log('Client connected.')
-		}
-		if (req.headers.key != securityKey) {
-			const errText = `Security key mismatch. The current session will now be terminated. (Key = ${req.headers.key})\nPlease check for any malicious plugins or scripts and try again.`
-			console.error(red('Server error:'), yellow(errText))
-			res.writeHead(403)
-			res.end(errText)
-			process.exit()
+		if (!OFFLINE) {
+			if (!securityKey) {
+				const pluginSettings = path.resolve(
+					process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME),
+					`../${req.headers.userid}/InstalledPlugins/0/settings.json`
+				)
+				securityKey = JSON.parse(fs.readFileSync(pluginSettings)).Lync_ServerKey
+				if (DEBUG) console.log('Client connected.')
+			}
+			if (req.headers.key != securityKey) {
+				const errText = `Security key mismatch. The current session will now be terminated. (Key = ${req.headers.key})\nPlease check for any malicious plugins or scripts and try again.`
+				console.error(red('Server error:'), yellow(errText))
+				res.writeHead(403)
+				res.end(errText)
+				process.exit()
+			}
 		}
 
 		let jsonString;
@@ -1013,6 +1029,10 @@ function generateSourcemap() {
 					res.writeHead(404)
 					res.end(err.toString())
 				}
+				break
+
+			case 'ParseExcel':
+				// Read and convert Excel to JSON
 				break
 
 			case 'ReverseSync':
