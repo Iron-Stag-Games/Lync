@@ -1,0 +1,6 @@
+{
+    "Spreadsheet": "Test_excel.xlsx",
+    "Ref": "=Sheet1!$C$4:$E$7",
+    "HasHeader": true,
+    "FirstValueIsKey": true
+}

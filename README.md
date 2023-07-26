@@ -49,8 +49,8 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 | Project JSON | ✅️ | ✅️ |
 | Meta JSON | ✅️ | ✅️ |
 | JSON Model | ✅️ | ✅️ |
-| YAML | ⚠️ | ❌️ |
-| TOML | ⚠️ | ❌️ |
+| YAML | ✅️ | ❌️ |
+| TOML | ✅️ | ❌️ |
 | Excel | ⚠️ | ❌️ |
 | TXT | ✅️ | ✅️ |
 | CSV | ✅️ | ✅️ |

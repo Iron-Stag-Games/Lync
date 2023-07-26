@@ -492,11 +492,15 @@ local function buildPath(path: string)
 			target = game:GetService(subpath :: any)
 		elseif nextTarget then
 			if target ~= game and index == #subpaths then
-				if not data or data.Type ~= "Lua" or nextTarget.ClassName ~= (if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript") then
+				if
+					not data
+					or (data.Type == "Model" or data.Type == "JsonModel")
+					or nextTarget.ClassName ~= (if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript")
+				then
 					if not pcall(function()
-							nextTarget.Parent = nil
-							createInstance = true
-						end) then
+						nextTarget.Parent = nil
+						createInstance = true
+					end) then
 						target = nextTarget
 					end
 				else
@@ -589,7 +593,7 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					target.Source = `return game:GetService("HttpService"):JSONDecode([===[{result}]===])`
+					target.Source = result
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
 				end

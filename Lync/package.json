@@ -4,6 +4,7 @@
     "csv-parse": "^5.4.0",
     "extract-zip": "^2.0.1",
     "follow-redirects": "^1.15.2",
+    "lua-json": "^1.0.1",
     "node-watch": "^0.7.3",
     "toml": "^3.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.0/xlsx-0.20.0.tgz",

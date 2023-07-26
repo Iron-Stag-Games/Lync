@@ -29,6 +29,7 @@ const chokidar = require('chokidar')
 const { parse: csvParse } = require('csv-parse/sync')
 const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
+const { format: luaFormat } = require('lua-json')
 const picomatch = require('picomatch')
 const toml = require('toml')
 const yaml = require('yaml')
@@ -226,7 +227,8 @@ function mapDirectory(localPath, robloxPath, flag) {
 				} else if (localPathParsed.name.endsWith('.excel')) {
 					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
 						'Type': 'Excel',
-						'Path': localPath
+						'Path': localPath,
+						'Meta': path.relative(path.resolve(), path.resolve(localPath, '..', tryJsonParse(fs.readFileSync(localPath)).Spreadsheet)).replace(/\\/g, '/')
 					}, localPathStats.mtimeMs)
 
 				// Modules
@@ -398,7 +400,9 @@ function changedJson() {
 	let globIgnorePathsArr = [
 		PROJECT_JSON,
 		path.relative(path.resolve(), path.resolve(PROJECT_JSON, '../sourcemap.json')).replace(/\\/g, '/'),
-		'.git/*'
+		'*.lock',
+		'.git/*',
+		'~$*'
 	]
 	if (projectJson.globIgnorePaths)
 		globIgnorePathsArr.push(projectJson.globIgnorePaths)
@@ -1029,25 +1033,63 @@ function generateSourcemap() {
 				try {
 					let read = fs.readFileSync(req.headers.path)
 
+					// Parse JSON
+					if (req.headers.datatype == 'JSON') {
+						read = luaFormat(JSON.parse(read), { singleQuote: false, spaces: '\t' })
+
 					// Convert YAML to JSON
-					if (req.headers.datatype == 'YAML') {
-						read = JSON.stringify(yaml.parse(decoder.decode(read)), null, '\t')
+					} else if (req.headers.datatype == 'YAML') {
+						read = luaFormat(yaml.parse(decoder.decode(read)), { singleQuote: false, spaces: '\t' })
 
 					// Convert TOML to JSON
 					} else if (req.headers.datatype == 'TOML') {
-						read = JSON.stringify(toml.parse(decoder.decode(read)), null, '\t')
+						read = luaFormat(toml.parse(decoder.decode(read)), { singleQuote: false, spaces: '\t' })
 
 					// Read and convert Excel Tables to JSON
 					} else if (req.headers.datatype == 'Excel') {
-						const tableDefinitions = JSON.parse(decoder.decode(read))
-						if (!('Spreadsheet' in tableDefinitions)) {
-							res.writeHead(403)
-							res.end('Spreadsheet field is required')
-							break
-						}
-						const excelFilePath = path.resolve(req.headers.path, '..', JSON.parse(decoder.decode(read)).Spreadsheet)
+						let tableDefinitions = JSON.parse(decoder.decode(read))
+						const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.Spreadsheet)
 						const excelFile = xlsx.readFile(excelFilePath)
-						console.log(excelFile)
+
+						// Convert Excel 'Defined Name' to 'Ref'
+						for (const definedName of excelFile.Workbook.Names) {
+							if (definedName.Name == tableDefinitions.Ref) {
+								tableDefinitions.Ref = definedName.Ref
+								break
+							}
+						}
+
+						// Find current sheet and range to read from
+						let sheet;
+						let range;
+						if (tableDefinitions.Ref.includes('!')) {
+							const ref = tableDefinitions.Ref.replace('=', '').split('!')
+							sheet = excelFile.Sheets[ref[0]]
+							range = xlsx.utils.decode_range(ref[1])
+						} else {
+							sheet = excelFile.Sheets[excelFile.SheetNames[0]]
+							range = xlsx.utils.decode_range(tableDefinitions.Ref.replace('=', ''))
+						}
+
+						// Convert cells to dict
+						const sheetJson = xlsx.utils.sheet_to_json(sheet, {
+							range: range,
+							header: 1,
+							defval: null
+						})
+						let entries = tableDefinitions.FirstValueIsKey && {} || []
+						const startRow = tableDefinitions.HasHeader && 1 || 0
+						const startColumn = tableDefinitions.FirstValueIsKey && 1 || 0
+						const header = sheetJson[0];
+						for (let row = startRow; row < sheetJson.length; row++) {
+							const key = tableDefinitions.FirstValueIsKey && sheetJson[row][0] || (row - startRow)
+							entries[key] = tableDefinitions.HasHeader && {} || []
+							for (let column = startColumn; column < header.length; column++) {
+								const value = tableDefinitions.HasHeader && header[column] || (column - startColumn)
+								entries[key][value] = sheetJson[row][column]
+							}
+						}
+						read = luaFormat(entries, { singleQuote: false, spaces: '\t' })
 
 					// Convert Localization CSV to JSON
 					} else if (req.headers.datatype == 'Localization') {
@@ -1069,7 +1111,7 @@ function generateSourcemap() {
 					res.end(read)
 				} catch (err) {
 					console.error(red('Server error:'), yellow(err))
-					res.writeHead(404)
+					res.writeHead(500)
 					res.end(err.toString())
 				}
 				break

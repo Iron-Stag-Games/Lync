@@ -3,4 +3,5 @@ desktop.ini
 Sample Project/BuildScripts/Build/*
 !Sample Project/BuildScripts/Build/.gitkeep
 *.lock
+~$*
 Sample Project/sourcemap.json
