@@ -1,5 +1,5 @@
 /*
-	Lync Server - Alpha 20
+	Lync Server
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -18,6 +18,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 */
+const VERSION = 'Alpha 21'
 
 const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
@@ -25,13 +26,16 @@ const path = require('path')
 const process = require('process')
 
 const chokidar = require('chokidar')
+const { parse: csvParse } = require('csv-parse/sync')
 const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
 const picomatch = require('picomatch')
+const toml = require('toml')
+const yaml = require('yaml')
+const xlsx = require('xlsx')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const VERSION = 'Alpha 20'
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0].replace(/\\/g, '/')
@@ -53,6 +57,8 @@ var projectJson;
 var globIgnorePaths;
 var globIgnorePathsPicoMatch;
 var hardLinkPaths;
+
+var decoder = new TextDecoder('utf-8')
 
 
 // Output Functions
@@ -90,7 +96,7 @@ function toEscapeSequence(str) {
 
 function localPathExtensionIsMappable(localPath) {
 	const localPathExt = path.parse(localPath).ext.toLowerCase()
-	return localPathExt == '.rbxm' || localPathExt == '.rbxmx' || localPathExt == '.lua' || localPathExt == '.luau' || localPathExt == '.json' || localPathExt == '.txt' || localPathExt == '.csv'
+	return localPathExt == '.rbxm' || localPathExt == '.rbxmx' || localPathExt == '.lua' || localPathExt == '.luau' || localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml' || localPathExt == '.txt' || localPathExt == '.csv'
 }
 
 function localPathIsInit(localPath) {
@@ -232,14 +238,14 @@ function mapDirectory(localPath, robloxPath, flag) {
 				}
 
 			// YAML
-			} else if (localPathParsed.name.endsWith('.yaml')) {
+			} else if (localPathExt == '.yaml') {
 				assignMap(robloxPath, {
 					'Type': 'YAML',
 					'Path': localPath
 				}, localPathStats.mtimeMs)
 
 			// TOML
-			} else if (localPathParsed.name.endsWith('.toml')) {
+			} else if (localPathExt == '.toml') {
 				assignMap(robloxPath, {
 					'Type': 'TOML',
 					'Path': localPath
@@ -1021,7 +1027,44 @@ function generateSourcemap() {
 
 			case 'Source':
 				try {
-					const read = fs.readFileSync(req.headers.path)
+					let read = fs.readFileSync(req.headers.path)
+
+					// Convert YAML to JSON
+					if (req.headers.datatype == 'YAML') {
+						read = JSON.stringify(yaml.parse(decoder.decode(read)), null, '\t')
+
+					// Convert TOML to JSON
+					} else if (req.headers.datatype == 'TOML') {
+						read = JSON.stringify(toml.parse(decoder.decode(read)), null, '\t')
+
+					// Read and convert Excel Tables to JSON
+					} else if (req.headers.datatype == 'Excel') {
+						const tableDefinitions = JSON.parse(decoder.decode(read))
+						if (!('Spreadsheet' in tableDefinitions)) {
+							res.writeHead(403)
+							res.end('Spreadsheet field is required')
+							break
+						}
+						const excelFilePath = path.resolve(req.headers.path, '..', JSON.parse(decoder.decode(read)).Spreadsheet)
+						const excelFile = xlsx.readFile(excelFilePath)
+						console.log(excelFile)
+
+					// Convert Localization CSV to JSON
+					} else if (req.headers.datatype == 'Localization') {
+						let entries = []
+						const csv = csvParse(read)
+						const header = csv[0]
+						for (let lIndex = 1; lIndex < csv.length; lIndex++) {
+							const entry = csv[lIndex]
+							let values = {}
+							for (let eIndex = 4; eIndex < entry.length; eIndex++) {
+								values[header[eIndex]] = entry[eIndex]
+							}
+							entries.push({ Key: entry[0], Source: entry[1], Context: entry[2], Example: entry[3], Values: values })
+						}
+						read = JSON.stringify(entries)
+					}
+
 					res.writeHead(200)
 					res.end(read)
 				} catch (err) {
@@ -1029,10 +1072,6 @@ function generateSourcemap() {
 					res.writeHead(404)
 					res.end(err.toString())
 				}
-				break
-
-			case 'ParseExcel':
-				// Read and convert Excel to JSON
 				break
 
 			case 'ReverseSync':

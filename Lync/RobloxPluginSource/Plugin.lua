@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Lync Client - Alpha 20
+	Lync Client
 	https://github.com/Iron-Stag-Games/Lync
 	Copyright (C) 2022  Iron Stag Games
 
@@ -19,6 +19,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 ]]
+local VERSION = "Alpha 21"
 
 if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
@@ -26,7 +27,6 @@ if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("
 -- Dependencies
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
--- Services
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local CollectionService = game:GetService("CollectionService")
 local CoreGui = game:GetService("CoreGui")
@@ -36,15 +36,11 @@ local Selection = game:GetService("Selection")
 local StudioService = game:GetService("StudioService")
 local TweenService = game:GetService("TweenService")
 
--- Child Modules
-local LuaCsv = require(script.LuaCsv)
-
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Helper Variables
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 -- Constants
-local VERSION = "Alpha 20"
 local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
 
 -- Defines
@@ -589,22 +585,11 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
 				end)
 				activeSourceRequests -= 1
 				if success then
-					if data.Type == 'YAML' then
-						-- Read and convert YAML to JSON
-						print("YAML unimplemented!")
-					elseif data.Type == 'TOML' then
-						-- Read and convert TOML to JSON
-						print("TOML unimplemented!")
-					elseif data.Type == 'Excel' then
-						-- Read and convert Excel to JSON
-						print("Excel unimplemented!")
-					else
-						target.Source = `return game:GetService("HttpService"):JSONDecode([===[{result}]===])`
-					end
+					target.Source = `return game:GetService("HttpService"):JSONDecode([===[{result}]===])`
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
 				end
@@ -660,26 +645,15 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = "Localization"})
 				end)
 				activeSourceRequests -= 1
 				if success then
-					local entries = {}
-					local lines = result:split("\n")
-					local header = LuaCsv(lines[1])
-					for lIndex = 2, #lines do
-						local entry = LuaCsv(lines[lIndex])
-						local values = {}
-						for eIndex = 5, #entry do
-							values[header[eIndex]] = entry[eIndex]
-						end
-						table.insert(entries, {Key = entry[1], Source = entry[2], Context = entry[3], Example = entry[4], Values = values})
-					end
 					lpcall("Set Entries", function()
 						if isBuildScript then
 							print("Localization entries unimplemented!")
 						else
-							target:SetEntries(entries)
+							target:SetEntries(HttpService:JSONDecode(result))
 						end
 					end)
 				else
