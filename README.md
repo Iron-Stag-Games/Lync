@@ -41,7 +41,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 ### File Types
 | | Lync | Rojo |
 |-|-|-|
-| LUA/LUAU | ✅️ | ✅️ |
+| LUAU/LUA | ✅️ | ✅️ |
 | Init Lua (Anonymous) | ✅️ | ✅️ |
 | Init Lua (Named) | ✅️ | ❌️ |
 | RBXM/RBXMX | ✅️ | ✅️ |
@@ -50,10 +50,10 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 | Meta JSON | ✅️ | ✅️ |
 | JSON Model | ✅️ | ✅️ |
 | YAML | ✅️ | ❌️ |
-| TOML | ✅️ | ❌️ |
-| Excel | ✅️ | ❌️ |
+| TOML | ✅️ | ✅️ |
+| XLSX/XLS | ✅️ | ❌️ |
 | TXT | ✅️ | ✅️ |
-| CSV | ✅️ | ✅️ |
+| Localization Table | ✅️ | ✅️ |
 
 ⚠️ = Broken or WIP
 
