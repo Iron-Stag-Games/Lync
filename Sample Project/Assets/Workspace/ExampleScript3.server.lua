@@ -1,4 +1,4 @@
--- This is a script with a JSON meta file
+-- This is a script with a TOML meta file
 
 print(require(script.Parent:WaitForChild("ExampleModule")))
 

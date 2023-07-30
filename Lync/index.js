@@ -31,9 +31,9 @@ const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
 const { format: luaFormat } = require('lua-json')
 const picomatch = require('picomatch')
-const toml = require('toml')
-const yaml = require('yaml')
-const xlsx = require('xlsx')
+const TOML = require('toml')
+const YAML = require('yaml')
+const XLSX = require('xlsx')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
@@ -59,7 +59,7 @@ var globIgnorePaths;
 var globIgnorePathsPicoMatch;
 var hardLinkPaths;
 
-var decoder = new TextDecoder('utf-8')
+var utf8 = new TextDecoder('utf-8')
 
 
 // Output Functions
@@ -102,8 +102,9 @@ function localPathExtensionIsMappable(localPath) {
 
 function localPathIsInit(localPath) {
 	const localPathParsed = path.parse(localPath)
+	const localPathName = localPathParsed.Name.toLowerCase()
 	const localPathExt = localPathParsed.ext.toLowerCase()
-	return (localPathExt == '.lua' || localPathExt == '.luau') && (localPathParsed.name == 'init' || localPathParsed.name == 'init.client' || localPathParsed.name == 'init.server' || localPathParsed.name.endsWith('.init') || localPathParsed.name.endsWith('.init.client') || localPathParsed.name.endsWith('.init.server'))
+	return (localPathExt == '.lua' || localPathExt == '.luau') && (localPathName == 'init' || localPathName == 'init.client' || localPathName == 'init.server' || localPathName.endsWith('.init') || localPathName.endsWith('.init.client') || localPathName.endsWith('.init.server'))
 }
 
 function localPathIsIgnored(localPath) {
@@ -117,6 +118,24 @@ function localPathIsIgnored(localPath) {
 function tryJsonParse(fileRead, localPath) {
 	try {
 		return JSON.parse(fileRead)
+	} catch (err) {
+		console.error(red('Project error:'), cyan(localPath), yellow(err))
+		return {}
+	}
+}
+
+function tryYamlParse(fileRead, localPath) {
+	try {
+		return YAML.parse(fileRead)
+	} catch (err) {
+		console.error(red('Project error:'), cyan(localPath), yellow(err))
+		return {}
+	}
+}
+
+function tryTomlParse(fileRead, localPath) {
+	try {
+		return TOML.parse(fileRead)
 	} catch (err) {
 		console.error(red('Project error:'), cyan(localPath), yellow(err))
 		return {}
@@ -172,6 +191,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 		if (localPathExtensionIsMappable(localPath)) {
 			mTimes[localPath] = localPathStats.mtimeMs
 			const localPathParsed = path.parse(localPath)
+			const localPathName = localPathParsed.name.toLowerCase()
 			const localPathExt = localPathParsed.ext.toLowerCase()
 			let properties;
 			let attributes;
@@ -180,21 +200,34 @@ function mapDirectory(localPath, robloxPath, flag) {
 
 			// Lua Meta Files
 			if (localPathExt == '.lua' || localPathExt == '.luau' || localPathExt == '.txt' || localPathExt == '.csv') {
-				const title = (localPathExt == '.lua' || localPathExt == '.luau') && (localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name
-				const metaLocalPathCheck = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.json'
-				if (fs.existsSync(metaLocalPathCheck)) {
-					const metaJson = tryJsonParse(fs.readFileSync(metaLocalPathCheck), metaLocalPathCheck)
-					properties = metaJson['properties']
-					attributes = metaJson['attributes']
-					tags = metaJson['tags']
-					metaLocalPath = metaLocalPathCheck
+				let luaMeta;
+				const title = (localPathExt == '.lua' || localPathExt == '.luau') && (localPathName.endsWith('.client') || localPathName.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name
+				const metaLocalPathJson = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.json'
+				const metaLocalPathYaml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.yaml'
+				const metaLocalPathToml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.toml'
+				if (fs.existsSync(metaLocalPathJson)) {
+					luaMeta = tryJsonParse(fs.readFileSync(metaLocalPathJson), metaLocalPathJson)
+					metaLocalPath = metaLocalPathJson
+				} else if (fs.existsSync(metaLocalPathYaml)) {
+					luaMeta = tryYamlParse(utf8.decode(fs.readFileSync(metaLocalPathYaml)), metaLocalPathYaml)
+					metaLocalPath = metaLocalPathYaml
+				} else if (fs.existsSync(metaLocalPathToml)) {
+					luaMeta = tryTomlParse(utf8.decode(fs.readFileSync(metaLocalPathToml)), metaLocalPathToml)
+					metaLocalPath = metaLocalPathToml
+				}
+				if (luaMeta) {
+					properties = luaMeta['properties']
+					attributes = luaMeta['attributes']
+					tags = luaMeta['tags']
+				} else {
+					metaLocalPath = undefined
 				}
 			}
 
 			// Lua
 			if (localPathExt == '.lua' || localPathExt == '.luau') {
 				let newRobloxPath = robloxPath
-				if (flag != 'JSON' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathParsed.name.endsWith('.client') || localPathParsed.name.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
+				if (flag != 'JSON' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathName.endsWith('.client') || localPathName.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
 				mapLua(localPath, newRobloxPath, properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
 
 			// Models
@@ -206,10 +239,10 @@ function mapDirectory(localPath, robloxPath, flag) {
 				}, localPathStats.mtimeMs)
 
 			// JSON (non-meta)
-			} else if (localPathExt == '.json' && !localPathParsed.name.endsWith('.meta')) {
+			} else if (localPathExt == '.json' && !localPathName.endsWith('.meta')) {
 
 				// Project Files
-				if (localPathParsed.name.endsWith('.project')) {
+				if (localPathName.endsWith('.project')) {
 					mTimes[localPath] = localPathStats.mtimeMs
 					const subProjectJson = tryJsonParse(fs.readFileSync(localPath), localPath)
 					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
@@ -217,14 +250,14 @@ function mapDirectory(localPath, robloxPath, flag) {
 					mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
 
 				// Model Files
-				} else if (localPathParsed.name.endsWith('.model')) {
+				} else if (localPathName.endsWith('.model')) {
 					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
 						'Type': 'JsonModel',
 						'Path': localPath
 					}, localPathStats.mtimeMs)
 
 				// Excel Tables
-				} else if (localPathParsed.name.endsWith('.excel')) {
+				} else if (localPathName.endsWith('.excel')) {
 					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
 						'Type': 'Excel',
 						'Path': localPath,
@@ -239,15 +272,15 @@ function mapDirectory(localPath, robloxPath, flag) {
 					}, localPathStats.mtimeMs)
 				}
 
-			// YAML
-			} else if (localPathExt == '.yaml') {
+			// YAML (non-meta)
+			} else if (localPathExt == '.yaml' && !localPathName.endsWith('.meta')) {
 				assignMap(robloxPath, {
 					'Type': 'YAML',
 					'Path': localPath
 				}, localPathStats.mtimeMs)
 
-			// TOML
-			} else if (localPathExt == '.toml') {
+			// TOML (non-meta)
+			} else if (localPathExt == '.toml' && !localPathName.endsWith('.meta')) {
 				assignMap(robloxPath, {
 					'Type': 'TOML',
 					'Path': localPath
@@ -298,15 +331,30 @@ function mapDirectory(localPath, robloxPath, flag) {
 			let metaLocalPath;
 
 			// Init Meta Files
-			const metaLocalPathCheck = localPath + '/init.meta.json'
-			if (fs.existsSync(metaLocalPathCheck)) {
-				const metaJson = tryJsonParse(fs.readFileSync(metaLocalPathCheck), metaLocalPathCheck)
-				className = metaJson['className'] || 'Folder'
-				properties = metaJson['properties']
-				attributes = metaJson['attributes']
-				tags = metaJson['tags']
-				clearOnSync = metaJson['clearOnSync']
-				metaLocalPath = metaLocalPathCheck
+			{
+				let initMeta;
+				const metaLocalPathJson = localPath + '/init.meta.json'
+				const metaLocalPathYaml = localPath + '/init.meta.yaml'
+				const metaLocalPathToml = localPath + '/init.meta.toml'
+				if (fs.existsSync(metaLocalPathJson)) {
+					initMeta = tryJsonParse(fs.readFileSync(metaLocalPathJson), metaLocalPathJson)
+					metaLocalPath = metaLocalPathJson
+				} else if (fs.existsSync(metaLocalPathYaml)) {
+					initMeta = tryYamlParse(fs.readFileSync(metaLocalPathYaml), metaLocalPathYaml)
+					metaLocalPath = metaLocalPathYaml
+				} else if (fs.existsSync(metaLocalPathToml)) {
+					initMeta = tryTomlParse(fs.readFileSync(metaLocalPathToml), metaLocalPathToml)
+					metaLocalPath = metaLocalPathToml
+				}
+				if (initMeta) {
+					className = initMeta['className'] || 'Folder'
+					properties = initMeta['properties']
+					attributes = initMeta['attributes']
+					tags = initMeta['tags']
+					clearOnSync = initMeta['clearOnSync']
+				} else {
+					metaLocalPath = undefined
+				}
 			}
 
 			// Lync-Style Init Lua
@@ -352,11 +400,29 @@ function mapDirectory(localPath, robloxPath, flag) {
 			}
 
 			fs.readdirSync(localPath).forEach((dirNext) => {
-				if (dirNext != localPathParentName + '.init.lua' && dirNext != localPathParentName + '.init.client.lua' && dirNext != localPathParentName + '.init.server.lua' && dirNext != localPathParentName + '.init.luau' && dirNext != localPathParentName + '.init.client.luau' && dirNext != localPathParentName + '.init.server.luau'
-				&& dirNext != 'init.lua' && dirNext != 'init.client.lua' && dirNext != 'init.server.lua' && dirNext != 'init.luau' && dirNext != 'init.client.luau' && dirNext != 'init.server.luau'
-				&& dirNext != 'init.meta.json') {
-					const filePathNext = localPath + '/' + dirNext
-					mapDirectory(filePathNext, robloxPath + '/' + dirNext)
+				const dirNextLower = dirNext.toLowerCase()
+				const localPathParentNameLower = localPathParentName.toLowerCase()
+				// Do not map Init files. They were just mapped on this run of mapDirectory.
+				switch (dirNextLower) {
+					case 'init.meta.json':
+					case 'init.meta.yaml':
+					case 'init.meta.toml':
+					case localPathParentNameLower + '.init.lua':
+					case localPathParentNameLower + '.init.client.lua':
+					case localPathParentNameLower + '.init.server.lua':
+					case localPathParentNameLower + '.init.luau':
+					case localPathParentNameLower + '.init.client.luau':
+					case localPathParentNameLower + '.init.server.luau':
+					case 'init.lua':
+					case 'init.client.lua':
+					case 'init.server.lua':
+					case 'init.luau':
+					case 'init.client.luau':
+					case 'init.server.luau':
+						break
+					default:
+						const filePathNext = localPath + '/' + dirNext
+						mapDirectory(filePathNext, robloxPath + '/' + dirNext)
 				}
 			})
 		}
@@ -527,20 +593,31 @@ function generateSourcemap() {
 
 				const mapping = map[key]
 
-				if (mapping.Type == 'Instance')
-					target.className = key == 'tree/Workspace/Terrain' && 'Terrain' || mapping.ClassName
-				else if (mapping.Type == 'Lua')
-					target.className = mapping.Context == 'Client' && 'LocalScript' || mapping.Context == 'Server' && 'Script' || 'ModuleScript'
-				else if (mapping.Type == 'Model')
-					target.className = 'Instance'
-				else if (mapping.Type == 'JSON')
-					target.className = 'ModuleScript'
-				else if (mapping.Type == 'JsonModel')
-					target.className = tryJsonParse(fs.readFileSync(mapping.Path)).ClassName || 'Instance'
-				else if (mapping.Type == 'PlainText')
-					target.className = 'StringValue'
-				else if (mapping.Type == 'Localization')
-					target.className = 'LocalizationTable'
+				switch (mapping.Type) {
+					case 'Instance':
+						target.className = key == 'tree/Workspace/Terrain' && 'Terrain' || mapping.ClassName
+						break
+					case 'Lua':
+						target.className = mapping.Context == 'Client' && 'LocalScript' || mapping.Context == 'Server' && 'Script' || 'ModuleScript'
+						break
+					case 'Model':
+						target.className = 'Instance'
+						break
+					case 'JSON':
+					case 'YAML':
+					case 'TOML':
+					case 'Excel':
+						target.className = 'ModuleScript'
+						break
+					case 'JsonModel':
+						target.className = tryJsonParse(fs.readFileSync(mapping.Path)).ClassName || 'Instance'
+						break
+					case 'PlainText':
+						target.className = 'StringValue'
+						break
+					case 'Localization':
+						target.className = 'LocalizationTable'
+				}
 
 				if (mapping.Path)
 					target.filePaths.push(mapping.Path)
@@ -875,10 +952,11 @@ function generateSourcemap() {
 								for (const key in map) {
 									if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
 										const localPathParsed = path.parse(localPath)
+										const localPathName = localPathParsed.name.toLowerCase()
 										const localPathExt = localPathParsed.ext.toLowerCase()
 	
 										// Remap adjacent matching file
-										if (localPathParsed.name != 'init.meta'  && localPathParsed.name.endsWith('.meta') && localPathExt == '.json') {
+										if (localPathName != 'init.meta' && localPathName.endsWith('.meta') && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml')) {
 											const title = localPathParsed.name.slice(0, -5)
 											if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
 												delete map[key]
@@ -904,7 +982,7 @@ function generateSourcemap() {
 											}
 	
 										// Remap parent folder
-										} else if (localPathIsInit(localPath) || localPathParsed.base == 'init.meta.json' || localPathParsed.base == 'default.project.json') {
+										} else if (localPathIsInit(localPath) || localPathName == 'init.meta' && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml') || localPathParsed.base == 'default.project.json') {
 											delete map[key]
 											mapDirectory(parentPathString, key)
 	
@@ -959,7 +1037,7 @@ function generateSourcemap() {
 
 		let jsonString;
 
-		switch(req.headers.type) {
+		switch (req.headers.type) {
 			case 'Map':
 				// Create content hard links
 
@@ -1039,17 +1117,17 @@ function generateSourcemap() {
 
 					// Convert YAML to JSON
 					} else if (req.headers.datatype == 'YAML') {
-						read = luaFormat(yaml.parse(decoder.decode(read)), { singleQuote: false, spaces: '\t' })
+						read = luaFormat(YAML.parse(utf8.decode(read)), { singleQuote: false, spaces: '\t' })
 
 					// Convert TOML to JSON
 					} else if (req.headers.datatype == 'TOML') {
-						read = luaFormat(toml.parse(decoder.decode(read)), { singleQuote: false, spaces: '\t' })
+						read = luaFormat(TOML.parse(utf8.decode(read)), { singleQuote: false, spaces: '\t' })
 
 					// Read and convert Excel Tables to JSON
 					} else if (req.headers.datatype == 'Excel') {
-						let tableDefinitions = JSON.parse(decoder.decode(read))
+						let tableDefinitions = JSON.parse(utf8.decode(read))
 						const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.Spreadsheet)
-						const excelFile = xlsx.readFile(excelFilePath)
+						const excelFile = XLSX.readFile(excelFilePath)
 
 						// Convert Excel 'Defined Name' to 'Ref'
 						for (const definedName of excelFile.Workbook.Names) {
@@ -1065,14 +1143,14 @@ function generateSourcemap() {
 						if (tableDefinitions.Ref.includes('!')) {
 							const ref = tableDefinitions.Ref.replace('=', '').split('!')
 							sheet = excelFile.Sheets[ref[0]]
-							range = xlsx.utils.decode_range(ref[1])
+							range = XLSX.utils.decode_range(ref[1])
 						} else {
 							sheet = excelFile.Sheets[excelFile.SheetNames[0]]
-							range = xlsx.utils.decode_range(tableDefinitions.Ref.replace('=', ''))
+							range = XLSX.utils.decode_range(tableDefinitions.Ref.replace('=', ''))
 						}
 
 						// Convert cells to dict
-						const sheetJson = xlsx.utils.sheet_to_json(sheet, {
+						const sheetJson = XLSX.utils.sheet_to_json(sheet, {
 							range: range,
 							header: 1,
 							defval: null
