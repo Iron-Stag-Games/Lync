@@ -41,19 +41,21 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 ### File Types
 | | Lync | Rojo |
 |-|-|-|
-| LUAU/LUA | ✅️ | ✅️ |
-| Init Lua (Anonymous) | ✅️ | ✅️ |
-| Init Lua (Named) | ✅️ | ❌️ |
-| RBXM/RBXMX | ✅️ | ✅️ |
-| JSON | ✅️ | ✅️ |
-| Project JSON | ✅️ | ✅️ |
-| Meta JSON | ✅️ | ✅️ |
-| JSON Model | ✅️ | ✅️ |
-| YAML | ✅️ | ❌️ |
-| TOML | ✅️ | ✅️ |
-| XLSX/XLS | ✅️ | ❌️ |
-| TXT | ✅️ | ✅️ |
-| Localization Table | ✅️ | ✅️ |
+| `*.Project.JSON` | ✅️ | ✅️ |
+| `*.Model.JSON` | ✅️ | ✅️ |
+| `RBXM`/`RBXMX` | ✅️ | ✅️ |
+| `LUAU`/`LUA` | ✅️ | ✅️ |
+| `Init.LUA` (Anonymous) | ✅️ | ✅️ |
+| `*.Init.LUA` (Named) | ✅️ | ❌️ |
+| `JSON` | ✅️ | ✅️ |
+| `YAML` | ✅️ | ❌️ |
+| `TOML` | ✅️ | ✅️ |
+| `XLSX`/`XLS` | ✅️ | ❌️ |
+| `TXT` | ✅️ | ✅️ |
+| `CSV` ([LocalizationTable](https://create.roblox.com/docs/reference/engine/classes/LocalizationTable)) | ⚠️ | ✅️ |
+| `*.Meta.JSON` | ✅️ | ✅️ |
+| `*.Meta.YAML` | ✅️ | ❌️ |
+| `*.Meta.TOML` | ✅️ | ❌️ |
 
 ⚠️ = Broken or WIP
 
@@ -65,7 +67,7 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 
 ### Cons
 - Nearly fully compatibile with existing Rojo projects. JSON files, including [the project JSON](https://github.com/Iron-Stag-Games/Lync/blob/main/Sample%20Project/default.project.json) must be changed.
-- Currently unable to use Terrain in an offline RBXL build.
+- Currently unable to use `LocalizationTable` in offline RBXL builds.
 - Lack of documentation.
 
 
