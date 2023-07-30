@@ -102,7 +102,7 @@ function localPathExtensionIsMappable(localPath) {
 
 function localPathIsInit(localPath) {
 	const localPathParsed = path.parse(localPath)
-	const localPathName = localPathParsed.Name.toLowerCase()
+	const localPathName = localPathParsed.name.toLowerCase()
 	const localPathExt = localPathParsed.ext.toLowerCase()
 	return (localPathExt == '.lua' || localPathExt == '.luau') && (localPathName == 'init' || localPathName == 'init.client' || localPathName == 'init.server' || localPathName.endsWith('.init') || localPathName.endsWith('.init.client') || localPathName.endsWith('.init.server'))
 }
