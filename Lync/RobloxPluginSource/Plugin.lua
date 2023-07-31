@@ -494,8 +494,8 @@ local function buildPath(path: string)
 			if target ~= game and index == #subpaths then
 				if
 					not data
-					or (data.Type == "Model" or data.Type == "JsonModel")
-					or nextTarget.ClassName ~= (if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript")
+					or data.Type == "Model" or data.Type == "JsonModel"
+					or data.Type == "Lua" and nextTarget.ClassName ~= (if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript")
 				then
 					if not pcall(function()
 						nextTarget.Parent = nil
@@ -565,9 +565,9 @@ local function buildPath(path: string)
 			end)
 		elseif data.Type == "Model" then
 			if target and not createInstance then
-				local OriginalTarget = target
+				local originalTarget = target
 				target = target.Parent
-				OriginalTarget.Parent = nil
+				originalTarget.Parent = nil
 			end
 			local objects = getObjects("rbxasset://lync/" .. data.Path)
 			if objects then
@@ -775,52 +775,42 @@ local function setConnected(newConnected: boolean)
 			connect.Frame.UIStroke.UIGradient.Rotation = (tick() % 1) * 360
 		end)
 
-		if newConnected then
-			if not map then
-				local success, result = pcall(function()
-					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
-					return get ~= "{}" and HttpService:JSONDecode(get) or nil
-				end)
-				if success then
-					if result.Version == VERSION then
-						debugPrints = result.Debug
-						result.Debug = nil
-						map = result
-						if not IS_PLAYTEST_SERVER then
-							if debugPrints then warn("[Lync] - Map:", result) end
-							task.spawn(buildAll)
-							repeat task.wait() until activeSourceRequests == 0
-						end
-					else
-						task.spawn(error, `[Lync] - Version mismatch ({result.Version} ~= {VERSION}). Please restart Studio`)
-						newConnected = false
-					end
-
-					if result.ServePlaceIds then
-						local placeIdMatch = false
-						for _, placeId in result.ServePlaceIds do
-							if placeId == game.PlaceId then
-								placeIdMatch = true
-								break
-							end
-						end
-						if not placeIdMatch then
-							task.spawn(error, `[Lync] - PlaceId '{game.PlaceId}' not found in ServePlaceIds`)
-							newConnected = false
-						end
+		if newConnected and not map then
+			local success, result = pcall(function()
+				local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+				return get ~= "{}" and HttpService:JSONDecode(get) or nil
+			end)
+			if success then
+				if result.Version == VERSION then
+					debugPrints = result.Debug
+					result.Debug = nil
+					map = result
+					if not IS_PLAYTEST_SERVER then
+						if debugPrints then warn("[Lync] - Map:", result) end
+						task.spawn(buildAll)
+						repeat task.wait() until activeSourceRequests == 0
 					end
 				else
-					task.spawn(error, "[Lync] - " .. result)
+					task.spawn(error, `[Lync] - Version mismatch ({result.Version} ~= {VERSION}). Please restart Studio`)
 					newConnected = false
+				end
+
+				if result.ServePlaceIds then
+					local placeIdMatch = false
+					for _, placeId in result.ServePlaceIds do
+						if placeId == game.PlaceId then
+							placeIdMatch = true
+							break
+						end
+					end
+					if not placeIdMatch then
+						task.spawn(error, `[Lync] - PlaceId '{game.PlaceId}' not found in ServePlaceIds`)
+						newConnected = false
+					end
 				end
 			else
-				local success, result = pcall(function()
-					HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
-				end)
-				if not success then
-					task.spawn(error, "[Lync] - " .. result)
-					newConnected = false
-				end
+				task.spawn(error, "[Lync] - " .. result)
+				newConnected = false
 			end
 		end
 
