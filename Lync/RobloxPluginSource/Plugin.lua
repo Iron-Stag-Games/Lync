@@ -655,6 +655,7 @@ local function buildPath(path: string)
 				if success then
 					lpcall("Set Entries", function()
 						if isBuildScript then
+							-- Temporary. Awaiting rbx-dom / Lune update.
 							print("Localization entries unimplemented!")
 						else
 							target:SetEntries(HttpService:JSONDecode(result))
@@ -673,6 +674,7 @@ local function buildPath(path: string)
 					if #objects == 1 then
 						lpcall("Set Terrain Region", function()
 							if isBuildScript then
+								-- Temporary. Awaiting rbx-dom / Lune update.
 								workspace.Terrain.SmoothGrid = (objects[1] :: any).SmoothGrid
 							else
 								workspace.Terrain:Clear()
@@ -690,6 +692,7 @@ local function buildPath(path: string)
 		if data.TerrainMaterialColors then
 			if target == workspace.Terrain then
 				if isBuildScript then
+					-- Temporary. Awaiting rbx-dom / Lune update.
 					workspace.Terrain.MaterialColors = string.pack(("I1"):rep(3):rep(23),
 						color3sToInts(
 							Color3.new(),
