@@ -1013,12 +1013,22 @@ function generateSourcemap() {
 
 	http.createServer(function(req, res) {
 		if (req.socket.remoteAddress != '::1' && req.socket.remoteAddress != '127.0.0.1' & req.socket.remoteAddress != '::ffff:127.0.0.1') {
+			const errText = `Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`
+			console.error(red('Server error:'), yellow(errText))
 			res.writeHead(403)
-			res.end(`Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`)
+			res.end(errText)
 			return
 		}
 		if (!OFFLINE) {
 			if (!securityKey) {
+				if (!req.headers.userid) {
+					const errText = 'Missing UserId header.'
+					console.error(red('Server error:'), yellow(errText))
+					console.log('Headers:', req.headers)
+					res.writeHead(403)
+					res.end(errText)
+					return
+				}
 				const pluginSettings = path.resolve(
 					process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME),
 					`../${req.headers.userid}/InstalledPlugins/0/settings.json`

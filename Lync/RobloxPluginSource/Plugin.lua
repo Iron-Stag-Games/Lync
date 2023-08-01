@@ -749,8 +749,10 @@ end
 
 local function getUserId(): number
 	while true do
-		local userId = StudioService:GetUserId()
-		if userId and userId ~= 0 then
+		local success, userId = pcall(function()
+			return StudioService:GetUserId()
+		end)
+		if success and userId and userId ~= 0 then
 			return userId
 		else
 			task.wait()
