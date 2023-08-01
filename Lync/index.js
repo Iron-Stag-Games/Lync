@@ -1021,13 +1021,13 @@ function generateSourcemap() {
 		}
 		if (!OFFLINE) {
 			if (!securityKey) {
-				if (!req.headers.userid) {
+				if (!('userid' in req.headers)) {
 					const errText = 'Missing UserId header.'
-					console.error(red('Server error:'), yellow(errText))
+					console.error(red('Lync bug:'), yellow(errText))
 					console.log('Headers:', req.headers)
 					res.writeHead(403)
 					res.end(errText)
-					return
+					process.exit()
 				}
 				const pluginSettings = path.resolve(
 					process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME),
@@ -1234,6 +1234,11 @@ function generateSourcemap() {
 					}
 				})
 				break
+
+			case 'Resume':
+				res.writeHead(200)
+				res.end()
+				break;
 
 			default:
 				res.writeHead(400)

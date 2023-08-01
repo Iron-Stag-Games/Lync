@@ -780,42 +780,52 @@ local function setConnected(newConnected: boolean)
 			connect.Frame.UIStroke.UIGradient.Rotation = (tick() % 1) * 360
 		end)
 
-		if newConnected and not map then
-			local success, result = pcall(function()
-				local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
-				return get ~= "{}" and HttpService:JSONDecode(get) or nil
-			end)
-			if success then
-				if result.Version == VERSION then
-					debugPrints = result.Debug
-					result.Debug = nil
-					map = result
-					if not IS_PLAYTEST_SERVER then
-						if debugPrints then warn("[Lync] - Map:", result) end
-						task.spawn(buildAll)
-						repeat task.wait() until activeSourceRequests == 0
-					end
-				else
-					task.spawn(error, `[Lync] - Version mismatch ({result.Version} ~= {VERSION}). Please restart Studio`)
-					newConnected = false
-				end
-
-				if result.ServePlaceIds then
-					local placeIdMatch = false
-					for _, placeId in result.ServePlaceIds do
-						if placeId == game.PlaceId then
-							placeIdMatch = true
-							break
+		if newConnected then
+			if not map then
+				local success, result = pcall(function()
+					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+					return get ~= "{}" and HttpService:JSONDecode(get) or nil
+				end)
+				if success then
+					if result.Version == VERSION then
+						debugPrints = result.Debug
+						result.Debug = nil
+						map = result
+						if not IS_PLAYTEST_SERVER then
+							if debugPrints then warn("[Lync] - Map:", result) end
+							task.spawn(buildAll)
+							repeat task.wait() until activeSourceRequests == 0
 						end
-					end
-					if not placeIdMatch then
-						task.spawn(error, `[Lync] - PlaceId '{game.PlaceId}' not found in ServePlaceIds`)
+					else
+						task.spawn(error, `[Lync] - Version mismatch ({result.Version} ~= {VERSION}). Please restart Studio`)
 						newConnected = false
 					end
+
+					if result.ServePlaceIds then
+						local placeIdMatch = false
+						for _, placeId in result.ServePlaceIds do
+							if placeId == game.PlaceId then
+								placeIdMatch = true
+								break
+							end
+						end
+						if not placeIdMatch then
+							task.spawn(error, `[Lync] - PlaceId '{game.PlaceId}' not found in ServePlaceIds`)
+							newConnected = false
+						end
+					end
+				else
+					task.spawn(error, "[Lync] - " .. result)
+					newConnected = false
 				end
 			else
-				task.spawn(error, "[Lync] - " .. result)
-				newConnected = false
+				local success, result = pcall(function()
+					HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Resume"})
+				end)
+				if not success then
+					task.spawn(error, "[Lync] - " .. result)
+					newConnected = false
+				end
 			end
 		end
 
