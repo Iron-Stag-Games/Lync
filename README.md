@@ -25,6 +25,14 @@ You can also specify whether or not to install updates automatically, and from w
 
 # How does Lync compare to Rojo?
 
+### Legend
+| Symbol | Meaning |
+|-|-|
+| ✅️ | Available |
+| ❌️ | Unavailable |
+| … | Pending / WIP |
+| ⚠️ | Broken |
+
 ### Features
 | | Lync | Rojo |
 |-|-|-|
@@ -40,7 +48,8 @@ You can also specify whether or not to install updates automatically, and from w
 | Multiple Project Serving | ❌️ | ✅️ |
 | Server IP Address | ❌️ | ✅️ |
 | Server Port | ✅️ | ✅️ |
-| Automatic Shell Scripts | ⚠️ | ❌️ |
+| Custom File Downloads | … | ❌️ |
+| Automatic Shell Scripts | … | ❌️ |
 | Place to Project Tool | ❌️ | ⚠️ |
 
 ### File Types
@@ -61,8 +70,6 @@ You can also specify whether or not to install updates automatically, and from w
 | `*.Meta.JSON` | ✅️ | ✅️ |
 | `*.Meta.YAML` | ✅️ | ❌️ |
 | `*.Meta.TOML` | ✅️ | ❌️ |
-
-⚠️ = Broken or WIP
 
 ### Pros
 - Much faster live sync.
