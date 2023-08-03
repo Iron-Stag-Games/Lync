@@ -35,6 +35,8 @@ const TOML = require('toml')
 const YAML = require('yaml')
 const XLSX = require('xlsx')
 
+const { generateSourcemap } = require('./sourcemap/sourcemap.js')
+
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
 const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
@@ -49,6 +51,8 @@ const SYNC_ONLY = ARGS[2] == 'SYNC_ONLY' || ARGS[3] == 'SYNC_ONLY'
 // Offline build args
 const OFFLINE = ARGS[1] == 'OFFLINE'
 
+const UTF8 = new TextDecoder('utf-8')
+
 var securityKey = null
 var map = {}
 var mTimes = {}
@@ -58,8 +62,6 @@ var projectJson;
 var globIgnorePaths;
 var globIgnorePathsPicoMatch;
 var hardLinkPaths;
-
-var utf8 = new TextDecoder('utf-8')
 
 
 // Output Functions
@@ -209,10 +211,10 @@ function mapDirectory(localPath, robloxPath, flag) {
 					luaMeta = tryJsonParse(fs.readFileSync(metaLocalPathJson), metaLocalPathJson)
 					metaLocalPath = metaLocalPathJson
 				} else if (fs.existsSync(metaLocalPathYaml)) {
-					luaMeta = tryYamlParse(utf8.decode(fs.readFileSync(metaLocalPathYaml)), metaLocalPathYaml)
+					luaMeta = tryYamlParse(UTF8.decode(fs.readFileSync(metaLocalPathYaml)), metaLocalPathYaml)
 					metaLocalPath = metaLocalPathYaml
 				} else if (fs.existsSync(metaLocalPathToml)) {
-					luaMeta = tryTomlParse(utf8.decode(fs.readFileSync(metaLocalPathToml)), metaLocalPathToml)
+					luaMeta = tryTomlParse(UTF8.decode(fs.readFileSync(metaLocalPathToml)), metaLocalPathToml)
 					metaLocalPath = metaLocalPathToml
 				}
 				if (luaMeta) {
@@ -549,91 +551,6 @@ async function getAsync(url, responseType) {
 }
 
 
-// Sourcemap Functions
-
-function generateSourcemap() {
-	if (CONFIG.GenerateSourcemap) {
-		try {
-			const sourcemapJsonPath = path.resolve(PROJECT_JSON, '../sourcemap.json')
-			let sourcemapJson = {
-				'name': projectJson.name,
-				'className': 'DataModel',
-				'filePaths': [ PROJECT_JSON ],
-				'children': []
-			}
-
-			for (const key in map) {
-				let target = sourcemapJson
-				let paths = key.split('/')
-				paths.shift()
-
-				for (const path of paths) {
-					// Map under existing child
-					let hasChild = false
-					for (const child of target.children) {
-						if (child.name == path) {
-							target = child
-							hasChild = true
-							break
-						}
-					}
-
-					// Add new child
-					if (!hasChild) {
-						target = target.children[target.children.push({
-							'name': path,
-							'className': 'Folder',
-							'filePaths': [],
-							'children': []
-						}) - 1]
-					}
-				}
-
-				// Write map info
-
-				const mapping = map[key]
-
-				switch (mapping.Type) {
-					case 'Instance':
-						target.className = key == 'tree/Workspace/Terrain' && 'Terrain' || mapping.ClassName
-						break
-					case 'Lua':
-						target.className = mapping.Context == 'Client' && 'LocalScript' || mapping.Context == 'Server' && 'Script' || 'ModuleScript'
-						break
-					case 'Model':
-						target.className = 'Instance'
-						break
-					case 'JSON':
-					case 'YAML':
-					case 'TOML':
-					case 'Excel':
-						target.className = 'ModuleScript'
-						break
-					case 'JsonModel':
-						target.className = tryJsonParse(fs.readFileSync(mapping.Path)).ClassName || 'Instance'
-						break
-					case 'PlainText':
-						target.className = 'StringValue'
-						break
-					case 'Localization':
-						target.className = 'LocalizationTable'
-				}
-
-				if (mapping.Path)
-					target.filePaths.push(mapping.Path)
-				if (mapping.ProjectJson)
-					target.filePaths.push(mapping.ProjectJson)
-			}
-
-			// Write Sourcemap JSON
-			fs.writeFileSync(sourcemapJsonPath, JSON.stringify(sourcemapJson, null, '\t'))
-		} catch (err) {
-			console.error(red('Sourcemap error:'), yellow(err))
-		}
-	}
-}
-
-
 // Main
 
 (async function () {
@@ -725,7 +642,7 @@ function generateSourcemap() {
 	// Map project
 
 	changedJson()
-	generateSourcemap()
+	generateSourcemap(CONFIG, PROJECT_JSON, map, projectJson, red, yellow)
 
 	// Build
 
@@ -746,11 +663,11 @@ function generateSourcemap() {
 			}
 		}
 		for (const key in map) {
-			let mapping = map[key]
+			const mapping = map[key]
 			if (mapping.Type == 'JsonModel') {
-				function mapJsonModel(arr) {
-					for (const key in arr) {
-						let jsonModelMapping = arr[key]
+				function mapJsonModel(json) {
+					for (const key in json) {
+						const jsonModelMapping = json[key]
 						if (typeof jsonModelMapping == 'object') {
 							if ('Properties' in jsonModelMapping)
 								mapProperties(jsonModelMapping.Properties)
@@ -1000,7 +917,7 @@ function generateSourcemap() {
 							}
 						}
 	
-						generateSourcemap()
+						generateSourcemap(CONFIG, PROJECT_JSON, map, projectJson, red, yellow)
 					}
 				}
 			} catch (err) {
@@ -1127,15 +1044,15 @@ function generateSourcemap() {
 
 					// Convert YAML to JSON
 					} else if (req.headers.datatype == 'YAML') {
-						read = luaFormat(YAML.parse(utf8.decode(read)), { singleQuote: false, spaces: '\t' })
+						read = luaFormat(YAML.parse(UTF8.decode(read)), { singleQuote: false, spaces: '\t' })
 
 					// Convert TOML to JSON
 					} else if (req.headers.datatype == 'TOML') {
-						read = luaFormat(TOML.parse(utf8.decode(read)), { singleQuote: false, spaces: '\t' })
+						read = luaFormat(TOML.parse(UTF8.decode(read)), { singleQuote: false, spaces: '\t' })
 
 					// Read and convert Excel Tables to JSON
 					} else if (req.headers.datatype == 'Excel') {
-						let tableDefinitions = JSON.parse(utf8.decode(read))
+						let tableDefinitions = JSON.parse(UTF8.decode(read))
 						const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.Spreadsheet)
 						const excelFile = XLSX.readFile(excelFilePath)
 
