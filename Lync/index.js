@@ -58,6 +58,7 @@ var map = {}
 var mTimes = {}
 var modified = {}
 var modified_playtest = {}
+var modified_sourcemap = {}
 var projectJson;
 var globIgnorePaths;
 var globIgnorePathsPicoMatch;
@@ -159,6 +160,7 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 	map[robloxPath] = mapDetails
 	modified[robloxPath] = mapDetails
 	modified_playtest[robloxPath] = mapDetails
+	modified_sourcemap[robloxPath] = mapDetails
 	if (mapDetails.Path) mTimes[mapDetails.Path] = mtimeMs
 	if (mapDetails.Meta) mTimes[mapDetails.Meta] = fs.statSync(mapDetails.Meta).mtimeMs // Meta File stats are never retrieved before this, so they aren't in a function parameter
 }
@@ -642,7 +644,10 @@ async function getAsync(url, responseType) {
 	// Map project
 
 	changedJson()
-	generateSourcemap(CONFIG, PROJECT_JSON, map, projectJson, red, yellow)
+	if (CONFIG.GenerateSourcemap) {
+		generateSourcemap(PROJECT_JSON, map, projectJson, red)
+		modified_sourcemap = {}
+	}
 
 	// Build
 
@@ -788,9 +793,11 @@ async function getAsync(url, responseType) {
 			try {
 				if (localPath) {
 					localPath = path.relative(path.resolve(), localPath)
+
 					if (!localPathIsIgnored(localPath)) {
 						localPath = localPath.replace(/\\/g, '/')
 						const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
+
 						if (localPath in mTimes) {
 	
 							// Deleted
@@ -809,6 +816,7 @@ async function getAsync(url, responseType) {
 										}
 										modified[key] = false
 										modified_playtest[key] = false
+										modified_sourcemap[key] = false
 										if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
 											mapDirectory(parentPathString, key, 'Modified')
 										}
@@ -825,6 +833,7 @@ async function getAsync(url, responseType) {
 										}
 										modified[key] = false
 										modified_playtest[key] = false
+										modified_sourcemap[key] = false
 										if (fs.existsSync(parentPathString)) {
 											mapDirectory(parentPathString, key, 'Modified')
 										}
@@ -841,6 +850,7 @@ async function getAsync(url, responseType) {
 										delete map[key]
 										modified[key] = false
 										modified_playtest[key] = false
+										modified_sourcemap[key] = false
 										if (DEBUG) console.log('Deleted ProjectJson mapping', green(key))
 									}
 								}
@@ -917,7 +927,11 @@ async function getAsync(url, responseType) {
 							}
 						}
 	
-						generateSourcemap(CONFIG, PROJECT_JSON, map, projectJson, red, yellow)
+						// Modify sourcemap
+						if (CONFIG.GenerateSourcemap && Object.keys(modified_sourcemap).length > 0) {
+							generateSourcemap(PROJECT_JSON, modified_sourcemap, projectJson, red)
+							modified_sourcemap = {}
+						}
 					}
 				}
 			} catch (err) {
