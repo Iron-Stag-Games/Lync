@@ -19,11 +19,16 @@ The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/config.
 - Windows: `%LOCALAPPDATA%\Roblox\Lync\config.json`
 - MacOS: `$HOME/Documents/Roblox/Lync/config.json`
 
+It contains several settings which might be necessary to change in order to use Lync.
+
+You can also specify whether or not to install updates automatically, and from which repository.
+
 # How does Lync compare to Rojo?
 
 ### Features
 | | Lync | Rojo |
 |-|-|-|
+| [Optional Automatic Updates](https://github.com/Iron-Stag-Games/Lync#configuration) | ✅️ | ❌️ |
 | Offline Builds | ✅️ | ✅️ |
 | Automatic Sourcemap Generation | ✅️ | ❌️ |
 | Playtest Sync | ✅️ | ❌️ |
