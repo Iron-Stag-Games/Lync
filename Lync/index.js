@@ -265,7 +265,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
 						'Type': 'Excel',
 						'Path': localPath,
-						'Meta': path.relative(path.resolve(), path.resolve(localPath, '..', tryJsonParse(fs.readFileSync(localPath)).Spreadsheet)).replace(/\\/g, '/')
+						'Meta': path.relative(path.resolve(), path.resolve(localPath, '..', tryJsonParse(fs.readFileSync(localPath)).spreadsheet)).replace(/\\/g, '/')
 					}, localPathStats.mtimeMs)
 
 				// Modules
@@ -1067,13 +1067,13 @@ async function getAsync(url, responseType) {
 					// Read and convert Excel Tables to JSON
 					} else if (req.headers.datatype == 'Excel') {
 						let tableDefinitions = JSON.parse(UTF8.decode(read))
-						const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.Spreadsheet)
+						const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.spreadsheet)
 						const excelFile = XLSX.readFile(excelFilePath)
 
 						// Convert Excel 'Defined Name' to 'Ref'
 						for (const definedName of excelFile.Workbook.Names) {
-							if (definedName.Name == tableDefinitions.Ref) {
-								tableDefinitions.Ref = definedName.Ref
+							if (definedName.Name == tableDefinitions.ref) {
+								tableDefinitions.ref = definedName.Ref
 								break
 							}
 						}
@@ -1081,13 +1081,13 @@ async function getAsync(url, responseType) {
 						// Find current sheet and range to read from
 						let sheet;
 						let range;
-						if (tableDefinitions.Ref.includes('!')) {
-							const ref = tableDefinitions.Ref.replace('=', '').split('!')
+						if (tableDefinitions.ref.includes('!')) {
+							const ref = tableDefinitions.ref.replace('=', '').split('!')
 							sheet = excelFile.Sheets[ref[0]]
 							range = XLSX.utils.decode_range(ref[1])
 						} else {
 							sheet = excelFile.Sheets[excelFile.SheetNames[0]]
-							range = XLSX.utils.decode_range(tableDefinitions.Ref.replace('=', ''))
+							range = XLSX.utils.decode_range(tableDefinitions.ref.replace('=', ''))
 						}
 
 						// Convert cells to dict
@@ -1096,15 +1096,15 @@ async function getAsync(url, responseType) {
 							header: 1,
 							defval: null
 						})
-						let entries = tableDefinitions.FirstValueIsKey && {} || []
-						const startRow = tableDefinitions.HasHeader && 1 || 0
-						const startColumn = tableDefinitions.FirstValueIsKey && 1 || 0
+						let entries = tableDefinitions.firstValueIsKey && {} || []
+						const startRow = tableDefinitions.hasHeader && 1 || 0
+						const startColumn = tableDefinitions.firstValueIsKey && 1 || 0
 						const header = sheetJson[0];
 						for (let row = startRow; row < sheetJson.length; row++) {
-							const key = tableDefinitions.FirstValueIsKey && sheetJson[row][0] || (row - startRow)
-							entries[key] = tableDefinitions.HasHeader && {} || []
+							const key = tableDefinitions.firstValueIsKey && sheetJson[row][0] || (row - startRow)
+							entries[key] = tableDefinitions.hasHeader && {} || []
 							for (let column = startColumn; column < header.length; column++) {
-								const value = tableDefinitions.HasHeader && header[column] || (column - startColumn)
+								const value = tableDefinitions.hasHeader && header[column] || (column - startColumn)
 								entries[key][value] = sheetJson[row][column]
 							}
 						}
