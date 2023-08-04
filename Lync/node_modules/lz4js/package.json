@@ -1,0 +1,36 @@
+{
+  "name": "lz4js",
+  "version": "0.2.0",
+  "description": "An Lz4 implementation for the browser.",
+  "main": "lz4.js",
+  "scripts": {
+    "test": "mocha -R spec test/cases"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Benzinga/lz4js.git"
+  },
+  "keywords": [
+    "lz4",
+    "compression",
+    "decompression",
+    "browser",
+    "commonjs"
+  ],
+  "author": "John Chadwick",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Benzinga/lz4js/issues"
+  },
+  "homepage": "https://github.com/Benzinga/lz4js#readme",
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "eslint": "^3.0.1",
+    "eslint-config-semistandard": "^6.0.2",
+    "eslint-config-standard": "^5.3.5",
+    "eslint-plugin-promise": "^2.0.0",
+    "eslint-plugin-react": "^5.2.2",
+    "eslint-plugin-standard": "^2.0.0",
+    "mocha": "^2.5.3"
+  }
+}
