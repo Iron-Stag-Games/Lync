@@ -96,18 +96,18 @@ function recurse(target, instances, rbxm) {
 }
 
 module.exports.fill = function(target, fileRead) {
-	let instances = {}
+	const instances = {}
 
 	buf = fileRead
 	start = 0
 
-	const header = readBytes(32)
+	start += 32 //const header = readBytes(32)
 	//console.log('header:', header)
 	while (start < fileRead.length) {
 		const chunkName = readUTF8(4)
 		const compressedLength = readUInt32LE()
 		const uncompressedLength = readUInt32LE()
-		const reserved = readBytes(4)
+		start += 4 //const reserved = readBytes(4)
 		//console.log('chunkName:', chunkName)
 		//console.log('\tcompressedLength:', compressedLength)
 		//console.log('\tuncompressedLength:', uncompressedLength)
@@ -132,11 +132,12 @@ module.exports.fill = function(target, fileRead) {
 		const prevStart = start
 		buf = chunkData
 		start = 0
+
 		if (chunkName == 'INST') {
 			const classId = readUInt32LE()
 			const classNameLength = readUInt32LE(4)
 			const className = readUTF8(classNameLength)
-			const objectFormat = readUInt8()
+			start += 1 //const objectFormat = readUInt8()
 			const instanceCount = readUInt32LE()
 			const referents = readReferentArray(instanceCount)
 			//console.log('\t\tclassId:', classId)
@@ -149,14 +150,17 @@ module.exports.fill = function(target, fileRead) {
 			for (const referent of referents) {
 				instances[referent] = {
 					classId: classId,
-					className: className
+					className: className,
+					name: '',
+					parent: -1,
+					children: []
 				}
 			}
 		} else if (chunkName == 'PROP') {
 			const classId = readUInt32LE()
 			const propertyNameLength = readUInt32LE(4)
 			const propertyName = readUTF8(propertyNameLength)
-			const typeId = readUInt8()
+			start += 1 //const typeId = readUInt8()
 			//console.log('\t\tclassId:', classId)
 			//console.log('\t\tpropertyNameLength:', propertyNameLength)
 			//console.log('\t\tpropertyName:', propertyName)
@@ -189,7 +193,7 @@ module.exports.fill = function(target, fileRead) {
 				}
 			}
 		} else if (chunkName == 'PRNT') {
-			const version = readUInt8()
+			start += 1 //const version = readUInt8()
 			const instanceCount = readUInt32LE()
 			const childReferents = readReferentArray(instanceCount)
 			const parentReferents = readReferentArray(instanceCount)
@@ -197,23 +201,15 @@ module.exports.fill = function(target, fileRead) {
 			//console.log('\t\tinstanceCount:', instanceCount)
 			//console.log('\t\tchildReferents:', childReferents)
 			//console.log('\t\tparentReferents:', parentReferents)
-			for (const index in parentReferents) {
+			for (let index = 0; index < instanceCount; index++) {
 				instances[childReferents[index]].parent = parentReferents[index]
+				if (parentReferents[index] >= 0)
+					instances[parentReferents[index]].children.push(childReferents[index])
 			}
 		}
+
 		buf = fileRead
 		start = prevStart
-	}
-
-	for (const referent in instances) {
-		const instance = instances[referent]
-		instance.children = []
-		for (const nextReferent in instances) {
-			const nextInstance = instances[nextReferent]
-			if (nextInstance.parent.toString() == referent) {
-				instance.children.push(nextReferent)
-			}
-		}
 	}
 
 	//console.log(instances)
