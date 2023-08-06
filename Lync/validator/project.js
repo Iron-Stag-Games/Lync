@@ -8,23 +8,23 @@ function scan(json, localPath) {
 			console.error(fileWarning(localPath), 'Unsupported key', green('$ignoreUnknownInstances') + '; must replace with', green('$clearOnSync'))
 
 		} else if (key == '$className' && typeof json[key] != 'string') {
-			console.error(fileError(localPath), green('$className') , yellow('must be a string'))
+			console.error(fileError(localPath), green('$className'), yellow('must be a string'))
 			failed = true
 
 		} else if (key == '$properties' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('$properties') , yellow('must be a dictionary'))
+			console.error(fileError(localPath), green('$properties'), yellow('must be a dictionary'))
 			failed = true
 
 		} else if (key == '$attributes' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('$attributes') , yellow('must be a dictionary'))
+			console.error(fileError(localPath), green('$attributes'), yellow('must be a dictionary'))
 			failed = true
 
 		} else if (key == '$tags' && !(typeof json[key] == 'object' && Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('$tags') , yellow('must be an array'))
+			console.error(fileError(localPath), green('$tags'), yellow('must be an array'))
 			failed = true
 
 		} else if (key == '$clearOnSync' && (typeof json[key] != 'boolean')) {
-			console.error(fileError(localPath), green('$clearOnSync') , yellow('must be a boolean'))
+			console.error(fileError(localPath), green('$clearOnSync'), yellow('must be a boolean'))
 			failed = true
 
 		} else if (typeof json[key] == 'object') {

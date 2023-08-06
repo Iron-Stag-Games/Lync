@@ -4,17 +4,17 @@ function scan(json, localPath) {
 	let failed = false
 
 	if (('Name' in json) && typeof json.Name != 'string') {
-		console.error(fileError(localPath), green('Name') , yellow('must be a string'))
+		console.error(fileError(localPath), green('Name'), yellow('must be a string'))
 		failed = true
 	}
 
 	if (('ClassName' in json) && typeof json.ClassName != 'string') {
-		console.error(fileError(localPath), green('ClassName') , yellow('must be a string'))
+		console.error(fileError(localPath), green('ClassName'), yellow('must be a string'))
 		failed = true
 	}
 
 	if (('Properties' in json) && !(typeof json.Properties == 'object' && !Array.isArray(json.Properties))) {
-		console.error(fileError(localPath), green('Properties') , yellow('must be a dictionary'))
+		console.error(fileError(localPath), green('Properties'), yellow('must be a dictionary'))
 		failed = true
 	} else {
 		for (const property in json.Properties) {
