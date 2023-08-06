@@ -26,20 +26,21 @@ const path = require('path')
 const process = require('process')
 
 const chokidar = require('chokidar')
-const { parse: csvParse } = require('csv-parse/sync')
+const CSV = require('csv-parse/sync')
 const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
-const { format: luaFormat } = require('lua-json')
+const LUA = require('lua-json')
 const picomatch = require('picomatch')
-const TOML = require('toml')
-const YAML = require('yaml')
 const XLSX = require('xlsx')
 
+const { red, yellow, green, cyan, fileError, fileWarning } = require('./output.js')
 const { generateSourcemap } = require('./sourcemap/sourcemap.js')
+const { validateJson, validateYaml, validateToml } = require('./validator/validator.js')
 
 if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
 
-const CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json')))
+const CONFIG_PATH = path.resolve(__dirname, 'config.json')
+const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH))
 const ARGS = process.argv.slice(2)
 const PROJECT_JSON = ARGS[0].replace(/\\/g, '/')
 const DEBUG = ARGS[2] == 'DEBUG' || ARGS[3] == 'DEBUG'
@@ -50,8 +51,6 @@ const SYNC_ONLY = ARGS[2] == 'SYNC_ONLY' || ARGS[3] == 'SYNC_ONLY'
 
 // Offline build args
 const OFFLINE = ARGS[1] == 'OFFLINE'
-
-const UTF8 = new TextDecoder('utf-8')
 
 var securityKey = null
 var map = {}
@@ -65,38 +64,7 @@ var globIgnorePathsPicoMatch;
 var hardLinkPaths;
 
 
-// Output Functions
-
-function red(s) {
-	return '\x1b[31m' + s + '\x1b[0m'
-}
-
-function yellow(s) {
-	return '\x1b[33m' + s + '\x1b[0m'
-}
-
-function green(s) {
-	return '\x1b[32m\'' + s + '\'\x1b[0m'
-}
-
-function cyan(s) {
-	if (process.platform == 'win32') {
-		return '\x1b[36m[' + s.replace(/\//g, '\\') + ']\x1b[0m'
-	} else if (process.platform == 'darwin') {
-		return '\x1b[36m[' + s.replace(/\\/g, '/') + ']\x1b[0m'
-	}
-}
-
-
-// Mapping Functions
-
-function toEscapeSequence(str) {
-	let escapeSequence = ''
-	let i = str.length
-	while (i--)
-		escapeSequence = '\\' + str.charCodeAt(i) + escapeSequence
-	return escapeSequence
-}
+// Common Functions
 
 function localPathExtensionIsMappable(localPath) {
 	const localPathExt = path.parse(localPath).ext.toLowerCase()
@@ -118,32 +86,8 @@ function localPathIsIgnored(localPath) {
 	return false
 }
 
-function tryJsonParse(fileRead, localPath) {
-	try {
-		return JSON.parse(fileRead)
-	} catch (err) {
-		console.error(red('Project error:'), cyan(localPath), yellow(err))
-		return {}
-	}
-}
 
-function tryYamlParse(fileRead, localPath) {
-	try {
-		return YAML.parse(fileRead)
-	} catch (err) {
-		console.error(red('Project error:'), cyan(localPath), yellow(err))
-		return {}
-	}
-}
-
-function tryTomlParse(fileRead, localPath) {
-	try {
-		return TOML.parse(fileRead)
-	} catch (err) {
-		console.error(red('Project error:'), cyan(localPath), yellow(err))
-		return {}
-	}
-}
+// Mapping Functions
 
 function assignMap(robloxPath, mapDetails, mtimeMs) {
 	if (localPathIsIgnored(mapDetails.Path)) return
@@ -210,13 +154,13 @@ function mapDirectory(localPath, robloxPath, flag) {
 				const metaLocalPathYaml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.yaml'
 				const metaLocalPathToml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.toml'
 				if (fs.existsSync(metaLocalPathJson)) {
-					luaMeta = tryJsonParse(fs.readFileSync(metaLocalPathJson), metaLocalPathJson)
+					luaMeta = validateJson('Meta', metaLocalPathJson, fs.readFileSync(metaLocalPathJson))
 					metaLocalPath = metaLocalPathJson
 				} else if (fs.existsSync(metaLocalPathYaml)) {
-					luaMeta = tryYamlParse(UTF8.decode(fs.readFileSync(metaLocalPathYaml)), metaLocalPathYaml)
+					luaMeta = validateYaml(metaLocalPathYaml, fs.readFileSync(metaLocalPathYaml))
 					metaLocalPath = metaLocalPathYaml
 				} else if (fs.existsSync(metaLocalPathToml)) {
-					luaMeta = tryTomlParse(UTF8.decode(fs.readFileSync(metaLocalPathToml)), metaLocalPathToml)
+					luaMeta = validateToml(metaLocalPathToml, fs.readFileSync(metaLocalPathToml))
 					metaLocalPath = metaLocalPathToml
 				}
 				if (luaMeta) {
@@ -248,25 +192,30 @@ function mapDirectory(localPath, robloxPath, flag) {
 				// Project Files
 				if (localPathName.endsWith('.project')) {
 					mTimes[localPath] = localPathStats.mtimeMs
-					const subProjectJson = tryJsonParse(fs.readFileSync(localPath), localPath)
-					const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
-					const externalPackageAppend = parentPathString != '' && parentPathString + '/' || ''
-					mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
+					const subProjectJson = validateJson('SubProject', localPath, fs.readFileSync(localPath))
+					if (subProjectJson) {
+						const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
+						const externalPackageAppend = parentPathString != '' && parentPathString + '/' || ''
+						mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
+					}
 
 				// Model Files
 				} else if (localPathName.endsWith('.model')) {
-					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
-						'Type': 'JsonModel',
-						'Path': localPath
-					}, localPathStats.mtimeMs)
+					if (validateJson('Model', localPath, fs.readFileSync(localPath)))
+						assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
+							'Type': 'JsonModel',
+							'Path': localPath
+						}, localPathStats.mtimeMs)
 
 				// Excel Tables
 				} else if (localPathName.endsWith('.excel')) {
-					assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
-						'Type': 'Excel',
-						'Path': localPath,
-						'Meta': path.relative(path.resolve(), path.resolve(localPath, '..', tryJsonParse(fs.readFileSync(localPath)).spreadsheet)).replace(/\\/g, '/')
-					}, localPathStats.mtimeMs)
+					const excel = validateJson('Excel', localPath, fs.readFileSync(localPath))
+					if (excel)
+						assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
+							'Type': 'Excel',
+							'Path': localPath,
+							'Meta': path.relative(path.resolve(), path.resolve(localPath, '..', excel.spreadsheet)).replace(/\\/g, '/')
+						}, localPathStats.mtimeMs)
 
 				// Modules
 				} else {
@@ -311,7 +260,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				}, localPathStats.mtimeMs)
 			}
 		} else if (flag == 'JSON') {
-			console.error(red('Project error:'), yellow(`File [${localPath}] is not a mappable file type`))
+			console.error(fileError(localPath), yellow('File is not of a mappable file type'))
 		}
 	} else if (localPathStats.isDirectory()) {
 		if (fs.existsSync(localPath + '/default.project.json')) {
@@ -319,9 +268,11 @@ function mapDirectory(localPath, robloxPath, flag) {
 			// Projects
 			mTimes[localPath] = localPathStats.mtimeMs
 			const subProjectJsonPath = localPath + '/default.project.json'
-			const subProjectJson = tryJsonParse(fs.readFileSync(subProjectJsonPath), subProjectJsonPath)
-			const subProjectJsonStats = fs.statSync(localPath + '/default.project.json')
-			mapJsonRecursive(subProjectJsonPath, subProjectJson, robloxPath, 'tree', true, localPath + '/', subProjectJsonStats.mtimeMs)
+			const subProjectJson = validateJson('SubProject', subProjectJsonPath, fs.readFileSync(subProjectJsonPath))
+			if (subProjectJson) {
+				const subProjectJsonStats = fs.statSync(localPath + '/default.project.json')
+				mapJsonRecursive(subProjectJsonPath, subProjectJson, robloxPath, 'tree', true, localPath + '/', subProjectJsonStats.mtimeMs)
+			}
 
 		} else {
 
@@ -341,13 +292,13 @@ function mapDirectory(localPath, robloxPath, flag) {
 				const metaLocalPathYaml = localPath + '/init.meta.yaml'
 				const metaLocalPathToml = localPath + '/init.meta.toml'
 				if (fs.existsSync(metaLocalPathJson)) {
-					initMeta = tryJsonParse(fs.readFileSync(metaLocalPathJson), metaLocalPathJson)
+					initMeta = validateJson('Meta', metaLocalPathJson, fs.readFileSync(metaLocalPathJson))
 					metaLocalPath = metaLocalPathJson
 				} else if (fs.existsSync(metaLocalPathYaml)) {
-					initMeta = tryYamlParse(fs.readFileSync(metaLocalPathYaml), metaLocalPathYaml)
+					initMeta = validateYaml('Meta', metaLocalPathYaml, fs.readFileSync(metaLocalPathYaml))
 					metaLocalPath = metaLocalPathYaml
 				} else if (fs.existsSync(metaLocalPathToml)) {
-					initMeta = tryTomlParse(fs.readFileSync(metaLocalPathToml), metaLocalPathToml)
+					initMeta = validateToml('Meta', metaLocalPathToml, fs.readFileSync(metaLocalPathToml))
 					metaLocalPath = metaLocalPathToml
 				}
 				if (initMeta) {
@@ -459,14 +410,19 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExterna
 		if (fs.existsSync(localPath)) {
 			mapDirectory(localPath, nextRobloxPath, 'JSON')
 		} else {
-			console.error(red('Project error:'), yellow(`Path [${localPath}] does not exist`))
+			console.error(fileError(localPath), yellow('Path does not exist'))
 		}
 	}
 }
 
 function changedJson() {
 	if (DEBUG) console.log('Loading', cyan(PROJECT_JSON))
-	projectJson = JSON.parse(fs.readFileSync(PROJECT_JSON))
+	projectJson = validateJson('MainProject', PROJECT_JSON, fs.readFileSync(PROJECT_JSON))
+	if (!projectJson) {
+		console.log()
+		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('is invalid'))
+		process.exit()
+	}
 	let globIgnorePathsArr = [
 		PROJECT_JSON,
 		path.relative(path.resolve(), path.resolve(PROJECT_JSON, '../sourcemap.json')).replace(/\\/g, '/'),
@@ -479,7 +435,8 @@ function changedJson() {
 	globIgnorePaths = `{${globIgnorePathsArr.join(',')}}`
 	globIgnorePathsPicoMatch = picomatch(globIgnorePaths)
 	if (!fs.existsSync(projectJson.base)) {
-		console.error(red('Project error:'), yellow(`Base [${projectJson.base}] does not exist`))
+		console.log()
+		console.error(red('Terminated:'), yellow('Base'), cyan(projectJson.base), yellow('does not exist'))
 		process.exit()
 	}
 	if (DEBUG) console.log('Mapping', green(projectJson.name))
@@ -535,7 +492,7 @@ async function getAsync(url, responseType) {
 					let buffer = Buffer.concat(data)
 					switch (responseType) {
 						case 'json':
-							resolve(tryJsonParse(buffer.toString()))
+							resolve(JSON.parse(buffer.toString()))
 							break
 						default:
 							resolve(buffer)
@@ -562,7 +519,6 @@ async function getAsync(url, responseType) {
 	if (CONFIG.AutoUpdate) {
 		console.log('Checking for updates . . .')
 		const latestIdFile = path.resolve(__dirname, 'latestId')
-		const configFile = path.resolve(__dirname, 'config.json')
 		let currentId = 0
 		try {
 			currentId = fs.readFileSync(latestIdFile)
@@ -597,7 +553,7 @@ async function getAsync(url, responseType) {
 				fs.readdirSync(updateFolder).forEach((dirNext) => {
 					const oldPath = path.resolve(updateFolder, dirNext)
 					const newPath = path.resolve(__dirname, dirNext)
-					if (newPath == configFile) {
+					if (newPath == CONFIG_PATH) {
 						const newConfig = JSON.parse(fs.readFileSync(oldPath))
 						for (const key in CONFIG)
 							newConfig[key] = CONFIG[key]
@@ -631,13 +587,15 @@ async function getAsync(url, responseType) {
 
 	console.log('Path:', cyan(path.resolve()))
 	console.log('Args:', ARGS)
+	console.log()
 
 	http.globalAgent.maxSockets = 65535
 
 	// Check project file exists
 
 	if (!fs.existsSync(PROJECT_JSON)) {
-		console.error(red('Project error:'), yellow(`Project [${PROJECT_JSON}] does not exist`))
+		console.log()
+		console.error(red('Terminated:'), yellow(Project), cyan(PROJECT_JSON), yellow('does not exist'))
 		process.exit()
 	}
 
@@ -645,7 +603,7 @@ async function getAsync(url, responseType) {
 
 	changedJson()
 	if (CONFIG.GenerateSourcemap) {
-		generateSourcemap(PROJECT_JSON, map, projectJson, red)
+		generateSourcemap(PROJECT_JSON, map, projectJson)
 		modified_sourcemap = {}
 	}
 
@@ -658,6 +616,15 @@ async function getAsync(url, responseType) {
 		// Map loadstring calls (needed until Lune implements loadstring)
 		let loadstringMapEntries = {}
 		let loadstringMap = ''
+
+		function toEscapeSequence(str) {
+			let escapeSequence = ''
+			let i = str.length
+			while (i--)
+				escapeSequence = '\\' + str.charCodeAt(i) + escapeSequence
+			return escapeSequence
+		}
+
 		function mapProperties(properties) {
 			for (const property in properties) {
 				let value = properties[property]
@@ -667,6 +634,7 @@ async function getAsync(url, responseType) {
 				}
 			}
 		}
+
 		for (const key in map) {
 			const mapping = map[key]
 			if (mapping.Type == 'JsonModel') {
@@ -680,7 +648,8 @@ async function getAsync(url, responseType) {
 						}
 					}
 				}
-				mapJsonModel(tryJsonParse(fs.readFileSync(mapping.Path)))
+				const jsonModel = validateJson('Model', mapping.Path, fs.readFileSync(mapping.Path))
+				if (jsonModel) mapJsonModel(jsonModel)
 			} else if ('Properties' in mapping)
 				mapProperties(mapping.Properties)
 			if ('TerrainMaterialColors' in mapping)
@@ -715,7 +684,7 @@ async function getAsync(url, responseType) {
 			console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
 			process.exit(1)
 		} else if (validationStatus != 0) {
-			console.error(red('Build error:'), yellow(`Validation script failed with status [${validationStatus}].`))
+			console.error(red('Build error:'), yellow('Validation script failed with status', validationStatus))
 			process.exit(2)
 		}
 
@@ -745,7 +714,7 @@ async function getAsync(url, responseType) {
 				console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
 				process.exit(1)
 			} else if (status != 0) {
-				console.error(red('Build error:'), yellow(`Build script failed with status [${status}].`))
+				console.error(red('Build error:'), yellow('Build script failed with status'), status)
 				process.exit(3)
 			}
 			console.log('Build saved to', cyan(projectJson.build))
@@ -904,7 +873,7 @@ async function getAsync(url, responseType) {
 												delete map[key]
 												mapDirectory(localPath, title + '.server.luau')
 											} else {
-												console.error(red('Project error:'), yellow(`Stray meta file [${localPath}]`))
+												console.error(fileError(localPath), yellow('Stray meta file'))
 												return
 											}
 	
@@ -929,7 +898,7 @@ async function getAsync(url, responseType) {
 	
 						// Modify sourcemap
 						if (CONFIG.GenerateSourcemap && Object.keys(modified_sourcemap).length > 0) {
-							generateSourcemap(PROJECT_JSON, modified_sourcemap, projectJson, red)
+							generateSourcemap(PROJECT_JSON, modified_sourcemap, projectJson)
 							modified_sourcemap = {}
 						}
 					}
@@ -954,11 +923,11 @@ async function getAsync(url, responseType) {
 			if (!securityKey) {
 				if (!('userid' in req.headers)) {
 					const errText = 'Missing UserId header.'
-					console.error(red('Lync bug:'), yellow(errText))
+					console.error(red('Server error:'), yellow(errText))
 					console.log('Headers:', req.headers)
 					res.writeHead(403)
 					res.end(errText)
-					process.exit()
+					return
 				}
 				const pluginSettings = path.resolve(
 					process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME),
@@ -969,7 +938,8 @@ async function getAsync(url, responseType) {
 			}
 			if (req.headers.key != securityKey) {
 				const errText = `Security key mismatch. The current session will now be terminated. (Key = ${req.headers.key})\nPlease check for any malicious plugins or scripts and try again.`
-				console.error(red('Server error:'), yellow(errText))
+				console.log()
+				console.error(red('Terminated:'), yellow(errText))
 				res.writeHead(403)
 				res.end(errText)
 				process.exit()
@@ -1054,66 +1024,76 @@ async function getAsync(url, responseType) {
 
 					// Parse JSON
 					if (req.headers.datatype == 'JSON') {
-						read = luaFormat(JSON.parse(read), { singleQuote: false, spaces: '\t' })
+						const json = validateJson(null, req.headers.path, read)
+						if (json) read = LUA.format(json, { singleQuote: false, spaces: '\t' })
 
 					// Convert YAML to JSON
 					} else if (req.headers.datatype == 'YAML') {
-						read = luaFormat(YAML.parse(UTF8.decode(read)), { singleQuote: false, spaces: '\t' })
+						const yaml = validateYaml(null, req.headers.path, read)
+						if (yaml) read = LUA.format(yaml, { singleQuote: false, spaces: '\t' })
 
 					// Convert TOML to JSON
 					} else if (req.headers.datatype == 'TOML') {
-						read = luaFormat(TOML.parse(UTF8.decode(read)), { singleQuote: false, spaces: '\t' })
+						const toml = validateToml(null, req.headers.path, read)
+						if (toml) read = LUA.format(toml, { singleQuote: false, spaces: '\t' })
 
 					// Read and convert Excel Tables to JSON
 					} else if (req.headers.datatype == 'Excel') {
-						let tableDefinitions = JSON.parse(UTF8.decode(read))
-						const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.spreadsheet)
-						const excelFile = XLSX.readFile(excelFilePath)
+						let tableDefinitions = validateJson('Excel', req.headers.path, read)
+						if (tableDefinitions) {
+							const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.spreadsheet)
 
-						// Convert Excel 'Defined Name' to 'Ref'
-						for (const definedName of excelFile.Workbook.Names) {
-							if (definedName.Name == tableDefinitions.ref) {
-								tableDefinitions.ref = definedName.Ref
-								break
+							if (!fs.existsSync(excelFilePath)) {
+								console.error(fileError(excelFilePath), yellow('Excel file does not exist'))
+							} else {
+								const excelFile = XLSX.readFile(excelFilePath)
+
+								// Convert Excel 'Defined Name' to 'Ref'
+								for (const definedName of excelFile.Workbook.Names) {
+									if (definedName.Name == tableDefinitions.ref) {
+										tableDefinitions.ref = definedName.Ref
+										break
+									}
+								}
+		
+								// Find current sheet and range to read from
+								let sheet;
+								let range;
+								if (tableDefinitions.ref.includes('!')) {
+									const ref = tableDefinitions.ref.replace('=', '').split('!')
+									sheet = excelFile.Sheets[ref[0]]
+									range = XLSX.utils.decode_range(ref[1])
+								} else {
+									sheet = excelFile.Sheets[excelFile.SheetNames[0]]
+									range = XLSX.utils.decode_range(tableDefinitions.ref.replace('=', ''))
+								}
+		
+								// Convert cells to dict
+								const sheetJson = XLSX.utils.sheet_to_json(sheet, {
+									range: range,
+									header: 1,
+									defval: null
+								})
+								let entries = tableDefinitions.firstValueIsKey && {} || []
+								const startRow = tableDefinitions.hasHeader && 1 || 0
+								const startColumn = tableDefinitions.firstValueIsKey && 1 || 0
+								const header = sheetJson[0];
+								for (let row = startRow; row < sheetJson.length; row++) {
+									const key = tableDefinitions.firstValueIsKey && sheetJson[row][0] || (row - startRow)
+									entries[key] = tableDefinitions.hasHeader && {} || []
+									for (let column = startColumn; column < header.length; column++) {
+										const value = tableDefinitions.hasHeader && header[column] || (column - startColumn)
+										entries[key][value] = sheetJson[row][column]
+									}
+								}
+								read = LUA.format(entries, { singleQuote: false, spaces: '\t' })
 							}
 						}
-
-						// Find current sheet and range to read from
-						let sheet;
-						let range;
-						if (tableDefinitions.ref.includes('!')) {
-							const ref = tableDefinitions.ref.replace('=', '').split('!')
-							sheet = excelFile.Sheets[ref[0]]
-							range = XLSX.utils.decode_range(ref[1])
-						} else {
-							sheet = excelFile.Sheets[excelFile.SheetNames[0]]
-							range = XLSX.utils.decode_range(tableDefinitions.ref.replace('=', ''))
-						}
-
-						// Convert cells to dict
-						const sheetJson = XLSX.utils.sheet_to_json(sheet, {
-							range: range,
-							header: 1,
-							defval: null
-						})
-						let entries = tableDefinitions.firstValueIsKey && {} || []
-						const startRow = tableDefinitions.hasHeader && 1 || 0
-						const startColumn = tableDefinitions.firstValueIsKey && 1 || 0
-						const header = sheetJson[0];
-						for (let row = startRow; row < sheetJson.length; row++) {
-							const key = tableDefinitions.firstValueIsKey && sheetJson[row][0] || (row - startRow)
-							entries[key] = tableDefinitions.hasHeader && {} || []
-							for (let column = startColumn; column < header.length; column++) {
-								const value = tableDefinitions.hasHeader && header[column] || (column - startColumn)
-								entries[key][value] = sheetJson[row][column]
-							}
-						}
-						read = luaFormat(entries, { singleQuote: false, spaces: '\t' })
 
 					// Convert Localization CSV to JSON
 					} else if (req.headers.datatype == 'Localization') {
 						let entries = []
-						const csv = csvParse(read)
+						const csv = CSV.parse(read)
 						const header = csv[0]
 						for (let lIndex = 1; lIndex < csv.length; lIndex++) {
 							const entry = csv[lIndex]
@@ -1126,10 +1106,15 @@ async function getAsync(url, responseType) {
 						read = JSON.stringify(entries)
 					}
 
-					res.writeHead(200)
-					res.end(read)
+					if (read) {
+						res.writeHead(200)
+						res.end(read)
+					} else {
+						res.writeHead(403)
+						res.end('Invalid read')
+					}
 				} catch (err) {
-					console.error(red('Server error:'), yellow(err))
+					console.error(red('Server error:'), err)
 					res.writeHead(500)
 					res.end(err.toString())
 				}
@@ -1159,7 +1144,7 @@ async function getAsync(url, responseType) {
 						res.writeHead(200)
 						res.end()
 					} catch (err) {
-						console.error(red('Server error:'), yellow(err))
+						console.error(red('Server error:'), err)
 						res.writeHead(400)
 						res.end(err.toString())
 					}
@@ -1169,7 +1154,7 @@ async function getAsync(url, responseType) {
 			case 'Resume':
 				res.writeHead(200)
 				res.end()
-				break;
+				break
 
 			default:
 				res.writeHead(400)
@@ -1178,7 +1163,7 @@ async function getAsync(url, responseType) {
 	})
 	.on('error', function(err) {
 		console.log()
-		console.error(red('Server error:'), yellow(err))
+		console.error(red('Terminated: Server error:'), err)
 		process.exit()
 	})
 	.listen(PORT, function() {
