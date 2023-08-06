@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const { red, yellow, green, cyan } = require('../output.js')
+const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
 
 const RBXM = require('./rbxm.js')
 const RBXMX = require('./rbxmx.js')

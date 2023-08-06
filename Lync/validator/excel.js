@@ -1,6 +1,7 @@
 const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
 
 const fs = require('fs')
+const path = require('path')
 
 module.exports.validate = function(json, localPath) {
 	let failed = false
@@ -11,7 +12,7 @@ module.exports.validate = function(json, localPath) {
 	} else if (typeof json.spreadsheet != 'string') {
 		console.error(fileError(localPath), green('spreadsheet'), yellow('must be a string'))
 		failed = true
-	} else if (!fs.existsSync(json.spreadsheet)) {
+	} else if (!fs.existsSync(path.resolve(localPath, '..', json.spreadsheet))) {
 		console.error(fileError(localPath), yellow('Spreadsheet'), cyan(json.spreadsheet), yellow('does not exist'))
 		failed = true
 	}
