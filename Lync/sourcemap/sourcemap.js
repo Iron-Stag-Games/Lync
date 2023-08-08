@@ -73,9 +73,9 @@ module.exports.generateSourcemap = function(PROJECT_JSON, map, projectJson) {
 						case 'Model':
 							const pathParsed = path.parse(mapping.Path)
 							const pathExt = pathParsed.ext.toLowerCase()
-							if (pathExt == '.rbxm') {
+							if (pathExt == '.rbxm' && (!('sourcemapEnabled' in projectJson) || projectJson.sourcemapEnabled.RBXM)) {
 								RBXM.fill(target, fs.readFileSync(mapping.Path))
-							} else if (pathExt == '.rbxmx') {
+							} else if (pathExt == '.rbxmx' && (!('sourcemapEnabled' in projectJson) || projectJson.sourcemapEnabled.RBXMX)) {
 								RBXMX.fill(target, fs.readFileSync(mapping.Path))
 							}
 							break

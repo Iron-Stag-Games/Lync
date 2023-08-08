@@ -2,6 +2,10 @@
 	"name": "Example Build",
 	"base": "default.base.rbxl",
 	"build": "BuildScripts/Build/Build.rbxl",
+	"sourcemapEnabled": {
+		"RBXM": true,
+		"RBXMX": true
+	},
 
 	"tree": {
 		"Workspace": {

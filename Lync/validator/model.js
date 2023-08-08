@@ -14,7 +14,7 @@ function scan(json, localPath) {
 	}
 
 	if (('Properties' in json) && !(typeof json.Properties == 'object' && !Array.isArray(json.Properties))) {
-		console.error(fileError(localPath), green('Properties'), yellow('must be a dictionary'))
+		console.error(fileError(localPath), green('Properties'), yellow('must be an object'))
 		failed = true
 	} else {
 		for (const property in json.Properties) {

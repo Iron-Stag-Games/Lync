@@ -12,11 +12,11 @@ function scan(json, localPath) {
 			failed = true
 
 		} else if (key == '$properties' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('$properties'), yellow('must be a dictionary'))
+			console.error(fileError(localPath), green('$properties'), yellow('must be an object'))
 			failed = true
 
 		} else if (key == '$attributes' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('$attributes'), yellow('must be a dictionary'))
+			console.error(fileError(localPath), green('$attributes'), yellow('must be an object'))
 			failed = true
 
 		} else if (key == '$tags' && !(typeof json[key] == 'object' && Array.isArray(json[key]))) {
@@ -51,14 +51,46 @@ module.exports.validate = function(type, json, localPath) {
 		if (!('name' in json)) {
 			console.error(fileError(localPath), yellow('Missing key'), green('name'))
 			failed = true
+		} else if (typeof json.name != 'string') {
+			console.error(fileError(localPath), green('name'), yellow('must be a string'))
+			failed = true
 		}
+
 		if (!('base' in json)) {
 			console.error(fileError(localPath), yellow('Missing key'), green('base'))
 			failed = true
+		} else if (typeof json.base != 'string') {
+			console.error(fileError(localPath), green('base'), yellow('must be a string'))
+			failed = true
 		}
+
 		if (!('build' in json)) {
 			console.error(fileError(localPath), yellow('Missing key'), green('build'))
 			failed = true
+		} else if (typeof json.build != 'string') {
+			console.error(fileError(localPath), green('build'), yellow('must be a string'))
+			failed = true
+		}
+
+		if ('sourcemapEnabled' in json) {
+			if (!(typeof json.sourcemapEnabled == 'object' && !Array.isArray(json.sourcemapEnabled))) {
+				console.error(fileError(localPath), green('sourcemapEnabled'), yellow('must be an object'))
+				failed = true
+			} else {
+				for (const key in json.sourcemapEnabled) {
+					if (key != 'RBXM'
+						&& key != 'RBXMX'
+					) {
+						console.error(fileWarning(localPath), 'Unexpected key', green(key))
+					} else {
+						const value = json.sourcemapEnabled[key]
+						if (typeof value != 'boolean') {
+							console.error(fileError(localPath), green(key), yellow('must be a boolean'))
+							failed = true
+						}
+					}
+				}
+			}
 		}
 	}
 

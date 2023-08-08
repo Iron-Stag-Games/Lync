@@ -12,11 +12,11 @@ module.exports.validate = function(json, localPath) {
 			failed = true
 
 		} else if (key == 'properties' && !((typeof json[key] == 'object') && !Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('properties') , yellow('must be a dictionary'))
+			console.error(fileError(localPath), green('properties') , yellow('must be an object'))
 			failed = true
 
 		} else if (key == 'attributes' && !((typeof json[key] == 'object') && !Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('attributes') , yellow('must be a dictionary'))
+			console.error(fileError(localPath), green('attributes') , yellow('must be an object'))
 			failed = true
 
 		} else if (key == 'tags' && !((typeof json[key] == 'object') && Array.isArray(json[key]))) {
