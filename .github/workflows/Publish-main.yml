@@ -17,7 +17,7 @@ jobs:
     - name: Download repository
       uses: actions/checkout@master
 
-    # Exclusive to the sample workflow; please this step!
+    # Exclusive to the sample workflow; please remove this step!
     - name: Extract Sample Project
       run: |
         MOVE "Sample Project" "../temp"
