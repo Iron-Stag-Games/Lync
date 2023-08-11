@@ -587,25 +587,17 @@ async function getAsync(url, responseType) {
 
 	console.log('Path:', cyan(path.resolve()))
 	console.log('Args:', ARGS)
-	console.log()
 
 	http.globalAgent.maxSockets = 65535
 
-	// Check project file exists
+	// Map project
 
 	if (!fs.existsSync(PROJECT_JSON)) {
 		console.log()
 		console.error(red('Terminated:'), yellow(Project), cyan(PROJECT_JSON), yellow('does not exist'))
 		process.exit()
 	}
-
-	// Map project
-
 	changedJson()
-	if (CONFIG.GenerateSourcemap) {
-		generateSourcemap(PROJECT_JSON, map, projectJson)
-		modified_sourcemap = {}
-	}
 
 	// Build
 
@@ -1169,4 +1161,11 @@ async function getAsync(url, responseType) {
 	.listen(PORT, function() {
 		console.log(`\nSyncing ${green(projectJson.name)} on port ${yellow(PORT)}\n`)
 	})
+
+	// Generate sourcemap
+
+	if (CONFIG.GenerateSourcemap) {
+		generateSourcemap(PROJECT_JSON, map, projectJson)
+		modified_sourcemap = {}
+	}
 })()
