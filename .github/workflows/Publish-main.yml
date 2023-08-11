@@ -9,7 +9,6 @@ on:
     - 'Sample Project/**'
 
 jobs:
-
   publish-main:
     runs-on: windows-latest
     steps:

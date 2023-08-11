@@ -1,0 +1,40 @@
+name: pkg
+
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  pkg:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch:
+          - x64
+          - arm64
+        node-version:
+          - node18
+        os:
+          - win
+          - macos
+    steps:
+
+      - name: Download repository
+        uses: actions/checkout@master
+
+      - name: Extract Lync
+        run: |
+          ls
+          mv Lync/ ../temp/
+          rm -r *
+          mv -v ../temp/* ./
+          ls
+
+      - name: Compile Lync binary
+        uses: lando/pkg-action@main
+        with:
+          entrypoint: ./index.js
+          arch: ${{ matrix.arch }}
+          node-version: ${{ matrix.node-version }}
+          os: ${{ matrix.os }}
