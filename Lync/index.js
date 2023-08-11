@@ -748,8 +748,9 @@ async function getAsync(url, responseType) {
 			ignored: globIgnorePaths,
 			persistent: true,
 			ignorePermissionErrors: true,
-			alwaysStat: true
-		}).on('all', (event, localPath, localPathStats) => {
+			alwaysStat: true,
+			usePolling: true
+		}).on('all', function(event, localPath, localPathStats) {
 			if (DEBUG) console.log('E', yellow(event), cyan(localPath))
 			try {
 				if (localPath) {
@@ -1159,13 +1160,16 @@ async function getAsync(url, responseType) {
 		process.exit()
 	})
 	.listen(PORT, function() {
-		console.log(`\nSyncing ${green(projectJson.name)} on port ${yellow(PORT)}\n`)
+		console.log(`Syncing ${green(projectJson.name)} on port ${yellow(PORT)}\n`)
+
+		// Generate sourcemap
+
+		if (CONFIG.GenerateSourcemap) {
+			const startTime = Date.now()
+			if (DEBUG) console.log('Generating', cyan('sourcemap.json'), '. . .')
+			generateSourcemap(PROJECT_JSON, map, projectJson)
+			if (DEBUG) console.log('Generated', cyan('sourcemap.json'), 'in', (Date.now() - startTime) / 1000, 'seconds')
+			modified_sourcemap = {}
+		}
 	})
-
-	// Generate sourcemap
-
-	if (CONFIG.GenerateSourcemap) {
-		generateSourcemap(PROJECT_JSON, map, projectJson)
-		modified_sourcemap = {}
-	}
 })()
