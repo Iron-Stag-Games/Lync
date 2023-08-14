@@ -40,7 +40,8 @@ module.exports.generateSourcemap = function(PROJECT_JSON, map, projectJson) {
 						}
 					}
 				}
-				targetParent.children.splice(targetKey, 1)
+				if (targetParent)
+					targetParent.children.splice(targetKey, 1)
 				continue
 			}
 
