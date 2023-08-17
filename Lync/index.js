@@ -1053,8 +1053,8 @@ async function getAsync(url, responseType) {
 								let sheet;
 								let range;
 								if (tableDefinitions.ref.includes('!')) {
-									const ref = tableDefinitions.ref.replace('=', '').split('!')
-									sheet = excelFile.Sheets[ref[0]]
+									const ref = tableDefinitions.ref.split('!')
+									sheet = excelFile.Sheets[ref[0].replace('=', '').replaceAll('\'', '')]
 									range = XLSX.utils.decode_range(ref[1])
 								} else {
 									sheet = excelFile.Sheets[excelFile.SheetNames[0]]

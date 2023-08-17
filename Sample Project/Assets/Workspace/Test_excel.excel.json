@@ -1,6 +1,6 @@
 {
     "spreadsheet": "Test_excel.xlsx",
-    "ref": "=Sheet1!C4:F7",
+    "ref": "Sheet1!C4:F7",
     "hasHeader": true,
     "numColumnKeys": 1
 }
