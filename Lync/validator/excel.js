@@ -33,11 +33,11 @@ module.exports.validate = function(json, localPath) {
 		failed = true
 	}
 
-	if (!('firstValueIsKey' in json)) {
-		console.error(fileError(localPath), yellow('Missing key'), green('firstValueIsKey'))
+	if (!('numColumnKeys' in json)) {
+		console.error(fileError(localPath), yellow('Missing key'), green('numColumnKeys'))
 		failed = true
-	} else if (typeof json.firstValueIsKey != 'boolean') {
-		console.error(fileError(localPath), green('firstValueIsKey'), yellow('must be a boolean'))
+	} else if (typeof json.numColumnKeys != 'number') {
+		console.error(fileError(localPath), green('numColumnKeys'), yellow('must be a number'))
 		failed = true
 	}
 

@@ -1067,16 +1067,30 @@ async function getAsync(url, responseType) {
 									header: 1,
 									defval: null
 								})
-								let entries = tableDefinitions.firstValueIsKey && {} || []
+								const entries = tableDefinitions.numColumnKeys > 0 && {} || []
 								const startRow = tableDefinitions.hasHeader && 1 || 0
-								const startColumn = tableDefinitions.firstValueIsKey && 1 || 0
-								const header = sheetJson[0];
+								const startColumn = tableDefinitions.numColumnKeys
+								const header = sheetJson[0]
 								for (let row = startRow; row < sheetJson.length; row++) {
-									const key = tableDefinitions.firstValueIsKey && sheetJson[row][0] || (row - startRow)
-									entries[key] = tableDefinitions.hasHeader && {} || []
 									for (let column = startColumn; column < header.length; column++) {
-										const value = tableDefinitions.hasHeader && header[column] || (column - startColumn)
-										entries[key][value] = sheetJson[row][column]
+										const key = tableDefinitions.hasHeader && header[column] || (column - startColumn)
+										let target = entries
+										if (tableDefinitions.numColumnKeys > 0) {
+											for (let columnKeyIndex = 0; columnKeyIndex < tableDefinitions.numColumnKeys; columnKeyIndex++) {
+												const columnKey = sheetJson[row][columnKeyIndex]
+												if (!(columnKey in target)) {
+													target[columnKey] = tableDefinitions.hasHeader && {} || []
+												}
+												target = target[columnKey]
+											}
+										} else {
+											const indexKey = row - startRow
+											if (!target[indexKey]) {
+												target[indexKey] = tableDefinitions.hasHeader && {} || []
+											}
+											target = target[indexKey]
+										}
+										target[key] = sheetJson[row][column]
 									}
 								}
 								read = LUA.format(entries, { singleQuote: false, spaces: '\t' })
