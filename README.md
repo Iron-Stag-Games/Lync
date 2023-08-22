@@ -4,11 +4,11 @@
 
 Lync is a file sync tool for Roblox which is offered as an alternative to Rojo focused on expanding the feature set from community feedback and improving maintainability.
 
-This tool is currently provided without any documentation whatsoever! Because the two tools are so similar, please refer to [the Rojo documentation](https://rojo.space/docs/v7/) for the time being.
-
 ## Usage
 
-- [Lune](https://github.com/filiptibell/lune) must be installed for offline RBXL builds. You can specify the path to your Lune installation in the config file.
+This tool is currently provided without any documentation whatsoever! Because the two tools are so similar, please refer to [the Rojo documentation](https://rojo.space/docs/v7/) for the time being.
+
+[Lune](https://github.com/filiptibell/lune) must be installed for offline RBXL builds. You can specify the path to your Lune installation in the config file.
 
 ## Configuration
 
@@ -77,7 +77,6 @@ You can also specify whether or not to install updates automatically, and from w
 - Currently unable to use `LocalizationTable` in offline RBXL builds.
 - Lack of documentation.
 
-
 ## Syntax
 | Lync | Rojo |
 |-|-|
@@ -86,7 +85,6 @@ You can also specify whether or not to install updates automatically, and from w
 | $clearOnSync | $ignoreUnknownInstances |
 | Terrain.$terrainRegion | Terrain.$path |
 | Terrain.$terrainMaterialColors | Terrain.$path |
-
 
 # Package Compatibility Notice
 
