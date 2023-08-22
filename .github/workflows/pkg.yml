@@ -8,16 +8,6 @@ on:
 jobs:
   pkg:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch:
-          - x64
-          - arm64
-        node-version:
-          - node18
-        os:
-          - win
-          - macos
     steps:
 
       - name: Download repository
@@ -30,11 +20,14 @@ jobs:
           rm -r *
           mv -v ../temp/* ./
           ls
+      
+      - name: Install Node.js
+        uses: actions/setup-node@master
+
+      - name: Install pkg
+        run: npm install pkg
 
       - name: Compile Lync binary
-        uses: lando/pkg-action@main
-        with:
-          entrypoint: ./index.js
-          arch: ${{ matrix.arch }}
-          node-version: ${{ matrix.node-version }}
-          os: ${{ matrix.os }}
+        run: |
+          cd Lync
+          pkg index.js -t node18-win,node18-macos,node18-linux

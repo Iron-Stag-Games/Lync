@@ -19,7 +19,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 ]]
-local VERSION = "Alpha 23"
+local VERSION = "Alpha 24"
 
 if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
@@ -693,7 +693,8 @@ local function buildPath(path: string)
 			if target == workspace.Terrain then
 				if isBuildScript then
 					-- Temporary. Awaiting rbx-dom / Lune update.
-					workspace.Terrain.MaterialColors = string.pack(("I1"):rep(3):rep(23),
+					print("Terrain material colors unimplemented!")
+					--[[workspace.Terrain.MaterialColors = string.pack(("I1"):rep(3):rep(23),
 						color3sToInts(
 							Color3.new(),
 							Color3.new(),
@@ -719,7 +720,7 @@ local function buildPath(path: string)
 							eval(data.TerrainMaterialColors.Limestone) or Color3.fromRGB(206, 173, 148),
 							eval(data.TerrainMaterialColors.Pavement) or Color3.fromRGB(148, 148, 140)
 						)
-					)
+					)]]
 				else
 					for material, value in data.TerrainMaterialColors do
 						lpcall("Set Terrain Material Color", function()
@@ -747,20 +748,6 @@ end
 
 --offline-end
 
-local function getUserId(): number
-	while true do
-		local success, userId = pcall(function()
-			return StudioService:GetUserId()
-		end)
-		if success and userId and userId ~= 0 then
-			return userId
-		else
-			task.wait()
-		end
-	end
-	return 0
-end
-
 local function setConnected(newConnected: boolean)
 	if connecting then return end
 
@@ -783,7 +770,7 @@ local function setConnected(newConnected: boolean)
 		if newConnected then
 			if not map then
 				local success, result = pcall(function()
-					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 					return get ~= "{}" and HttpService:JSONDecode(get) or nil
 				end)
 				if success then
@@ -820,7 +807,7 @@ local function setConnected(newConnected: boolean)
 				end
 			else
 				local success, result = pcall(function()
-					HttpService:GetAsync("http://localhost:" .. getPort(), false, {UserId = tostring(getUserId()), Key = serverKey, Type = "Resume"})
+					HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Resume"})
 				end)
 				if not success then
 					task.spawn(error, "[Lync] - " .. result)

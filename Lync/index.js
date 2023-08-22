@@ -18,7 +18,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 */
-const VERSION = 'Alpha 23'
+const VERSION = 'Alpha 24'
 
 const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
@@ -26,7 +26,7 @@ const path = require('path')
 const process = require('process')
 
 const chokidar = require('chokidar')
-const CSV = require('csv-parse/sync')
+const { parseCSV } = require('csv-load-sync')
 const extract = require('extract-zip')
 const { http, https } = require('follow-redirects')
 const LUA = require('lua-json')
@@ -37,22 +37,34 @@ const { red, yellow, green, cyan, fileError, fileWarning } = require('./output.j
 const { generateSourcemap } = require('./sourcemap/sourcemap.js')
 const { validateJson, validateYaml, validateToml } = require('./validator/validator.js')
 
-if (process.platform != 'win32' && process.platform != 'darwin') process.exit()
-
-const CONFIG_PATH = path.resolve(__dirname, 'config.json')
+const UTF8 = new TextDecoder('utf-8')
+const LYNC_INSTALL_DIR = process.pkg && path.dirname(process.execPath) || __dirname
+const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'config.json')
 const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH))
+
+// Args
+function argHelp(err) {
+	if (err) console.error(red('Argument error:'), yellow(err) + '\n')
+	console.log(`LYNC ${cyan('project.json')} SERVE ${yellow('[port]')}   Syncs the project.
+                    OPEN  ${yellow('[port]')}   Syncs the project and opens it in Roblox Studio.
+                    BUILD          Builds the project to file.
+                    HELP           Displays the list of available arguments.
+`)
+	process.exit(err && -1 || 0)
+}
 const ARGS = process.argv.slice(2)
+if (ARGS.length < 1) argHelp(`Expected 1 argument but ${ARGS.length} were provided.`)
+if (ARGS[0].toLowerCase() == 'help') argHelp()
+if (ARGS.length < 2) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
 const PROJECT_JSON = ARGS[0].replace(/\\/g, '/')
-const DEBUG = ARGS[2] == 'DEBUG' || ARGS[3] == 'DEBUG'
+const MODE = ARGS[1].toLowerCase()
+if (MODE != 'serve' && MODE != 'open' && MODE != 'build') argHelp('Mode must be SERVE, OPEN, or BUILD.')
+if (MODE != 'build' && ARGS.length < 3) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
+const PORT = MODE != 'build' && ARGS[2] || '34873'
+if (typeof PORT == 'string' && (isNaN(parseInt(PORT)) || parseInt(PORT) < 1 || parseInt(PORT) > 65535)) argHelp('Port must be an integer from 1-65535.')
+const DEBUG = (MODE == 'build' && ARGS[2] || ARGS[3] || '').toLowerCase() == 'debug'
 
-// Sync args
-const PORT = ARGS[1] != 'OFFLINE' && ARGS[1] || '34873'
-const SYNC_ONLY = ARGS[2] == 'SYNC_ONLY' || ARGS[3] == 'SYNC_ONLY'
-
-// Offline build args
-const OFFLINE = ARGS[1] == 'OFFLINE'
-
-var securityKey = null
+var securityKeys = {}
 var map = {}
 var mTimes = {}
 var modified = {}
@@ -518,7 +530,7 @@ async function getAsync(url, responseType) {
 
 	if (CONFIG.AutoUpdate) {
 		console.log('Checking for updates . . .')
-		const latestIdFile = path.resolve(__dirname, 'latestId')
+		const latestIdFile = path.resolve(LYNC_INSTALL_DIR, 'latestId')
 		let currentId = 0
 		try {
 			currentId = fs.readFileSync(latestIdFile)
@@ -528,22 +540,22 @@ async function getAsync(url, responseType) {
 			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
 			if (CONFIG.GithubUpdatePrereleases) latest = latest[0]
 			if (latest.id != currentId) {
-				const updateFile = path.resolve(__dirname, 'update.zip')
-				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.tag_name)
+				const updateFile = path.resolve(LYNC_INSTALL_DIR, 'update.zip')
+				const extractedFolder = path.resolve(LYNC_INSTALL_DIR, 'Lync-' + latest.tag_name)
 				const updateFolder = path.resolve(extractedFolder, 'Lync')
 
 				// Download latest version
 				console.log(`Updating to ${latest.name} . . .`)
 				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/archive/refs/tags/${latest.tag_name}.zip`)
 				fs.writeFileSync(updateFile, update, 'binary')
-				await extract(updateFile, { dir: __dirname })
+				await extract(updateFile, { dir: LYNC_INSTALL_DIR })
 
 				// Write new version
 				fs.writeFileSync(latestIdFile, latest.id.toString())
 
 				// Delete old files
-				fs.readdirSync(__dirname).forEach((dirNext) => {
-					const next = path.resolve(__dirname, dirNext)
+				fs.readdirSync(LYNC_INSTALL_DIR).forEach((dirNext) => {
+					const next = path.resolve(LYNC_INSTALL_DIR, dirNext)
 					if (next != latestIdFile && next != extractedFolder) {
 						fs.rmSync(next, { force: true, recursive: true })
 					}
@@ -552,7 +564,7 @@ async function getAsync(url, responseType) {
 				// Move new files
 				fs.readdirSync(updateFolder).forEach((dirNext) => {
 					const oldPath = path.resolve(updateFolder, dirNext)
-					const newPath = path.resolve(__dirname, dirNext)
+					const newPath = path.resolve(LYNC_INSTALL_DIR, dirNext)
 					if (newPath == CONFIG_PATH) {
 						const newConfig = JSON.parse(fs.readFileSync(oldPath))
 						for (const key in CONFIG)
@@ -601,9 +613,11 @@ async function getAsync(url, responseType) {
 
 	// Build
 
-	if (OFFLINE) {
+	if (MODE == 'build') {
 		const buildScriptPath = projectJson.build + '.luau'
-		const lunePath = process.platform == 'win32' && CONFIG.LunePath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.LunePath.replace('$HOME', process.env.HOME)
+		const lunePath = process.platform == 'win32' && CONFIG.LunePath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
+			|| process.platform == 'darwin' && CONFIG.LunePath.replace('$HOME', process.env.HOME)
+			|| CONFIG.LunePath
 
 		// Map loadstring calls (needed until Lune implements loadstring)
 		let loadstringMapEntries = {}
@@ -649,12 +663,12 @@ async function getAsync(url, responseType) {
 		}
 
 		// Fetch script functions
-		let pluginSource = fs.readFileSync(path.resolve(__dirname, 'RobloxPluginSource/Plugin.lua'), { encoding: 'utf8' })
+		let pluginSource = fs.readFileSync(path.resolve(LYNC_INSTALL_DIR, 'RobloxPluginSource/Plugin.lua'), { encoding: 'utf8' })
 		pluginSource = pluginSource.substring(pluginSource.indexOf('--offline-start') + 15, pluginSource.indexOf('--offline-end'))
 
 		// Write validation script
 		if (DEBUG) console.log('Writing validation script . . .')
-		let validationScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
+		let validationScript = fs.readFileSync(path.resolve(LYNC_INSTALL_DIR, 'luneBuildTemplate.luau'))
 		validationScript += `${pluginSource}\n`
 		validationScript += `for _, lua in {\n`
 		for (const entry in loadstringMapEntries) {
@@ -682,7 +696,7 @@ async function getAsync(url, responseType) {
 
 		// Write build script
 		if (DEBUG) console.log('Writing build script . . .')
-		let buildScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
+		let buildScript = fs.readFileSync(path.resolve(LYNC_INSTALL_DIR, 'luneBuildTemplate.luau'))
 		buildScript += `local game = roblox.deserializePlace(fs.readFile("${projectJson.base}"))\n`
 		buildScript += 'local workspace = game:GetService("Workspace")\n'
 		buildScript += `${pluginSource}\n`
@@ -720,24 +734,27 @@ async function getAsync(url, responseType) {
 		if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
 		fs.copyFileSync(projectJson.base, projectJson.build)
 
-		// Copy plugin
-		const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
-		if (!fs.existsSync(pluginsPath)) {
-			if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
-			fs.mkdirSync(pluginsPath)
-		}
-		if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
-		fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
-	
-		// Open Studio
-		if (!SYNC_ONLY) {
-			if (DEBUG) console.log('Opening', cyan(projectJson.build))
-			spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
-				stdio: 'ignore',
-				detached: true,
-				shell: true,
-				windowsHide: true
-			})
+		if (process.platform == 'win32' || process.platform == 'darwin') {
+
+			// Copy plugin
+			const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)|| process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
+			if (!fs.existsSync(pluginsPath)) {
+				if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
+				fs.mkdirSync(pluginsPath)
+			}
+			if (DEBUG) console.log('Copying', cyan(path.resolve(LYNC_INSTALL_DIR, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
+			fs.copyFileSync(path.resolve(LYNC_INSTALL_DIR, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
+
+			// Open Studio
+			if (MODE == 'open') {
+				if (DEBUG) console.log('Opening', cyan(projectJson.build))
+				spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
+					stdio: 'ignore',
+					detached: true,
+					shell: true,
+					windowsHide: true
+				})
+			}
 		}
 
 		// Sync file changes
@@ -905,31 +922,19 @@ async function getAsync(url, responseType) {
 	// Start server
 
 	http.createServer(function(req, res) {
-		if (req.socket.remoteAddress != '::1' && req.socket.remoteAddress != '127.0.0.1' & req.socket.remoteAddress != '::ffff:127.0.0.1') {
-			const errText = `Network traffic must originate from the local host. (IP = ${req.socket.remoteAddress})`
-			console.error(red('Server error:'), yellow(errText))
-			res.writeHead(403)
-			res.end(errText)
-			return
-		}
-		if (!OFFLINE) {
-			if (!securityKey) {
-				if (!('userid' in req.headers)) {
-					const errText = 'Missing UserId header.'
+		if (MODE != 'build') {
+			if (!(req.socket.remoteAddress in securityKeys)) {
+				if (!('key' in req.headers)) {
+					const errText = 'Missing Key header.'
 					console.error(red('Server error:'), yellow(errText))
 					console.log('Headers:', req.headers)
 					res.writeHead(403)
 					res.end(errText)
 					return
 				}
-				const pluginSettings = path.resolve(
-					process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME),
-					`../${req.headers.userid}/InstalledPlugins/0/settings.json`
-				)
-				securityKey = JSON.parse(fs.readFileSync(pluginSettings)).Lync_ServerKey
-				if (DEBUG) console.log('Client connected.')
-			}
-			if (req.headers.key != securityKey) {
+				securityKeys[req.socket.remoteAddress] = req.headers.key
+				console.log(`Client connected: ${yellow(req.socket.remoteAddress)}`)
+			} else if (req.headers.key != securityKeys[req.socket.remoteAddress]) {
 				const errText = `Security key mismatch. The current session will now be terminated. (Key = ${req.headers.key})\nPlease check for any malicious plugins or scripts and try again.`
 				console.log()
 				console.error(red('Terminated:'), yellow(errText))
@@ -938,8 +943,6 @@ async function getAsync(url, responseType) {
 				process.exit()
 			}
 		}
-
-		let jsonString;
 
 		switch (req.headers.type) {
 			case 'Map':
@@ -986,7 +989,7 @@ async function getAsync(url, responseType) {
 				map.Version = VERSION
 				map.Debug = DEBUG
 				map.ServePlaceIds = projectJson.servePlaceIds
-				jsonString = JSON.stringify(map)
+				const mapJsonString = JSON.stringify(map)
 				delete map['Version']
 				delete map['Debug']
 				delete map['ServePlaceIds']
@@ -996,19 +999,20 @@ async function getAsync(url, responseType) {
 					modified = {}
 				}
 				res.writeHead(200)
-				res.end(jsonString)
+				res.end(mapJsonString)
 				break
 
 			case 'Modified':
+				let modifiedJsonString;
 				if ('playtest' in req.headers) {
-					jsonString = JSON.stringify(modified_playtest)
+					modifiedJsonString = JSON.stringify(modified_playtest)
 					modified_playtest = {}
 				} else {
-					jsonString = JSON.stringify(modified)
+					modifiedJsonString = JSON.stringify(modified)
 					modified = {}
 				}
 				res.writeHead(200)
-				res.end(jsonString)
+				res.end(modifiedJsonString)
 				break
 
 			case 'Source':
@@ -1100,15 +1104,22 @@ async function getAsync(url, responseType) {
 					// Convert Localization CSV to JSON
 					} else if (req.headers.datatype == 'Localization') {
 						let entries = []
-						const csv = CSV.parse(read)
-						const header = csv[0]
-						for (let lIndex = 1; lIndex < csv.length; lIndex++) {
-							const entry = csv[lIndex]
-							let values = {}
-							for (let eIndex = 4; eIndex < entry.length; eIndex++) {
-								values[header[eIndex]] = entry[eIndex]
+						const csv = parseCSV(UTF8.decode(read))
+						for (let index = 0; index < csv.length; index++) {
+							const entry = csv[index]
+							const values = {}
+							for (const key in entry) {
+								switch (key) {
+									case 'Key':
+									case 'Source':
+									case 'Context':
+									case 'Example':
+										break
+									default:
+										values[key] = entry[key]
+								}
 							}
-							entries.push({ Key: entry[0], Source: entry[1], Context: entry[2], Example: entry[3], Values: values })
+							entries.push({ Key: entry.Key, Source: entry.Source, Context: entry.Context, Example: entry.Example, Values: values })
 						}
 						read = JSON.stringify(entries)
 					}

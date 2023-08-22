@@ -2,4 +2,4 @@
 
 cd ${0%/*}
 cd ../
-node $HOME/Documents/Roblox/Lync/index.js default.project.json 34873
+node $HOME/Documents/Roblox/Lync/index.js default.project.json BUILD
