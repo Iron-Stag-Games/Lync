@@ -44,7 +44,9 @@ jobs:
         path: Lync
 
     - name: Build
-      run: Lync/lync-linux default.project.json BUILD
+      run: |
+        chmod +x "Lync/Lync/lync-linux"
+        "Lync/Lync/lync-linux" default.project.json BUILD
 
     # Remove this step to test build success without publishing.
     - name: Publish
