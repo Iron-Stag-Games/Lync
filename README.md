@@ -1,4 +1,4 @@
-[![Package Release](https://github.com/Iron-Stag-Games/Lync/actions/workflows/pkg.yml/badge.svg)](https://github.com/Iron-Stag-Games/Lync/actions/workflows/pkg.yml) [![Build and Publish Sample Project](https://github.com/Iron-Stag-Games/Lync/actions/workflows/Publish-main.yml/badge.svg)](https://github.com/Iron-Stag-Games/Lync/actions/workflows/Publish-main.yml)
+[![Build and Publish Sample Project](https://github.com/Iron-Stag-Games/Lync/actions/workflows/Publish-main.yml/badge.svg)](https://github.com/Iron-Stag-Games/Lync/actions/workflows/Publish-main.yml)
 
 # What is Lync?
 

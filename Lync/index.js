@@ -53,8 +53,7 @@ function argHelp(err) {
 	process.exit(err && -1 || 0)
 }
 const ARGS = process.argv.slice(2)
-if (ARGS.length < 1) argHelp(`Expected 1 argument but ${ARGS.length} were provided.`)
-if (ARGS[0].toLowerCase() == 'help') argHelp()
+if (ARGS.length < 1 || ARGS[0].toLowerCase() == 'help') argHelp()
 if (ARGS.length < 2) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
 const PROJECT_JSON = ARGS[0].replace(/\\/g, '/')
 const MODE = ARGS[1].toLowerCase()
