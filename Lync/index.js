@@ -20,7 +20,7 @@
 */
 const VERSION = 'Alpha 24'
 
-const { spawn, spawnSync } = require('child_process')
+const { spawn, spawnSync, exec } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const process = require('process')
@@ -540,16 +540,18 @@ async function getAsync(url, responseType) {
 			// Grab latest version info
 			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
 			if (CONFIG.GithubUpdatePrereleases) latest = latest[0]
+			if (!latest || !('id' in latest)) throw new Error('No response from server')
 			if (latest.id != currentId) {
 				const updateFile = path.resolve(LYNC_INSTALL_DIR, `Lync-${latest.tag_name}.zip`)
 				const extractedFolder = path.resolve(LYNC_INSTALL_DIR, 'Lync-' + latest.tag_name)
 				const updateFolder = path.resolve(extractedFolder, 'Lync')
 
 				// Download latest version
-				console.log(`Updating to ${latest.name} . . .`)
+				console.log(`Updating to ${green(latest.name)} . . .`)
 				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/archive/refs/tags/${latest.tag_name}.zip`)
 				fs.writeFileSync(updateFile, update, 'binary')
 				await extract(updateFile, { dir: LYNC_INSTALL_DIR })
+				fs.rmSync(updateFile, { force: true })
 
 				// Merge config file
 				const newConfig = JSON.parse(fs.readFileSync(path.resolve(updateFolder, 'lync-config.json')))
@@ -557,28 +559,33 @@ async function getAsync(url, responseType) {
 					newConfig[key] = CONFIG[key]
 				fs.writeFileSync(CONFIG_PATH, JSON.stringify(newConfig, null, '\t'))
 
-				// Copy Lync binary
+				// Copy Lync binary and restart
+				const executable = process.execPath
+				const tempExecutable = executable + '.temp'
+				if (fs.existsSync(tempExecutable))
+					fs.rmSync(tempExecutable, { force: true })
+				fs.renameSync(executable, executable + '.temp')
 				switch (process.platform) {
 					case 'win32':
-						fs.renameSync(path.resolve(updateFolder, 'lync-win.exe'), process.execPath)
+						fs.renameSync(path.resolve(updateFolder, 'lync-win.exe'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
 						break
 					case 'darwin':
-						fs.renameSync(path.resolve(updateFolder, 'lync-macos'), process.execPath)
+						fs.renameSync(path.resolve(updateFolder, 'lync-macos'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
 						break
 					default:
-						fs.renameSync(path.resolve(updateFolder, 'lync-linux'), process.execPath)
+						fs.renameSync(path.resolve(updateFolder, 'lync-linux'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
 				}
 
 				// Write new version
 				fs.writeFileSync(latestIdFile, latest.id.toString())
 
 				// Cleanup
-				fs.rmdirSync(extractedFolder, { force: true, recursive: true })
-				fs.rmSync(updateFile, { force: true })
+				fs.rmSync(extractedFolder, { force: true, recursive: true })
 
 				// Restart Lync
 				console.clear()
-				spawnSync(process.argv.shift(), process.argv, {
+				process.argv.shift()
+				spawnSync(executable, process.argv, {
 					cwd: process.cwd(),
 					detached: false,
 					stdio: 'inherit'
@@ -587,7 +594,6 @@ async function getAsync(url, responseType) {
 			}
 			console.clear()
 		} catch (err) {
-			console.clear()
 			console.error(red('Failed to update:'), err)
 			console.log()
 		}
@@ -735,7 +741,7 @@ async function getAsync(url, responseType) {
 		if (process.platform == 'win32' || process.platform == 'darwin') {
 
 			// Copy plugin
-			const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)|| process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
+			const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
 			if (!fs.existsSync(pluginsPath)) {
 				if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 				fs.mkdirSync(pluginsPath)
@@ -753,6 +759,9 @@ async function getAsync(url, responseType) {
 					windowsHide: true
 				})
 			}
+
+		} else if (MODE == 'open') {
+			console.error(red('Argument error:'), yellow('Cannot use the OPEN mode on Linux.'))
 		}
 
 		// Sync file changes
