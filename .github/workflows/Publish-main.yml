@@ -5,12 +5,13 @@ on:
     branches:
     - main
     paths:
+    - '.github/workflows/Publish-main.yml'
     - 'Lync/**'
     - 'Sample Project/**'
 
 jobs:
   publish-main:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
 
     - name: Download repository
@@ -19,10 +20,9 @@ jobs:
     # Exclusive to the sample workflow; please remove this step!
     - name: Extract Sample Project
       run: |
-        MOVE "Sample Project" "../temp"
-        Get-ChildItem "./" -Recurse | Remove-Item -Recurse
-        MOVE "../temp/*" "./"
-        DIR
+        mv "Sample Project/" ../temp/
+        rm -r *
+        mv -v ../temp/* ./
 
     # aftman.toml is currently required to download Lune and build offline.
     - name: Setup Aftman
@@ -44,7 +44,7 @@ jobs:
         path: Lync
 
     - name: Build
-      run: node "Lync/Lync/index.js" default.project.json OFFLINE
+      run: Lync/lync-linux default.project.json BUILD
 
     # Remove this step to test build success without publishing.
     - name: Publish
