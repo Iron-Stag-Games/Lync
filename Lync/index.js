@@ -60,6 +60,7 @@ if (ARGS.length < 2) argHelp(`Expected 3 arguments but ${ARGS.length} were provi
 const PROJECT_JSON = ARGS[0].replace(/\\/g, '/')
 const MODE = ARGS[1].toLowerCase()
 if (MODE != 'serve' && MODE != 'open' && MODE != 'build') argHelp('Mode must be SERVE, OPEN, or BUILD.')
+if (MODE == 'open' && process.platform != 'win32' && process.platform != 'darwin') argHelp('Cannot use OPEN mode on Linux.')
 if (MODE != 'build' && ARGS.length < 3) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
 const PORT = MODE != 'build' && ARGS[2] || '34873'
 if (typeof PORT == 'string' && (isNaN(parseInt(PORT)) || parseInt(PORT) < 1 || parseInt(PORT) > 65535)) argHelp('Port must be an integer from 1-65535.')
