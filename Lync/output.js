@@ -17,7 +17,7 @@ module.exports.green = function(s) {
 module.exports.cyan = function(s) {
 	if (process.platform == 'win32') {
 		return '\x1b[36m[' + s.replace(/\//g, '\\') + ']\x1b[0m'
-	} else if (process.platform == 'darwin') {
+	} else {
 		return '\x1b[36m[' + s.replace(/\\/g, '/') + ']\x1b[0m'
 	}
 }
@@ -25,7 +25,7 @@ module.exports.cyan = function(s) {
 module.exports.fileError = function(s) {
 	if (process.platform == 'win32') {
 		return '\x1b[31m[' + s.replace(/\//g, '\\') + ']\x1b[0m' + module.exports.yellow(drop)
-	} else if (process.platform == 'darwin') {
+	} else {
 		return '\x1b[31m[' + s.replace(/\\/g, '/') + ']\x1b[0m' + module.exports.yellow(drop)
 	}
 }
@@ -33,7 +33,7 @@ module.exports.fileError = function(s) {
 module.exports.fileWarning = function(s) {
 	if (process.platform == 'win32') {
 		return '\x1b[33m[' + s.replace(/\//g, '\\') + ']\x1b[0m' + drop
-	} else if (process.platform == 'darwin') {
+	} else {
 		return '\x1b[33m[' + s.replace(/\\/g, '/') + ']\x1b[0m' + drop
 	}
 }
