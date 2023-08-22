@@ -1,7 +1,9 @@
 {
-	"AutoUpdate": false,
+	"GenerateSourcemap": true,
+
+	"AutoUpdate": true,
 	"GithubUpdateRepo": "Iron-Stag-Games/Lync",
-	"GithubUpdatePrereleases": false,
+	"GithubUpdatePrereleases": true,
 
 	"RobloxVersionsPath_Windows": "%LOCALAPPDATA%/Roblox/Versions",
 	"RobloxPluginsPath_Windows": "%LOCALAPPDATA%/Roblox/Plugins",
@@ -10,6 +12,5 @@
 	"RobloxContentPath_MacOS": "/Applications/RobloxStudio.app/Contents/Resources/content",
 	"RobloxPluginsPath_MacOS": "$HOME/Documents/Roblox/Plugins",
 
-	"GenerateSourcemap": true,
 	"LunePath": "lune"
 }

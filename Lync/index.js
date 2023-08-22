@@ -531,7 +531,7 @@ async function getAsync(url, responseType) {
 
 	if (CONFIG.AutoUpdate) {
 		console.log('Checking for updates . . .')
-		const latestIdFile = path.resolve(LYNC_INSTALL_DIR, 'latestId')
+		const latestIdFile = path.resolve(LYNC_INSTALL_DIR, 'lync-latestId')
 		let currentId = 0
 		try {
 			currentId = fs.readFileSync(latestIdFile)
@@ -541,7 +541,7 @@ async function getAsync(url, responseType) {
 			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
 			if (CONFIG.GithubUpdatePrereleases) latest = latest[0]
 			if (latest.id != currentId) {
-				const updateFile = path.resolve(LYNC_INSTALL_DIR, 'update.zip')
+				const updateFile = path.resolve(LYNC_INSTALL_DIR, `Lync-${latest.tag_name}.zip`)
 				const extractedFolder = path.resolve(LYNC_INSTALL_DIR, 'Lync-' + latest.tag_name)
 				const updateFolder = path.resolve(extractedFolder, 'Lync')
 
@@ -551,21 +551,26 @@ async function getAsync(url, responseType) {
 				fs.writeFileSync(updateFile, update, 'binary')
 				await extract(updateFile, { dir: LYNC_INSTALL_DIR })
 
+				// Merge config file
+				const newConfig = JSON.parse(fs.readFileSync(path.resolve(updateFolder, 'lync-config.json')))
+				for (const key in CONFIG)
+					newConfig[key] = CONFIG[key]
+				fs.writeFileSync(CONFIG_PATH, JSON.stringify(newConfig, null, '\t'))
+
+				// Copy Lync binary
+				switch (process.platform) {
+					case 'win32':
+						fs.renameSync(path.resolve(updateFolder, 'lync-win.exe'), process.execPath)
+						break
+					case 'darwin':
+						fs.renameSync(path.resolve(updateFolder, 'lync-macos'), process.execPath)
+						break
+					default:
+						fs.renameSync(path.resolve(updateFolder, 'lync-linux'), process.execPath)
+				}
+
 				// Write new version
 				fs.writeFileSync(latestIdFile, latest.id.toString())
-
-				// Move new files
-				fs.readdirSync(updateFolder).forEach((dirNext) => {
-					const oldPath = path.resolve(updateFolder, dirNext)
-					const newPath = path.resolve(LYNC_INSTALL_DIR, dirNext)
-					if (newPath == CONFIG_PATH) {
-						const newConfig = JSON.parse(fs.readFileSync(oldPath))
-						for (const key in CONFIG)
-							newConfig[key] = CONFIG[key]
-						fs.writeFileSync(oldPath, JSON.stringify(newConfig, null, '\t'))
-					}
-					fs.renameSync(oldPath, newPath)
-				})
 
 				// Cleanup
 				fs.rmdirSync(extractedFolder, { force: true, recursive: true })
