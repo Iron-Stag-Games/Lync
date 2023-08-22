@@ -6,13 +6,14 @@
 "Lync/sourcemap" export-ignore
 "Lync/validator" export-ignore
 "Lync/index.js" export-ignore
+"Lync/luneBuildTemplate.luau" export-ignore
 "Lync/output.js" export-ignore
-"Lync/luneBuildTemplate.js" export-ignore
 "Lync/package-lock.json" export-ignore
 "Lync/package.json" export-ignore
+"Lync/Plugin.rbxm" export-ignore
 ".gitattributes" export-ignore
 ".gitignore" export-ignore
-"Compile_Plugin.bat" export-ignore
+"Compile_Lync.bat" export-ignore
 "Compile_Plugin.lua" export-ignore
 "README.md" export-ignore
 "selene.toml" export-ignore
