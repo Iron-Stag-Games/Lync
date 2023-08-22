@@ -425,7 +425,7 @@ local function eval(value: any): any
 	end
 end
 
-local function color3sToInts(...: Color3): (...number)
+--[[local function color3sToInts(...: Color3): (...number)
 	local ints = {}
 
 	for _, value in {...} do
@@ -435,7 +435,7 @@ local function color3sToInts(...: Color3): (...number)
 	end
 
 	return table.unpack(ints)
-end
+end]]
 
 local function setDetails(target: any, data: any)
 	if data.Properties then
