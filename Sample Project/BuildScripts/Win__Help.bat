@@ -2,5 +2,5 @@
 title Lync Server
 
 cd %~dp0/..
-node "%LOCALAPPDATA%\Roblox\Lync\index.js" HELP
+lync HELP
 pause

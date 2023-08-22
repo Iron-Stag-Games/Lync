@@ -37,9 +37,11 @@ const { red, yellow, green, cyan, fileError, fileWarning } = require('./output.j
 const { generateSourcemap } = require('./sourcemap/sourcemap.js')
 const { validateJson, validateYaml, validateToml } = require('./validator/validator.js')
 
+if (!process.pkg) process.exit()
+
 const UTF8 = new TextDecoder('utf-8')
-const LYNC_INSTALL_DIR = process.pkg && path.dirname(process.execPath) || __dirname
-const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'config.json')
+const LYNC_INSTALL_DIR = path.dirname(process.execPath)
+const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'lync-config.json')
 const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH))
 
 // Args
@@ -552,14 +554,6 @@ async function getAsync(url, responseType) {
 				// Write new version
 				fs.writeFileSync(latestIdFile, latest.id.toString())
 
-				// Delete old files
-				fs.readdirSync(LYNC_INSTALL_DIR).forEach((dirNext) => {
-					const next = path.resolve(LYNC_INSTALL_DIR, dirNext)
-					if (next != latestIdFile && next != extractedFolder) {
-						fs.rmSync(next, { force: true, recursive: true })
-					}
-				})
-
 				// Move new files
 				fs.readdirSync(updateFolder).forEach((dirNext) => {
 					const oldPath = path.resolve(updateFolder, dirNext)
@@ -662,12 +656,12 @@ async function getAsync(url, responseType) {
 		}
 
 		// Fetch script functions
-		let pluginSource = fs.readFileSync(path.resolve(LYNC_INSTALL_DIR, 'RobloxPluginSource/Plugin.lua'), { encoding: 'utf8' })
+		let pluginSource = fs.readFileSync(path.resolve(__dirname, 'RobloxPluginSource/Plugin.lua'), { encoding: 'utf8' })
 		pluginSource = pluginSource.substring(pluginSource.indexOf('--offline-start') + 15, pluginSource.indexOf('--offline-end'))
 
 		// Write validation script
 		if (DEBUG) console.log('Writing validation script . . .')
-		let validationScript = fs.readFileSync(path.resolve(LYNC_INSTALL_DIR, 'luneBuildTemplate.luau'))
+		let validationScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
 		validationScript += `${pluginSource}\n`
 		validationScript += `for _, lua in {\n`
 		for (const entry in loadstringMapEntries) {
@@ -695,7 +689,7 @@ async function getAsync(url, responseType) {
 
 		// Write build script
 		if (DEBUG) console.log('Writing build script . . .')
-		let buildScript = fs.readFileSync(path.resolve(LYNC_INSTALL_DIR, 'luneBuildTemplate.luau'))
+		let buildScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
 		buildScript += `local game = roblox.deserializePlace(fs.readFile("${projectJson.base}"))\n`
 		buildScript += 'local workspace = game:GetService("Workspace")\n'
 		buildScript += `${pluginSource}\n`
@@ -741,8 +735,8 @@ async function getAsync(url, responseType) {
 				if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 				fs.mkdirSync(pluginsPath)
 			}
-			if (DEBUG) console.log('Copying', cyan(path.resolve(LYNC_INSTALL_DIR, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
-			fs.copyFileSync(path.resolve(LYNC_INSTALL_DIR, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
+			if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
+			fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
 
 			// Open Studio
 			if (MODE == 'open') {

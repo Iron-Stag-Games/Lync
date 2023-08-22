@@ -2,5 +2,5 @@
 title Lync Server
 
 cd %~dp0/..
-node "%LOCALAPPDATA%\Roblox\Lync\index.js" default.project.json BUILD DEBUG
+lync default.project.json BUILD DEBUG
 pause
