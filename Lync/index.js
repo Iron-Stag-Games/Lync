@@ -516,72 +516,11 @@ async function getAsync(url, responseType) {
 
 	// Check for updates
 
-	if (CONFIG.AutoUpdate) {
-		console.log('Checking for updates . . .')
-		const latestIdFile = path.resolve(__dirname, 'latestId')
-		let currentId = 0
-		try {
-			currentId = fs.readFileSync(latestIdFile)
-		} catch (err) {}
-		try {
-			// Grab latest version info
-			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
-			if (CONFIG.GithubUpdatePrereleases) latest = latest[0]
-			if (latest.id != currentId) {
-				const updateFile = path.resolve(__dirname, 'update.zip')
-				const extractedFolder = path.resolve(__dirname, 'Lync-' + latest.tag_name)
-				const updateFolder = path.resolve(extractedFolder, 'Lync')
-
-				// Download latest version
-				console.log(`Updating to ${latest.name} . . .`)
-				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/archive/refs/tags/${latest.tag_name}.zip`)
-				fs.writeFileSync(updateFile, update, 'binary')
-				await extract(updateFile, { dir: __dirname })
-
-				// Write new version
-				fs.writeFileSync(latestIdFile, latest.id.toString())
-
-				// Delete old files
-				fs.readdirSync(__dirname).forEach((dirNext) => {
-					const next = path.resolve(__dirname, dirNext)
-					if (next != latestIdFile && next != extractedFolder) {
-						fs.rmSync(next, { force: true, recursive: true })
-					}
-				})
-
-				// Move new files
-				fs.readdirSync(updateFolder).forEach((dirNext) => {
-					const oldPath = path.resolve(updateFolder, dirNext)
-					const newPath = path.resolve(__dirname, dirNext)
-					if (newPath == CONFIG_PATH) {
-						const newConfig = JSON.parse(fs.readFileSync(oldPath))
-						for (const key in CONFIG)
-							newConfig[key] = CONFIG[key]
-						fs.writeFileSync(oldPath, JSON.stringify(newConfig, null, '\t'))
-					}
-					fs.renameSync(oldPath, newPath)
-				})
-
-				// Cleanup
-				fs.rmdirSync(extractedFolder, { force: true, recursive: true })
-				fs.rmSync(updateFile, { force: true })
-
-				// Restart Lync
-				console.clear()
-				spawnSync(process.argv.shift(), process.argv, {
-					cwd: process.cwd(),
-					detached: false,
-					stdio: 'inherit'
-				})
-				process.exit()
-			}
-			console.clear()
-		} catch (err) {
-			console.clear()
-			console.error(red('Failed to update:'), err)
-			console.log()
-		}
-	}
+	console.log(yellow(`┌───────────────────────────────────────────────────────────────────────────────┐
+│ This version of Lync is no longer supported due to API changes.               │
+│ Please uninstall and download Alpha 24 (or higher) when it becomes available. │
+│ After updating, you may uninstall Node as it's no longer needed.              │
+└───────────────────────────────────────────────────────────────────────────────┘`))
 
 	// Begin
 
