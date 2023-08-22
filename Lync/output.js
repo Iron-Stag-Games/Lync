@@ -10,15 +10,15 @@ module.exports.yellow = function(s) {
 	return '\x1b[33m' + s + '\x1b[0m'
 }
 
-module.exports.green = function(s) {
-	return '\x1b[32m\'' + s + '\'\x1b[0m'
+module.exports.green = function(s, hideQuotes) {
+	return hideQuotes && ('\x1b[32m' + s + '\x1b[0m') || ('\x1b[32m\'' + s + '\'\x1b[0m')
 }
 
-module.exports.cyan = function(s) {
+module.exports.cyan = function(s, hideBrackets) {
 	if (process.platform == 'win32') {
-		return '\x1b[36m[' + s.replace(/\//g, '\\') + ']\x1b[0m'
+		return hideBrackets && ('\x1b[36m' + s.replace(/\//g, '\\') + '\x1b[0m') || ('\x1b[36m[' + s.replace(/\//g, '\\') + ']\x1b[0m')
 	} else {
-		return '\x1b[36m[' + s.replace(/\\/g, '/') + ']\x1b[0m'
+		return hideBrackets && ('\x1b[36m' + s.replace(/\\/g, '/') + '\x1b[0m') || ('\x1b[36m[' + s.replace(/\\/g, '/') + ']\x1b[0m')
 	}
 }
 

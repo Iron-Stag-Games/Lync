@@ -43,14 +43,21 @@ const UTF8 = new TextDecoder('utf-8')
 const LYNC_INSTALL_DIR = path.dirname(process.execPath)
 const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'lync-config.json')
 const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH))
+const DEBUG = CONFIG.Debug
 
 // Args
 function argHelp(err) {
 	if (err) console.error(red('Argument error:'), yellow(err) + '\n')
-	console.log(`LYNC ${cyan('project.json')} SERVE ${yellow('[port]')}   Syncs the project.
-                    OPEN  ${yellow('[port]')}   Syncs the project and opens it in Roblox Studio.
-                    BUILD          Builds the project to file.
-                    HELP           Displays the list of available arguments.
+	console.log(`┌───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│LYNC ${cyan('project.json', true)} HELP                        Displays the list of available arguments.                │
+│                  SERVE ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project.                                       │
+│                  OPEN  ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project and opens it in Roblox Studio.         │
+│                  BUILD                       Builds the project to file.                              │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│${cyan('project.json', true)}     The project file to read from and serve.                                              │
+│${yellow('port')}             The port used to connect to the Roblox Studio plugin.                                 │
+│${green('remoteAddress?', true)}   The URL, IP address, or hostname of the server to connect to instead of the localhost.│
+└───────────────────────────────────────────────────────────────────────────────────────────────────────┘
 `)
 	process.exit(err && -1 || 0)
 }
@@ -64,7 +71,6 @@ if (MODE == 'open' && process.platform != 'win32' && process.platform != 'darwin
 if (MODE != 'build' && ARGS.length < 3) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
 const PORT = MODE != 'build' && ARGS[2] || '34873'
 if (typeof PORT == 'string' && (isNaN(parseInt(PORT)) || parseInt(PORT) < 1 || parseInt(PORT) > 65535)) argHelp('Port must be an integer from 1-65535.')
-const DEBUG = (MODE == 'build' && ARGS[2] || ARGS[3] || '').toLowerCase() == 'debug'
 
 var securityKeys = {}
 var map = {}

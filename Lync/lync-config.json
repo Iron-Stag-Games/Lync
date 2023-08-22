@@ -1,4 +1,5 @@
 {
+	"Debug": false,
 	"GenerateSourcemap": true,
 
 	"AutoUpdate": false,
