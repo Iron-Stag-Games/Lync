@@ -629,9 +629,10 @@ async function getAsync(url, headers, responseType) {
 
 	// Download sources
 	if (MODE == 'fetch') {
+		console.log()
 		for (const index in projectJson.sources) {
 			const source = projectJson.sources[index]
-			console.log('Fetching', source.name, '. . .')
+			console.log('Fetching source', green(source.name), '. . .')
 			try {
 				let contents;
 				if (source.type == 'GET') {
@@ -640,6 +641,7 @@ async function getAsync(url, headers, responseType) {
 					contents = await postAsync(source.url, source.headers, source.postData)
 				}
 				fs.writeFileSync(source.path, contents)
+				console.log(green(source.name), 'saved to', cyan(source.path))
 			} catch (err) {
 				console.error(red('Fetch error:'), yellow(err))
 			}
