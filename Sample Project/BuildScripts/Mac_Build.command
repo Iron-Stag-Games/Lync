@@ -2,4 +2,4 @@
 
 cd ${0%/*}
 cd ../
-lync default.project.json BUILD
+lync BUILD default.project.json

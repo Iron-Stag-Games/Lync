@@ -48,29 +48,31 @@ const DEBUG = CONFIG.Debug
 // Args
 function argHelp(err) {
 	if (err) console.error(red('Argument error:'), yellow(err) + '\n')
-	console.log(`┌───────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│LYNC ${cyan('project.json', true)} HELP                        Displays the list of available arguments.                │
-│                  SERVE ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project.                                       │
-│                  OPEN  ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project and opens it in Roblox Studio.         │
-│                  BUILD                       Builds the project to file.                              │
-├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│${cyan('project.json', true)}     The project file to read from and serve.                                              │
-│${yellow('port')}             The port used to connect to the Roblox Studio plugin.                                 │
-│${green('remoteAddress?', true)}   The URL, IP address, or hostname of the server to connect to instead of the localhost.│
-└───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ LYNC HELP                                     Displays the list of available arguments.                 ┃ 
+┃      SERVE ${cyan('project.json', true)} ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project.                                        ┃
+┃      OPEN  ${cyan('project.json', true)} ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project and opens it in Roblox Studio.          ┃
+┃      BUILD ${cyan('project.json', true)}                       Builds the project to file.                               ┃
+┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
+┃ ${cyan('project.json', true)}     The project file to read from and serve.                                               ┃
+┃ ${yellow('port')}             The port used to connect to the Roblox Studio plugin.                                  ┃
+┃ ${green('remoteAddress?', true)}   The URL, IP address, or hostname of the server to connect to instead of the localhost. ┃
+┃                  ${red('Warning:')} ${yellow('remoteAddress is unimplemented!')}                                               ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
 `)
 	process.exit(err && -1 || 0)
 }
 const ARGS = process.argv.slice(2)
 if (ARGS.length < 1 || ARGS[0].toLowerCase() == 'help') argHelp()
-if (ARGS.length < 2) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
-const PROJECT_JSON = ARGS[0].replace(/\\/g, '/')
-const MODE = ARGS[1].toLowerCase()
+const MODE = ARGS[0].toLowerCase()
+if (ARGS.length < 2) argHelp(`Expected 2 arguments but ${ARGS.length} were provided.`)
 if (MODE != 'serve' && MODE != 'open' && MODE != 'build') argHelp('Mode must be SERVE, OPEN, or BUILD.')
 if (MODE == 'open' && process.platform != 'win32' && process.platform != 'darwin') argHelp('Cannot use OPEN mode on Linux.')
 if (MODE != 'build' && ARGS.length < 3) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
+const PROJECT_JSON = ARGS[1].replace(/\\/g, '/')
 const PORT = MODE != 'build' && ARGS[2] || '34873'
 if (typeof PORT == 'string' && (isNaN(parseInt(PORT)) || parseInt(PORT) < 1 || parseInt(PORT) > 65535)) argHelp('Port must be an integer from 1-65535.')
+const REMOTE_ADDRESS = MODE != 'build' && ARGS[3] || null
 
 var securityKeys = {}
 var map = {}

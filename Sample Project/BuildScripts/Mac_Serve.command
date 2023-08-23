@@ -2,4 +2,4 @@
 
 cd ${0%/*}
 cd ../
-lync default.project.json SERVE 34873
+lync SERVE default.project.json 34873
