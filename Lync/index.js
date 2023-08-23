@@ -53,6 +53,8 @@ function argHelp(err) {
 ┃      SERVE ${cyan('project.json', true)} ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project.                                        ┃
 ┃      OPEN  ${cyan('project.json', true)} ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project and opens it in Roblox Studio.          ┃
 ┃      BUILD ${cyan('project.json', true)}                       Builds the project to file.                               ┃
+┃      FETCH ${cyan('project.json', true)}                       Downloads the list of sources in the project file.        ┃
+┃                                               ${red('Warning:')} ${yellow('FETCH is unimplemented!')}                          ┃
 ┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
 ┃ ${cyan('project.json', true)}     The project file to read from and serve.                                               ┃
 ┃ ${yellow('port')}             The port used to connect to the Roblox Studio plugin.                                  ┃
@@ -800,13 +802,9 @@ async function getAsync(url, responseType) {
 	
 									// Direct
 									if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
-										if (!map[key].ProjectJson) {
-											delete mTimes[map[key].Path]
-											delete map[key]
-											if (DEBUG) console.log('Deleted Path mapping', green(key))
-										} else {
-											if (DEBUG) console.log('Cannot delete Path mapping', cyan(map[key].Path), green(key))
-										}
+										delete mTimes[localPath]
+										delete mTimes[map[key].Path]
+										delete map[key]
 										modified[key] = false
 										modified_playtest[key] = false
 										modified_sourcemap[key] = false
@@ -817,37 +815,18 @@ async function getAsync(url, responseType) {
 	
 									// Meta
 									if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
-										if (!map[key].ProjectJson) {
-											delete mTimes[map[key].Meta]
-											delete map[key]
-											if (DEBUG) console.log('Deleted Meta mapping', green(key))
-										} else {
-											if (DEBUG) console.log('Cannot delete Meta mapping', cyan(map[key].Meta), green(key))
-										}
-										modified[key] = false
-										modified_playtest[key] = false
-										modified_sourcemap[key] = false
-										if (fs.existsSync(parentPathString)) {
-											mapDirectory(parentPathString, key, 'Modified')
+										if (fs.existsSync(map[key].Path)) {
+											mapDirectory(map[key].Path, key, 'Modified')
 										}
 									}
 	
 									// JSON member
 									if (key in map && map[key].ProjectJson == localPath) {
-										if (map[key].Path in mTimes) {
-											delete mTimes[map[key].Path]
+										if (fs.existsSync(map[key].Path)) {
+											mapDirectory(map[key].Path, key, 'Modified')
 										}
-										if (map[key].Meta in mTimes) {
-											delete mTimes[map[key].Meta]
-										}
-										delete map[key]
-										modified[key] = false
-										modified_playtest[key] = false
-										modified_sourcemap[key] = false
-										if (DEBUG) console.log('Deleted ProjectJson mapping', green(key))
 									}
 								}
-								delete mTimes[localPath]
 	
 							// Changed
 							} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
@@ -906,11 +885,7 @@ async function getAsync(url, responseType) {
 											delete map[key]
 											mapDirectory(parentPathString, key)
 	
-										// Map only file
-										} else if (localPathStats.isFile()) {
-											mapDirectory(localPath, key + '/' + localPathParsed.name)
-	
-										// Map only directory
+										// Map only file or directory
 										} else {
 											mapDirectory(localPath, key + '/' + localPathParsed.base)
 										}

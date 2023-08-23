@@ -87,7 +87,7 @@ module.exports.generateSourcemap = function(PROJECT_JSON, map, projectJson) {
 							break
 					}
 				} catch (err) {
-					console.error(red('Sourcemap / Project error:'), err)
+					console.error(fileError(mapping.Path), yellow('Sourcemap / Project error:'), err)
 				}
 			}
 

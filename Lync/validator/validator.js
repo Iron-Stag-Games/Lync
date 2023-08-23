@@ -15,7 +15,7 @@ module.exports.validateJson = function(type, localPath, fileRead) {
 	try {
 		json = JSON.parse(fileRead)
 	} catch (err) {
-		console.error(red('Project error:'), yellow('Malformed JSON'), cyan(localPath), yellow(err))
+		console.error(fileError(localPath), yellow('Malformed JSON:'), yellow(err))
 	}
 	switch (type) {
 		case 'Meta':
@@ -37,7 +37,7 @@ module.exports.validateYaml = function(type, localPath, fileRead) {
 	try {
 		json = YAML.parse(UTF8.decode(fileRead))
 	} catch (err) {
-		console.error(red('Project error:'), yellow('Malformed YAML'), cyan(localPath), yellow(err))
+		console.error(fileError(localPath), yellow('Malformed YAML:'), yellow(err))
 	}
 	switch (type) {
 		case 'Meta':
@@ -52,7 +52,7 @@ module.exports.validateToml = function(type, localPath, fileRead) {
 	try {
 		json = TOML.parse(UTF8.decode(fileRead))
 	} catch (err) {
-		console.error(red('Project error:'), yellow('Malformed TOML'), cyan(localPath), yellow(err))
+		console.error(fileError(localPath), yellow('Malformed TOML:'), yellow(err))
 	}
 	switch (type) {
 		case 'Meta':
