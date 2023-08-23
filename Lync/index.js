@@ -610,8 +610,8 @@ async function getAsync(url, responseType) {
 
 	// Begin
 
-	console.log('Path:', cyan(path.resolve()))
-	console.log('Args:', ARGS)
+	if (DEBUG) console.log('Path:', cyan(path.resolve()))
+	if (DEBUG) console.log('Args:', ARGS)
 
 	http.globalAgent.maxSockets = 65535
 
@@ -1098,6 +1098,10 @@ async function getAsync(url, responseType) {
 										if (tableDefinitions.numColumnKeys > 0) {
 											for (let columnKeyIndex = 0; columnKeyIndex < tableDefinitions.numColumnKeys; columnKeyIndex++) {
 												const columnKey = sheetJson[row][columnKeyIndex]
+												if (!columnKey) {
+													target = null
+													break
+												}
 												if (!(columnKey in target)) {
 													target[columnKey] = tableDefinitions.hasHeader && {} || []
 												}
@@ -1110,7 +1114,8 @@ async function getAsync(url, responseType) {
 											}
 											target = target[indexKey]
 										}
-										target[key] = sheetJson[row][column]
+										if (target)
+											target[key] = sheetJson[row][column]
 									}
 								}
 								read = LUA.format(entries, { singleQuote: false, spaces: '\t' })
