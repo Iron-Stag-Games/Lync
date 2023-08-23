@@ -4,10 +4,7 @@ function scan(json, localPath) {
 	let failed = false
 
 	for (const key in json) {
-		if (key == '$ignoreUnknownInstances') {
-			console.error(fileWarning(localPath), 'Unsupported key', green('$ignoreUnknownInstances') + '; must replace with', green('$clearOnSync'))
-
-		} else if (key == '$className' && typeof json[key] != 'string') {
+		if (key == '$className' && typeof json[key] != 'string') {
 			console.error(fileError(localPath), green('$className'), yellow('must be a string'))
 			failed = true
 
@@ -27,6 +24,20 @@ function scan(json, localPath) {
 			console.error(fileError(localPath), green('$clearOnSync'), yellow('must be a boolean'))
 			failed = true
 
+		} else if (key == '$ignoreUnknownInstances') {
+			console.error(fileWarning(localPath), 'Unsupported key', green('$ignoreUnknownInstances') + '; must replace with', green('$clearOnSync'))
+		
+		} else if (key == '$path') {
+			if (typeof(json[key]) == 'object') {
+				if (typeof json[key].optional != 'string') {
+					console.error(fileError(localPath), green('$path.optional'), yellow('must be a string'))
+					failed = true
+				}
+			} else if (typeof(json[key]) != 'string') {
+				console.error(fileError(localPath), green('$path'), yellow('must be a string or an object'))
+				failed = true
+			}
+
 		} else if (typeof json[key] == 'object') {
 			if (key == '$properties') {
 				for (const property in json[key]) {
@@ -35,9 +46,10 @@ function scan(json, localPath) {
 						failed = true
 					}
 				}
+			} else {
+				const scanFailed = scan(json[key], localPath)
+				failed = failed || scanFailed
 			}
-			const scanFailed = scan(json[key], localPath)
-			failed = failed || scanFailed
 		}
 	}
 

@@ -101,18 +101,21 @@ function localPathIsInit(localPath) {
 }
 
 function localPathIsIgnored(localPath) {
-	if (localPath != undefined) {
-		localPath = path.relative(path.resolve(), localPath)
-		return globIgnorePathsPicoMatch(localPath.replace(/\\/g, '/'))
-	}
-	return false
+	localPath = path.relative(path.resolve(), localPath)
+	return globIgnorePathsPicoMatch(localPath.replace(/\\/g, '/'))
 }
 
 
 // Mapping Functions
 
 function assignMap(robloxPath, mapDetails, mtimeMs) {
-	if (localPathIsIgnored(mapDetails.Path)) return
+	if (mapDetails.Path != undefined) {
+		let localPath = mapDetails.Path
+		if (typeof localPath == 'object') {
+			localPath = localPath.optional
+		}
+		if (localPathIsIgnored(localPath)) return
+	}
 	if (DEBUG) console.log('Mapping', mapDetails.Type, green(robloxPath), '->', cyan(mapDetails.Path || ''))
 	if (robloxPath in map) {
 		if (map[robloxPath].Path != mapDetails.Path && !map[robloxPath].ProjectJson) {
@@ -429,7 +432,9 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExterna
 		}
 	}
 	if (localPath) {
-		if (fs.existsSync(localPath)) {
+		if (typeof localPath == 'object') {
+			mapDirectory(localPath.optional, nextRobloxPath, 'JSON')
+		} else if (fs.existsSync(localPath)) {
 			mapDirectory(localPath, nextRobloxPath, 'JSON')
 		} else {
 			console.error(fileError(localPath), yellow('Path does not exist'))
