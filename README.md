@@ -10,6 +10,7 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 > This tool is currently provided without any documentation whatsoever! Because the two tools are so similar, please refer to [the Rojo documentation](https://rojo.space/docs/v7/) for the time being.
 
 ## Usage
+- Run `lync help` to display the list of available arguments.
 - The [config file](https://github.com/Iron-Stag-Games/Lync/blob/main/Lync/lync-config.json) is located in your Lync installation. It contains several settings which might be necessary to change in order to use Lync. You can also specify whether or not to install updates automatically, and from which repository.
 - [Lune](https://github.com/filiptibell/lune) must be installed for offline RBXL builds. You can specify the path to your Lune installation in the config file.
 
