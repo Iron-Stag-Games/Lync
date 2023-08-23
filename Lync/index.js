@@ -540,17 +540,12 @@ async function getAsync(url, responseType) {
 
 	if (CONFIG.AutoUpdate) {
 		console.log('Checking for updates . . .')
-		const latestIdFile = path.resolve(LYNC_INSTALL_DIR, 'lync-latestId')
-		let currentId = 0
-		try {
-			currentId = fs.readFileSync(latestIdFile)
-		} catch (err) {}
 		try {
 			// Grab latest version info
 			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
 			if (CONFIG.GithubUpdatePrereleases) latest = latest[0]
 			if (!latest || !('id' in latest)) throw new Error('No response from server')
-			if (latest.id != currentId) {
+			if (latest.id != CONFIG.LatestId) {
 				const updateFile = path.resolve(LYNC_INSTALL_DIR, `Lync-${latest.tag_name}.zip`)
 				const extractedFolder = path.resolve(LYNC_INSTALL_DIR, 'Lync-' + latest.tag_name)
 				const updateFolder = path.resolve(extractedFolder, 'Lync')
@@ -566,6 +561,7 @@ async function getAsync(url, responseType) {
 				const newConfig = JSON.parse(fs.readFileSync(path.resolve(updateFolder, 'lync-config.json')))
 				for (const key in CONFIG)
 					newConfig[key] = CONFIG[key]
+				newConfig.LatestId = latest.id
 				fs.writeFileSync(CONFIG_PATH, JSON.stringify(newConfig, null, '\t'))
 
 				// Copy Lync binary and restart
@@ -584,9 +580,6 @@ async function getAsync(url, responseType) {
 					default:
 						fs.renameSync(path.resolve(updateFolder, 'lync-linux'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
 				}
-
-				// Write new version
-				fs.writeFileSync(latestIdFile, latest.id.toString())
 
 				// Cleanup
 				fs.rmSync(extractedFolder, { force: true, recursive: true })
