@@ -1,0 +1,36 @@
+name: Upload Zip Files to Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  pkg:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [win, macos, linux]
+    steps:
+
+    - name: Download repository
+      uses: actions/checkout@master
+
+    - name: Zip Lync
+      run: |
+        zip lync-${{ matrix.os }}.zip Lync/lync-${{ matrix.os }}.exe Lync/lync-config.json
+
+    - name: Get release
+      id: get_release
+      uses: bruceadams/get-release@main
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Upload zip file
+      uses: actions/upload-release-asset@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: ./lync-${{ matrix.os }}.zip
+        asset_name: lync-${{ matrix.os }}-${{ steps.get_release.outputs.tag_name }}.zip
+        asset_content_type: application/zip
