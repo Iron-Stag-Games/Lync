@@ -39,7 +39,7 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 | Multiple Project Serving | ❌️ | ✅️ |
 | Server IP Address | ❌️ | ✅️ |
 | Server Port | ✅️ | ✅️ |
-| Custom File Downloads | … | ❌️ |
+| Custom File Downloads | ✅️ | ❌️ |
 | Automatic Shell Scripts | … | ❌️ |
 | Place to Project Tool | ❌️ | ⚠️ |
 
