@@ -497,6 +497,10 @@ local function buildPath(path: string)
 					or data.Type == "Model" or data.Type == "JsonModel"
 					or data.Type == "Lua" and nextTarget.ClassName ~= (if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript")
 				then
+					if data.Type == "Model" and changedModels[nextTarget] then
+						changedModels[nextTarget] = nil
+						updateChangedModelUi()
+					end
 					if not pcall(function()
 						nextTarget.Parent = nil
 						createInstance = true
@@ -564,11 +568,6 @@ local function buildPath(path: string)
 				end
 			end)
 		elseif data.Type == "Model" then
-			if target and not createInstance then
-				local originalTarget = target
-				target = target.Parent
-				originalTarget.Parent = nil
-			end
 			local objects = getObjects("rbxasset://lync/" .. data.Path)
 			if objects then
 				if #objects == 1 then
