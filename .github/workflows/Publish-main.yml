@@ -34,9 +34,6 @@ jobs:
     - name: Download Wally packages
       run: wally install
 
-    - name: Install Node.js
-      uses: actions/setup-node@master
-
     - name: Download Lync
       uses: actions/checkout@master
       with:
@@ -45,7 +42,7 @@ jobs:
 
     - name: Build
       run: |
-        "Lync/Lync/lync-linux" default.project.json BUILD
+        "Lync/Lync/lync-linux" BUILD default.project.json
 
     # Remove this step to test build success without publishing.
     - name: Publish
