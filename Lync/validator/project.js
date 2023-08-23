@@ -8,9 +8,18 @@ function scan(json, localPath) {
 			console.error(fileError(localPath), green('$className'), yellow('must be a string'))
 			failed = true
 
-		} else if (key == '$properties' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('$properties'), yellow('must be an object'))
-			failed = true
+		} else if (key == '$properties') {
+			if (!(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
+				console.error(fileError(localPath), green('$properties'), yellow('must be an object'))
+				failed = true
+			} else {
+				for (const property in json[key]) {
+					if (typeof json[key][property] == 'object' && Array.isArray(json[key][property]) && json[key][property].length > 1) {
+						console.error(fileError(localPath), yellow('Property'), green(property), yellow('is an array with size > 1; check property syntax'))
+						failed = true
+					}
+				}
+			}
 
 		} else if (key == '$attributes' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
 			console.error(fileError(localPath), green('$attributes'), yellow('must be an object'))
@@ -19,13 +28,6 @@ function scan(json, localPath) {
 		} else if (key == '$tags' && !(typeof json[key] == 'object' && Array.isArray(json[key]))) {
 			console.error(fileError(localPath), green('$tags'), yellow('must be an array'))
 			failed = true
-
-		} else if (key == '$clearOnSync' && (typeof json[key] != 'boolean')) {
-			console.error(fileError(localPath), green('$clearOnSync'), yellow('must be a boolean'))
-			failed = true
-
-		} else if (key == '$ignoreUnknownInstances') {
-			console.error(fileWarning(localPath), 'Unsupported key', green('$ignoreUnknownInstances') + '; must replace with', green('$clearOnSync'))
 		
 		} else if (key == '$path') {
 			if (typeof(json[key]) == 'object') {
@@ -38,18 +40,16 @@ function scan(json, localPath) {
 				failed = true
 			}
 
+		} else if (key == '$clearOnSync' && (typeof json[key] != 'boolean')) {
+			console.error(fileError(localPath), green('$clearOnSync'), yellow('must be a boolean'))
+			failed = true
+
+		} else if (key == '$ignoreUnknownInstances') {
+			console.error(fileWarning(localPath), 'Unsupported key', green('$ignoreUnknownInstances') + '; must replace with', green('$clearOnSync'))
+
 		} else if (typeof json[key] == 'object') {
-			if (key == '$properties') {
-				for (const property in json[key]) {
-					if (typeof json[key][property] == 'object' && Array.isArray(json[key][property]) && json[key][property].length > 1) {
-						console.error(fileError(localPath), yellow('Property'), green(property), yellow('is an array with size > 1; check property syntax'))
-						failed = true
-					}
-				}
-			} else {
-				const scanFailed = scan(json[key], localPath)
-				failed = failed || scanFailed
-			}
+			const scanFailed = scan(json[key], localPath)
+			failed = failed || scanFailed
 		}
 	}
 
@@ -93,12 +93,85 @@ module.exports.validate = function(type, json, localPath) {
 					if (key != 'RBXM'
 						&& key != 'RBXMX'
 					) {
-						console.error(fileWarning(localPath), 'Unexpected key', green(key))
+						console.error(fileWarning(localPath), 'Unexpected key', green('sourcemapEnabled.' + key))
 					} else {
 						const value = json.sourcemapEnabled[key]
 						if (typeof value != 'boolean') {
 							console.error(fileError(localPath), green(key), yellow('must be a boolean'))
 							failed = true
+						}
+					}
+				}
+			}
+		}
+
+		if ('sources' in json) {
+			if (!(typeof json.sources == 'object' && Array.isArray(json.sources))) {
+				console.error(fileError(localPath), green('sources'), yellow('must be an array'))
+				failed = true
+			} else {
+				for (const index in json.sources) {
+					const source = json.sources[index]
+
+					if (!('name' in source)) {
+						console.error(fileError(localPath), yellow('Missing key'), green('sources.name'))
+						failed = true
+					} else if (typeof source.name != 'string') {
+						console.error(fileError(localPath), green('sources.name'), yellow('must be a string'))
+						failed = true
+					}
+
+					if (!('url' in source)) {
+						console.error(fileError(localPath), yellow('Missing key'), green('sources.url'))
+						failed = true
+					} else if (typeof source.url != 'string') {
+						console.error(fileError(localPath), green('sources.url'), yellow('must be a string'))
+						failed = true
+					}
+
+					if (!('type' in source)) {
+						console.error(fileError(localPath), yellow('Missing key'), green('sources.type'))
+						failed = true
+					} else if (source.type != 'GET' && source.type != 'POST') {
+						console.error(fileError(localPath), green('sources.type'), yellow('must be GET or POST'))
+						failed = true
+					}
+
+					if (!('headers' in source)) {
+						console.error(fileError(localPath), yellow('Missing key'), green('sources.headers'))
+						failed = true
+					} else if (!(typeof source.headers == 'object' && !Array.isArray(source.headers))) {
+						console.error(fileError(localPath), green('sources.headers'), yellow('must be an object'))
+						failed = true
+					}
+
+					if ('postData' in source) {
+						if (typeof source.postData != 'string' && !(typeof source.postData == 'object' && !Array.isArray(source.postData))) {
+							console.error(fileError(localPath), green('sources.postData'), yellow('must be a string or an object'))
+							failed = true
+						} else if (source.type != 'POST') {
+							console.error(fileError(localPath), yellow('Cannot use key'), green('sources.postData'), yellow('with POST type'))
+							failed = true
+						}
+					}
+
+					if (!('path' in source)) {
+						console.error(fileError(localPath), yellow('Missing key'), green('sources.path'))
+						failed = true
+					} else if (typeof source.path != 'string') {
+						console.error(fileError(localPath), green('sources.path'), yellow('must be a string'))
+						failed = true
+					}
+
+					for (const sourceKey in source) {
+						if (sourceKey != 'name'
+							&& sourceKey != 'url'
+							&& sourceKey != 'type'
+							&& sourceKey != 'headers'
+							&& sourceKey != 'postData'
+							&& sourceKey != 'path'
+						) {
+							console.error(fileWarning(localPath), 'Unexpected key', green('sources[' + index + '].' + sourceKey))
 						}
 					}
 				}

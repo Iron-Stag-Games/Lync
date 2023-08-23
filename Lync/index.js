@@ -54,7 +54,6 @@ function argHelp(err) {
 ┃      OPEN  ${cyan('project.json', true)} ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project and opens it in Roblox Studio.          ┃
 ┃      BUILD ${cyan('project.json', true)}                       Builds the project to file.                               ┃
 ┃      FETCH ${cyan('project.json', true)}                       Downloads the list of sources in the project file.        ┃
-┃                                               ${red('Warning:')} ${yellow('FETCH is unimplemented!')}                          ┃
 ┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
 ┃ ${cyan('project.json', true)}     The project file to read from and serve.                                               ┃
 ┃ ${yellow('port')}             The port used to connect to the Roblox Studio plugin.                                  ┃
@@ -68,13 +67,13 @@ const ARGS = process.argv.slice(2)
 if (ARGS.length < 1 || ARGS[0].toLowerCase() == 'help') argHelp()
 const MODE = ARGS[0].toLowerCase()
 if (ARGS.length < 2) argHelp(`Expected 2 arguments but ${ARGS.length} were provided.`)
-if (MODE != 'serve' && MODE != 'open' && MODE != 'build') argHelp('Mode must be SERVE, OPEN, or BUILD.')
+if (MODE != 'serve' && MODE != 'open' && MODE != 'build' && MODE != 'fetch') argHelp('Mode must be SERVE, OPEN, BUILD, or FETCH.')
 if (MODE == 'open' && process.platform != 'win32' && process.platform != 'darwin') argHelp('Cannot use OPEN mode on Linux.')
-if (MODE != 'build' && ARGS.length < 3) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
+if (MODE != 'build' && MODE != 'fetch' && ARGS.length < 3) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
 const PROJECT_JSON = ARGS[1].replace(/\\/g, '/')
-const PORT = MODE != 'build' && ARGS[2] || '34873'
+const PORT = MODE != 'build' && MODE != 'fetch' && ARGS[2] || '34873'
 if (typeof PORT == 'string' && (isNaN(parseInt(PORT)) || parseInt(PORT) < 1 || parseInt(PORT) > 65535)) argHelp('Port must be an integer from 1-65535.')
-const REMOTE_ADDRESS = MODE != 'build' && ARGS[3] || null
+const REMOTE_ADDRESS = MODE != 'build' && MODE != 'fetch' && ARGS[3] || null
 
 var securityKeys = {}
 var map = {}
@@ -507,10 +506,14 @@ function hardLinkRecursive(existingPath, hardLinkPath) {
 	}
 }
 
-async function getAsync(url, responseType) {
+async function getAsync(url, headers, responseType) {
+	const newHeaders = { 'user-agent': 'node.js' }
+	for (const header in headers) {
+		newHeaders[header] = headers[header]
+	}
 	return new Promise ((resolve, reject) => {
 		const req = https.get(url, {
-			headers: { 'user-agent': 'node.js' }
+			headers: newHeaders
 		}, (res) => {
 			let data = []
 			res.on('data', (chunk) => {
@@ -549,7 +552,7 @@ async function getAsync(url, responseType) {
 		console.log('Checking for updates . . .')
 		try {
 			// Grab latest version info
-			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, 'json')
+			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, {}, 'json')
 			if (CONFIG.GithubUpdatePrereleases) latest = latest[0]
 			if (!latest || !('id' in latest)) throw new Error('No response from server')
 			if (latest.id != CONFIG.LatestId) {
@@ -559,7 +562,7 @@ async function getAsync(url, responseType) {
 
 				// Download latest version
 				console.log(`Updating to ${green(latest.name)} . . .`)
-				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/archive/refs/tags/${latest.tag_name}.zip`)
+				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/archive/refs/tags/${latest.tag_name}.zip`, {})
 				fs.writeFileSync(updateFile, update, 'binary')
 				await extract(updateFile, { dir: LYNC_INSTALL_DIR })
 				fs.rmSync(updateFile, { force: true })
@@ -610,8 +613,8 @@ async function getAsync(url, responseType) {
 
 	// Begin
 
-	if (DEBUG) console.log('Path:', cyan(path.resolve()))
-	if (DEBUG) console.log('Args:', ARGS)
+	console.log('Path:', cyan(path.resolve()))
+	console.log('Args:', ARGS)
 
 	http.globalAgent.maxSockets = 65535
 
@@ -624,9 +627,28 @@ async function getAsync(url, responseType) {
 	}
 	changedJson()
 
-	// Build
+	// Download sources
+	if (MODE == 'fetch') {
+		for (const index in projectJson.sources) {
+			const source = projectJson.sources[index]
+			console.log('Fetching', source.name, '. . .')
+			try {
+				let contents;
+				if (source.type == 'GET') {
+					contents = await getAsync(source.url, source.headers)
+				} else if (source.type == 'POST') {
+					contents = await postAsync(source.url, source.headers, source.postData)
+				}
+				fs.writeFileSync(source.path, contents)
+			} catch (err) {
+				console.error(red('Fetch error:'), yellow(err))
+			}
+		}
+		process.exit()
 
-	if (MODE == 'build') {
+	// Build
+	} else if (MODE == 'build') {
+
 		const buildScriptPath = projectJson.build + '.luau'
 		const lunePath = process.platform == 'win32' && CONFIG.LunePath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
 			|| process.platform == 'darwin' && CONFIG.LunePath.replace('$HOME', process.env.HOME)
@@ -741,6 +763,7 @@ async function getAsync(url, responseType) {
 			process.exit()
 		})
 
+	// Sync
 	} else {
 
 		// Copy base file
@@ -1179,7 +1202,7 @@ async function getAsync(url, responseType) {
 		process.exit()
 	})
 	.listen(PORT, function() {
-		console.log(`Syncing ${green(projectJson.name)} on port ${yellow(PORT)}\n`)
+		console.log(`Serving ${green(projectJson.name)} on port ${yellow(PORT)}\n`)
 
 		// Generate sourcemap
 
