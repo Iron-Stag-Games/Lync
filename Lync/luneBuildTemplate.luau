@@ -1,36 +1,13 @@
 --!nocheck
 local fs = require("@lune/fs")
+local luau = require("@lune/luau")
 local net = require("@lune/net")
 local roblox = require("@lune/roblox")
 
 local Instance = roblox.Instance
-local Axes = roblox.Axes
-local BrickColor = roblox.BrickColor
-local CFrame = roblox.CFrame
-local Color3 = roblox.Color3
-local ColorSequence = roblox.ColorSequence
-local ColorSequenceKeypoint = roblox.ColorSequenceKeypoint
-local Enum = roblox.Enum
-local Faces = roblox.Faces
-local Font = roblox.Font
-local NumberRange = roblox.NumberRange
-local NumberSequence = roblox.NumberSequence
-local NumberSequenceKeypoint = roblox.NumberSequenceKeypoint
-local PhysicalProperties = roblox.PhysicalProperties
-local Ray = roblox.Ray
-local Rect = roblox.Rect
-local Region3 = roblox.Region3
-local Region3int16 = roblox.Region3int16
-local UDim = roblox.UDim
-local UDim2 = roblox.UDim2
-local Vector2 = roblox.Vector2
-local Vector2int16 = roblox.Vector2int16
-local Vector3 = roblox.Vector3
-local Vector3int16 = roblox.Vector3int16
 
 local isBuildScript = true
 local map = {}
-local loadstringMap = {}
 local activeSourceRequests = 0
 
 local terminate = error
@@ -57,13 +34,33 @@ local HttpService = {
 	end
 }
 
-local function loadstring(luau)
-	return function()
-		if not loadstringMap[luau] then
-			error(`Lua missing from loadstring map: [ {luau} ]`)
-		end
-		return loadstringMap[luau]
-	end
+local function loadstring(code)
+	return luau.load(luau.compile([[local roblox = require("@lune/roblox")
+local Instance = roblox.Instance
+local Axes = roblox.Axes
+local BrickColor = roblox.BrickColor
+local CFrame = roblox.CFrame
+local Color3 = roblox.Color3
+local ColorSequence = roblox.ColorSequence
+local ColorSequenceKeypoint = roblox.ColorSequenceKeypoint
+local Enum = roblox.Enum
+local Faces = roblox.Faces
+local Font = roblox.Font
+local NumberRange = roblox.NumberRange
+local NumberSequence = roblox.NumberSequence
+local NumberSequenceKeypoint = roblox.NumberSequenceKeypoint
+local PhysicalProperties = roblox.PhysicalProperties
+local Ray = roblox.Ray
+local Rect = roblox.Rect
+local Region3 = roblox.Region3
+local Region3int16 = roblox.Region3int16
+local UDim = roblox.UDim
+local UDim2 = roblox.UDim2
+local Vector2 = roblox.Vector2
+local Vector2int16 = roblox.Vector2int16
+local Vector3 = roblox.Vector3
+local Vector3int16 = roblox.Vector3int16
+]] .. code))
 end
 
 local function lpcall(_context, func, ...)

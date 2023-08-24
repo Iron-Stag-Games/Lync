@@ -738,7 +738,6 @@ async function getAsync(url, headers, responseType) {
 		buildScript += 'local workspace = game:GetService("Workspace")\n'
 		buildScript += `${pluginSource}\n`
 		buildScript += `map = net.jsonDecode("${toEscapeSequence(JSON.stringify(map, null, '\t'))}")\n`
-		buildScript += `loadstringMap = {\n${loadstringMap}}\n`
 		buildScript += `buildAll()\n`
 		buildScript += `fs.writeFile("${projectJson.build}", roblox.serializePlace(game))\n`
 		if (fs.existsSync(buildScriptPath))
