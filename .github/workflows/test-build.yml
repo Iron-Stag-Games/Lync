@@ -10,40 +10,28 @@ on:
     - 'Sample Project/**'
 
 jobs:
-  publish-main:
+  test-build:
     runs-on: ubuntu-latest
     steps:
 
     - name: Download repository
       uses: actions/checkout@master
 
-    # Exclusive to the sample workflow; please remove this step!
     - name: Extract Sample Project
       run: |
+        mv "Lync/" ../LyncBinaries/
         mv "Sample Project/" ../temp/
         rm -r *
         mv -v ../temp/* ./
 
-    # aftman.toml is currently required to download Lune and build offline.
-    - name: Setup Aftman
+    - name: Download Aftman, Lune, rbxcloud
       uses: ok-nick/setup-aftman@main
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    # Example - Keep if your project uses Wally packages.
-    - name: Download Wally packages
-      run: wally install
-
-    - name: Download Lync
-      uses: actions/checkout@master
-      with:
-        repository: Iron-Stag-Games/Lync
-        path: Lync
-
     - name: Build
       run: |
-        "Lync/Lync/lync-linux-x64" BUILD default.project.json
+        "../LyncBinaries/lync-linux-x64" BUILD default.project.json
 
-    # Remove this step to test build success without publishing.
     - name: Publish
       run: rbxcloud experience publish -f "BuildScripts/Build/Build.rbxl" -p ${{ secrets.PLACE_ID }} -u ${{ secrets.EXPERIENCE_ID }} -t published -a ${{ secrets.API_KEY }}
