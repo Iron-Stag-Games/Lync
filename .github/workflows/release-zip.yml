@@ -24,7 +24,13 @@ jobs:
     - name: Zip Lync
       run: |
         cd Lync
-        zip lync-${{ matrix.os }}.zip lync-${{ matrix.os }}.exe lync-config.json
+        if [[ ${{ matrix.os }} == "win-x64" ]]; then
+          mv lync-${{ matrix.os }}.exe lync.exe
+          zip lync-${{ matrix.os }}.zip lync.exe lync-config.json
+        else
+          mv lync-${{ matrix.os }} lync
+          zip lync-${{ matrix.os }}.zip lync lync-config.json
+        fi
 
     - name: Get release
       id: get_release
