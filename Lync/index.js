@@ -451,6 +451,7 @@ function changedJson() {
 		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('is invalid'))
 		process.exit()
 	}
+	if (MODE == 'fetch') return
 	let globIgnorePathsArr = [
 		PROJECT_JSON,
 		path.relative(path.resolve(), path.resolve(PROJECT_JSON, '../sourcemap.json')).replace(/\\/g, '/'),
