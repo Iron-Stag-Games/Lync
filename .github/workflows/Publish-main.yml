@@ -42,7 +42,7 @@ jobs:
 
     - name: Build
       run: |
-        "Lync/Lync/lync-linux" BUILD default.project.json
+        "Lync/Lync/lync-linux-x64" BUILD default.project.json
 
     # Remove this step to test build success without publishing.
     - name: Publish
