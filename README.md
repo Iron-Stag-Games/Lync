@@ -1,6 +1,7 @@
 # Alpha 23 EOL: Alpha 24 will be released on Friday, 8/25.
 
-<p align="center"><a href="https://github.com/Iron-Stag-Games/Lync/actions/workflows/Publish-main.yml"><img src="https://github.com/Iron-Stag-Games/Lync/actions/workflows/Publish-main.yml/badge.svg" alt="Build and Publish Sample Project"></p>
+<p align="center"><a href="https://github.com/Iron-Stag-Games/Lync/actions/workflows/test-build.yml"><img src="https://github.com/Iron-Stag-Games/Lync/actions/workflows/test-build.yml/badge.svg" alt="Build and Publish Sample Project"></p>
+<p align="center"><a href="https://github.com/Iron-Stag-Games/Lync/actions/workflows/release-zip.yml"><img src="https://github.com/Iron-Stag-Games/Lync/actions/workflows/release-zip.yml/badge.svg" alt="Upload Zip Files to Release"></p>
 
 # What is Lync?
 
