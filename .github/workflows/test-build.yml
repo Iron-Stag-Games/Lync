@@ -5,7 +5,7 @@ on:
     branches:
     - main
     paths:
-    - '.github/workflows/Publish-main.yml'
+    - '.github/workflows/test-build.yml'
     - 'Lync/**'
     - 'Sample Project/**'
 
@@ -19,7 +19,7 @@ jobs:
 
     - name: Extract Sample Project
       run: |
-        mv "Lync/" ../LyncBinaries/
+        mv Lync/ ../LyncBinaries/
         mv "Sample Project/" ../temp/
         rm -r *
         mv -v ../temp/* ./
@@ -31,7 +31,7 @@ jobs:
 
     - name: Build
       run: |
-        "../LyncBinaries/lync-linux-x64" BUILD default.project.json
+        ../LyncBinaries/lync-linux-x64 BUILD default.project.json
 
     - name: Publish
       run: rbxcloud experience publish -f "BuildScripts/Build/Build.rbxl" -p ${{ secrets.PLACE_ID }} -u ${{ secrets.EXPERIENCE_ID }} -t published -a ${{ secrets.API_KEY }}

@@ -21,18 +21,21 @@ jobs:
     - name: Download repository
       uses: actions/checkout@master
 
+    - name: Sign MacOS binary
+      if: ${{ matrix.os == 'macos-x64' || matrix.os == 'macos-arm64' }}
+      run: |
+        cd Lync
+        ./ldid -S lync-${{ matrix.os }}
+
     - name: Zip Lync
       run: |
         cd Lync
-        if [[ ${{ matrix.os }} == "macos-x64" ]] || [[ ${{ matrix.os }} == "macos-arm64" ]]; then
-          ldid -S lync-${{ matrix.os }}
-        fi
-        if [[ ${{ matrix.os }} == "win-x64" ]]; then
+        if [[ ${{ matrix.os }} == 'win-x64' ]]; then
           mv lync-${{ matrix.os }}.exe lync.exe
-          zip lync-${{ matrix.os }}.zip lync.exe lync-config.json
+          zip lync-${{ matrix.os }}.zip lync.exe lync-config.json ../LICENSE.md
         else
           mv lync-${{ matrix.os }} lync
-          zip lync-${{ matrix.os }}.zip lync lync-config.json
+          zip lync-${{ matrix.os }}.zip lync lync-config.json ../LICENSE.md
         fi
 
     - name: Get release
