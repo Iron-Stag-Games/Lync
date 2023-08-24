@@ -5,11 +5,17 @@ on:
     types: [published]
 
 jobs:
-  pkg:
+  release-zip:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [win, macos, linux]
+        os: [
+          win-x64,
+          macos-x64,
+          macos-arm64,
+          linux-x64,
+          linux-arm64
+        ]
     steps:
 
     - name: Download repository
@@ -17,7 +23,8 @@ jobs:
 
     - name: Zip Lync
       run: |
-        zip lync-${{ matrix.os }}.zip Lync/lync-${{ matrix.os }}.exe Lync/lync-config.json
+        cd Lync
+        zip lync-${{ matrix.os }}.zip lync-${{ matrix.os }}.exe lync-config.json
 
     - name: Get release
       id: get_release
@@ -31,6 +38,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./lync-${{ matrix.os }}.zip
+        asset_path: Lync/lync-${{ matrix.os }}.zip
         asset_name: lync-${{ matrix.os }}-${{ steps.get_release.outputs.tag_name }}.zip
         asset_content_type: application/zip
