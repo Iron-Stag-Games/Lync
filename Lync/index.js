@@ -42,7 +42,13 @@ if (!process.pkg) process.exit()
 const UTF8 = new TextDecoder('utf-8')
 const LYNC_INSTALL_DIR = path.dirname(process.execPath)
 const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'lync-config.json')
-const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH))
+let CONFIG;
+try {
+	CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH))
+} catch (err) {
+	console.error(red(err))
+	process.exit(-1)
+}
 const DEBUG = CONFIG.Debug
 
 // Args
