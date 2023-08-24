@@ -22,6 +22,7 @@ const VERSION = 'Alpha 24'
 
 const { spawn, spawnSync, exec } = require('child_process')
 const fs = require('fs')
+const os = require('os')
 const path = require('path')
 const process = require('process')
 
@@ -589,13 +590,13 @@ async function getAsync(url, headers, responseType) {
 				fs.renameSync(executable, executable + '.temp')
 				switch (process.platform) {
 					case 'win32':
-						fs.renameSync(path.resolve(updateFolder, 'lync-win.exe'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
+						fs.renameSync(path.resolve(updateFolder, 'lync-win-' + os.arch() + '.exe'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
 						break
 					case 'darwin':
-						fs.renameSync(path.resolve(updateFolder, 'lync-macos'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
+						fs.renameSync(path.resolve(updateFolder, 'lync-macos-' + os.arch()), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
 						break
 					default:
-						fs.renameSync(path.resolve(updateFolder, 'lync-linux'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
+						fs.renameSync(path.resolve(updateFolder, 'lync-linux-' + os.arch()), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
 				}
 
 				// Cleanup
