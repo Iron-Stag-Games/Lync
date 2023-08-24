@@ -6,6 +6,7 @@
 "Lync/sourcemap" export-ignore
 "Lync/validator" export-ignore
 "Lync/index.js" export-ignore
+"Lync/ldid" export-ignore
 "Lync/luneBuildTemplate.luau" export-ignore
 "Lync/output.js" export-ignore
 "Lync/package-lock.json" export-ignore
