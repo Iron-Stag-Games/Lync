@@ -35,7 +35,7 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 | Unsaved Model Warnings | ✅️ | ❌️ |
 | Patch Viewer | ❌️ | ✅️ |
 | Multiple Project Serving | ❌️ | ✅️ |
-| Server IP Address | ❌️ | ✅️ |
+| Server IP Address | … | ✅️ |
 | Server Port | ✅️ | ✅️ |
 | Custom File Downloads | ✅️ | ❌️ |
 | Automatic Shell Scripts | … | ❌️ |
@@ -55,10 +55,19 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 | `TOML` | ✅️ | ✅️ |
 | `XLSX`/`XLS` | ✅️ | ❌️ |
 | `TXT` | ✅️ | ✅️ |
-| `CSV` ([LocalizationTable](https://create.roblox.com/docs/reference/engine/classes/LocalizationTable)) | ⚠️ | ✅️ |
+| `CSV` ([LocalizationTable](https://create.roblox.com/docs/reference/engine/classes/LocalizationTable)) | … | ✅️ |
 | `*.Meta.JSON` | ✅️ | ✅️ |
 | `*.Meta.YAML` | ✅️ | ❌️ |
 | `*.Meta.TOML` | ✅️ | ❌️ |
+
+### Roblox Types
+| | Lync | Rojo |
+|-|-|-|
+| Properties | ✅️ | ✅️ |
+| Attributes | ✅️ | ✅️ |
+| Tags | ✅️ | ✅️ |
+| Terrain | ✅️ | ✅️ |
+| Terrain Material Colors | … | ✅️ |
 
 ### Syntax
 | Lync | Rojo |
