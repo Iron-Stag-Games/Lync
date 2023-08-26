@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [
-          win-x64,
+          windows-x64,
           macos-x64,
           macos-arm64,
           linux-x64,
@@ -24,8 +24,8 @@ jobs:
     - name: Zip Lync
       run: |
         cd Lync
-        if [[ ${{ matrix.os }} == 'win-x64' ]]; then
-          mv lync-${{ matrix.os }}.exe lync.exe
+        if [[ ${{ matrix.os }} == 'windows-x64' ]]; then
+          mv lync-win-x64.exe lync.exe
           zip lync-${{ matrix.os }}.zip lync.exe lync-config.json ../LICENSE.md
         else
           mv lync-${{ matrix.os }} lync
