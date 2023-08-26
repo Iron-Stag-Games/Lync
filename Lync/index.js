@@ -74,12 +74,12 @@ const ARGS = process.argv.slice(2)
 if (ARGS.length < 1 || ARGS[0].toLowerCase() == 'help') argHelp()
 const MODE = ARGS[0].toLowerCase()
 if (ARGS.length < 2) argHelp(`Expected 2 arguments but ${ARGS.length} were provided.`)
-if (MODE != 'serve' && MODE != 'open' && MODE != 'build' && MODE != 'fetch') argHelp('Mode must be SERVE, OPEN, BUILD, or FETCH.')
-if (MODE == 'open' && process.platform != 'win32' && process.platform != 'darwin') argHelp('Cannot use OPEN mode on Linux.')
+if (MODE != 'serve' && MODE != 'open' && MODE != 'build' && MODE != 'fetch') argHelp('Mode must be SERVE, OPEN, BUILD, or FETCH')
+if (MODE == 'open' && process.platform != 'win32' && process.platform != 'darwin') argHelp('Cannot use OPEN mode on Linux')
 if (MODE != 'build' && MODE != 'fetch' && ARGS.length < 3) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
 const PROJECT_JSON = ARGS[1].replace(/\\/g, '/')
 const PORT = MODE != 'build' && MODE != 'fetch' && ARGS[2] || '34873'
-if (typeof PORT == 'string' && (isNaN(parseInt(PORT)) || parseInt(PORT) < 1 || parseInt(PORT) > 65535)) argHelp('Port must be an integer from 1-65535.')
+if (typeof PORT == 'string' && (isNaN(parseInt(PORT)) || parseInt(PORT) < 1 || parseInt(PORT) > 65535)) argHelp('Port must be an integer from 1-65535')
 const REMOTE_ADDRESS = MODE != 'build' && MODE != 'fetch' && ARGS[3] || null
 
 var securityKeys = {}
@@ -458,7 +458,7 @@ function changedJson() {
 		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('is invalid'))
 		process.exit()
 	}
-	if (MODE == 'fetch') return
+	if (MODE != 'serve' && MODE != 'open' && MODE != 'build') return
 	let globIgnorePathsArr = [
 		PROJECT_JSON,
 		path.relative(path.resolve(), path.resolve(PROJECT_JSON, '../sourcemap.json')).replace(/\\/g, '/'),
@@ -470,7 +470,11 @@ function changedJson() {
 		globIgnorePathsArr.push(projectJson.globIgnorePaths)
 	globIgnorePaths = `{${globIgnorePathsArr.join(',')}}`
 	globIgnorePathsPicoMatch = picomatch(globIgnorePaths)
-	if (!fs.existsSync(projectJson.base)) {
+	if ((MODE == 'open' || MODE == 'build') && projectJson.base == '') {
+		console.log()
+		console.error(red('Terminated:'), green('base'), yellow('cannot be a blank string with OPEN or BUILD mode'))
+		process.exit()
+	} else if ((MODE == 'open' || MODE == 'build') && !fs.existsSync(projectJson.base)) {
 		console.log()
 		console.error(red('Terminated:'), yellow('Base'), cyan(projectJson.base), yellow('does not exist'))
 		process.exit()
@@ -776,8 +780,10 @@ async function getAsync(url, headers, responseType) {
 	} else {
 
 		// Copy base file
-		if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
-		fs.copyFileSync(projectJson.base, projectJson.build)
+		if (MODE == 'open') {
+			if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
+			fs.copyFileSync(projectJson.base, projectJson.build)
+		}
 
 		if (process.platform == 'win32' || process.platform == 'darwin') {
 
@@ -800,9 +806,6 @@ async function getAsync(url, headers, responseType) {
 					windowsHide: true
 				})
 			}
-
-		} else if (MODE == 'open') {
-			console.error(red('Argument error:'), yellow('Cannot use the OPEN mode on Linux.'))
 		}
 
 		// Sync file changes
@@ -946,7 +949,7 @@ async function getAsync(url, headers, responseType) {
 		if (MODE != 'build') {
 			if (!(req.socket.remoteAddress in securityKeys)) {
 				if (!('key' in req.headers)) {
-					const errText = 'Missing Key header.'
+					const errText = 'Missing Key header'
 					console.error(red('Server error:'), yellow(errText))
 					console.log('Headers:', req.headers)
 					res.writeHead(403)
