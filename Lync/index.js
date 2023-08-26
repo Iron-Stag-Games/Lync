@@ -45,7 +45,42 @@ const LYNC_INSTALL_DIR = path.dirname(process.execPath)
 const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'lync-config.json')
 let CONFIG;
 try {
-	CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH))
+	CONFIG = {
+		"Debug": false,
+		"GenerateSourcemap": true,
+		"AutoUpdate": false,
+		"GithubUpdateRepo": "Iron-Stag-Games/Lync",
+		"GithubUpdatePrereleases": false,
+		"LatestId": 0,
+		"RobloxVersionsPath": "",
+		"RobloxContentPath": "",
+		"RobloxPluginsPath": "",
+		"StudioModManagerContentPath": "",
+		"LunePath": "lune"
+	}
+	if (process.platform == 'win32') {
+		CONFIG.RobloxVersionsPath = "%LOCALAPPDATA%/Roblox/Versions"
+		CONFIG.RobloxPluginsPath = "%LOCALAPPDATA%/Roblox/Plugins"
+		CONFIG.StudioModManagerContentPath = "%LOCALAPPDATA%/Roblox Studio/content"
+		delete CONFIG.RobloxContentPath
+	} else if (process.platform == 'darwin') {
+		CONFIG.RobloxContentPath = "/Applications/RobloxStudio.app/Contents/Resources/content"
+		CONFIG.RobloxPluginsPath = "$HOME/Documents/Roblox/Plugins"
+		delete CONFIG.RobloxVersionsPath
+		delete CONFIG.StudioModManagerContentPath
+	} else {
+		delete CONFIG.RobloxVersionsPath
+		delete CONFIG.RobloxContentPath
+		delete CONFIG.RobloxPluginsPath
+		delete CONFIG.StudioModManagerContentPath
+	}
+	if (fs.existsSync(CONFIG_PATH)) {
+		const oldConfig = JSON.parse(fs.readFileSync(CONFIG_PATH))
+		for (const key in oldConfig)
+			if (key in CONFIG)
+				CONFIG[key] = oldConfig[key]
+	}
+	fs.writeFileSync(CONFIG_PATH, JSON.stringify(CONFIG, null, '\t'))
 } catch (err) {
 	console.error(red(err))
 	process.exit(-1)
@@ -579,12 +614,9 @@ async function getAsync(url, headers, responseType) {
 				await extract(updateFile, { dir: LYNC_INSTALL_DIR })
 				fs.rmSync(updateFile, { force: true })
 
-				// Merge config file
-				const newConfig = JSON.parse(fs.readFileSync(path.resolve(updateFolder, 'lync-config.json')))
-				for (const key in CONFIG)
-					newConfig[key] = CONFIG[key]
-				newConfig.LatestId = latest.id
-				fs.writeFileSync(CONFIG_PATH, JSON.stringify(newConfig, null, '\t'))
+				// Write new version
+				CONFIG.LatestId = latest.id
+				fs.writeFileSync(CONFIG_PATH, JSON.stringify(CONFIG, null, '\t'))
 
 				// Copy Lync binary and restart
 				const executable = process.execPath
@@ -788,7 +820,7 @@ async function getAsync(url, headers, responseType) {
 		if (process.platform == 'win32' || process.platform == 'darwin') {
 
 			// Copy plugin
-			const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath_MacOS.replace('$HOME', process.env.HOME))
+			const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath.replace('$HOME', process.env.HOME))
 			if (!fs.existsSync(pluginsPath)) {
 				if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 				fs.mkdirSync(pluginsPath)
@@ -974,7 +1006,7 @@ async function getAsync(url, headers, responseType) {
 
 				hardLinkPaths = []
 				if (process.platform == 'win32') {
-					const versionsPath = path.resolve(CONFIG.RobloxVersionsPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+					const versionsPath = path.resolve(CONFIG.RobloxVersionsPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 					fs.readdirSync(versionsPath).forEach((dirNext) => {
 						const stats = fs.statSync(path.resolve(versionsPath, dirNext))
 						if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
@@ -986,7 +1018,7 @@ async function getAsync(url, headers, responseType) {
 						}
 					})
 					// Studio Mod Manager
-					const modManagerContentPath = path.resolve(CONFIG.StudioModManagerContentPath_Windows.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+					const modManagerContentPath = path.resolve(CONFIG.StudioModManagerContentPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 					if (fs.existsSync(modManagerContentPath)) {
 						const hardLinkPath = path.resolve(modManagerContentPath, 'lync')
 						if (!fs.existsSync(hardLinkPath)) {
@@ -995,7 +1027,7 @@ async function getAsync(url, headers, responseType) {
 						hardLinkPaths.push(hardLinkPath)
 					}
 				} else if (process.platform == 'darwin') {
-					const contentPath = path.resolve(CONFIG.RobloxContentPath_MacOS)
+					const contentPath = path.resolve(CONFIG.RobloxContentPath)
 					const hardLinkPath = path.resolve(contentPath, 'lync')
 					if (!fs.existsSync(hardLinkPath)) {
 						fs.mkdirSync(hardLinkPath)
