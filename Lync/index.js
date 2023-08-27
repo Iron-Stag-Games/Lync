@@ -20,7 +20,7 @@
 */
 const VERSION = 'Alpha 24'
 
-const { spawn, spawnSync, exec } = require('child_process')
+const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
