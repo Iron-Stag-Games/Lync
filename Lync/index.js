@@ -40,9 +40,15 @@ const { validateJson, validateYaml, validateToml } = require('./validator/valida
 
 if (!process.pkg) process.exit()
 
+
+// Constants
+
 const PLATFORM = process.platform == 'win32' && 'windows' || process.platform == 'darwin' && 'macos' || 'linux'
-const UTF8 = new TextDecoder('utf-8')
 const LYNC_INSTALL_DIR = path.dirname(process.execPath)
+
+
+// Config
+
 const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'lync-config.json')
 let CONFIG;
 try {
@@ -88,6 +94,7 @@ try {
 }
 const DEBUG = CONFIG.Debug
 
+
 // Args
 
 /**
@@ -118,9 +125,12 @@ if (MODE == 'open' && PLATFORM != 'windows' && PLATFORM != 'macos') argHelp('Can
 const PROJECT_JSON = ARGS[1] && ARGS[1].replace(/\\/g, '/') || 'default.project.json'
 const USE_REMOTE = ARGS[2] && ARGS[2].toLowerCase() == 'remote' // Unimplemented
 
-var securityKeys = {}
+
+// Globals
+
+const securityKeys = {}
+const mTimes = {}
 var map = {}
-var mTimes = {}
 var modified = {}
 var modified_playtest = {}
 var modified_sourcemap = {}
@@ -1125,26 +1135,26 @@ async function getAsync(url, headers, responseType) {
 
 			case 'Source':
 				try {
-					let read = fs.readFileSync(req.headers.path)
+					let read = fs.readFileSync(req.headers.path, { encoding: 'utf8' })
 
 					// Parse JSON
 					if (req.headers.datatype == 'JSON') {
-						const json = validateJson(null, req.headers.path, UTF8.decode(read))
+						const json = validateJson(null, req.headers.path, read)
 						if (json) read = LUA.format(json, { singleQuote: false, spaces: '\t' })
 
 					// Convert YAML to JSON
 					} else if (req.headers.datatype == 'YAML') {
-						const yaml = validateYaml(null, req.headers.path, UTF8.decode(read))
+						const yaml = validateYaml(null, req.headers.path, read)
 						if (yaml) read = LUA.format(yaml, { singleQuote: false, spaces: '\t' })
 
 					// Convert TOML to JSON
 					} else if (req.headers.datatype == 'TOML') {
-						const toml = validateToml(null, req.headers.path, UTF8.decode(read))
+						const toml = validateToml(null, req.headers.path, read)
 						if (toml) read = LUA.format(toml, { singleQuote: false, spaces: '\t' })
 
 					// Read and convert Excel Tables to JSON
 					} else if (req.headers.datatype == 'Excel') {
-						let tableDefinitions = validateJson('Excel', req.headers.path, UTF8.decode(read))
+						let tableDefinitions = validateJson('Excel', req.headers.path, read)
 						if (tableDefinitions) {
 							const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.spreadsheet)
 
@@ -1217,7 +1227,7 @@ async function getAsync(url, headers, responseType) {
 					// Convert Localization CSV to JSON
 					} else if (req.headers.datatype == 'Localization') {
 						let entries = []
-						const csv = parseCSV(UTF8.decode(read))
+						const csv = parseCSV(read)
 						for (let index = 0; index < csv.length; index++) {
 							const entry = csv[index]
 							const values = {}

@@ -3,13 +3,9 @@ const ZSTD = require('fzstd')
 
 const UTF8 = new TextDecoder('utf-8')
 
-/**
- * @type {Buffer}
- */
+/** @type {Buffer} */
 let buf;
-/**
- * @type {number}
- */
+/** @type {number} */
 let start;
 
 /**
