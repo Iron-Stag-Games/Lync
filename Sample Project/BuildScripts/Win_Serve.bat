@@ -2,5 +2,5 @@
 title Lync Server
 
 cd %~dp0/..
-lync SERVE default.project.json 34873
+lync serve
 pause

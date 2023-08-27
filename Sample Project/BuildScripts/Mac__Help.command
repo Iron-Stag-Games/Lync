@@ -2,4 +2,4 @@
 
 cd ${0%/*}
 cd ../
-lync HELP
+lync help

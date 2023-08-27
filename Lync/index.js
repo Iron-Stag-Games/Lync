@@ -90,32 +90,28 @@ const DEBUG = CONFIG.Debug
 // Args
 function argHelp(err) {
 	if (err) console.error(red('Argument error:'), yellow(err) + '\n')
-	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ LYNC HELP                                     Displays the list of available arguments.                 ┃ 
-┃      SERVE ${cyan('project.json', true)} ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project.                                        ┃
-┃      OPEN  ${cyan('project.json', true)} ${yellow('port')} ${green('remoteAddress?', true)}   Syncs the project and opens it in Roblox Studio.          ┃
-┃      BUILD ${cyan('project.json', true)}                       Builds the project to file.                               ┃
-┃      FETCH ${cyan('project.json', true)}                       Downloads the list of sources in the project file.        ┃
-┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
-┃ ${cyan('project.json', true)}     The project file to read from and serve.                                               ┃
-┃ ${yellow('port')}             The port used to connect to the Roblox Studio plugin.                                  ┃
-┃ ${green('remoteAddress?', true)}   The URL, IP address, or hostname of the server to connect to instead of the localhost. ┃
-┃                  ${red('Warning:')} ${yellow('remoteAddress is unimplemented!')}                                               ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
+	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ LYNC HELP                          Displays the list of available arguments.          ┃ 
+┃      SERVE ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Syncs the project.                                 ┃
+┃      OPEN  ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Syncs the project and opens it in Roblox Studio.   ┃
+┃      BUILD ${cyan('project.json', true)}?           Builds the project to file.                        ┃
+┃      FETCH ${cyan('project.json', true)}?           Downloads the list of sources in the project file. ┃
+┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
+┃ ${cyan('project.json', true)}?   The project file to read from and serve.                              ┃
+┃ ${green('REMOTE', true)}?         Connect to the project's ${green('remoteAddress')} instead of the localhost.    ┃
+┃                 ${red('Warning:')} ${yellow('REMOTE is unimplemented!')}                                     ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
 `)
 	process.exit(err && -1 || 0)
 }
 const ARGS = process.argv.slice(2)
-if (ARGS.length < 1 || ARGS[0].toLowerCase() == 'help') argHelp()
+if (ARGS.length == 0 || ARGS[0].toLowerCase() == 'help') argHelp()
 const MODE = ARGS[0].toLowerCase()
-if (ARGS.length < 2) argHelp(`Expected 2 arguments but ${ARGS.length} were provided.`)
 if (MODE != 'serve' && MODE != 'open' && MODE != 'build' && MODE != 'fetch') argHelp('Mode must be SERVE, OPEN, BUILD, or FETCH')
 if (MODE == 'open' && process.platform != 'win32' && process.platform != 'darwin') argHelp('Cannot use OPEN mode on Linux')
-if (MODE != 'build' && MODE != 'fetch' && ARGS.length < 3) argHelp(`Expected 3 arguments but ${ARGS.length} were provided.`)
-const PROJECT_JSON = ARGS[1].replace(/\\/g, '/')
-const PORT = MODE != 'build' && MODE != 'fetch' && ARGS[2] || '34873'
-if (typeof PORT == 'string' && (isNaN(parseInt(PORT)) || parseInt(PORT) < 1 || parseInt(PORT) > 65535)) argHelp('Port must be an integer from 1-65535')
-const REMOTE_ADDRESS = MODE != 'build' && MODE != 'fetch' && ARGS[3] || null
+if (MODE != 'serve' && MODE != 'open' && ARGS.length == 1) argHelp(`Expected 2 arguments but only 1 was provided.`)
+const PROJECT_JSON = ARGS[1] && ARGS[1].replace(/\\/g, '/') || 'default.project.json'
+const USE_REMOTE = ARGS[2] && ARGS[2].toLowerCase() == 'remote' // Unimplemented
 
 var securityKeys = {}
 var map = {}
@@ -505,14 +501,20 @@ function changedJson() {
 		globIgnorePathsArr.push(projectJson.globIgnorePaths)
 	globIgnorePaths = `{${globIgnorePathsArr.join(',')}}`
 	globIgnorePathsPicoMatch = picomatch(globIgnorePaths)
-	if ((MODE == 'open' || MODE == 'build') && projectJson.base == '') {
-		console.log()
-		console.error(red('Terminated:'), green('base'), yellow('cannot be a blank string with OPEN or BUILD mode'))
-		process.exit()
-	} else if ((MODE == 'open' || MODE == 'build') && !fs.existsSync(projectJson.base)) {
-		console.log()
-		console.error(red('Terminated:'), yellow('Base'), cyan(projectJson.base), yellow('does not exist'))
-		process.exit()
+	if (MODE == 'open' || MODE == 'build') {
+		if (projectJson.base == '') {
+			console.log()
+			console.error(red('Terminated:'), green('base'), yellow('cannot be a blank string with OPEN or BUILD mode'))
+			process.exit()
+		} else if (!fs.existsSync(projectJson.base)) {
+			console.log()
+			console.error(red('Terminated:'), yellow('Base'), cyan(projectJson.base), yellow('does not exist'))
+			process.exit()
+		} else if (projectJson.build == '') {
+			console.log()
+			console.error(red('Terminated:'), green('build'), yellow('cannot be a blank string with OPEN or BUILD mode'))
+			process.exit()
+		}
 	}
 	if (DEBUG) console.log('Mapping', green(projectJson.name))
 	map = {}
@@ -1245,8 +1247,8 @@ async function getAsync(url, headers, responseType) {
 		console.error(red('Terminated: Server error:'), err)
 		process.exit()
 	})
-	.listen(PORT, function() {
-		console.log(`Serving ${green(projectJson.name)} on port ${yellow(PORT)}\n`)
+	.listen(projectJson.port, function() {
+		console.log(`Serving ${green(projectJson.name)} on port ${yellow(projectJson.port)}\n`)
 
 		// Generate sourcemap
 

@@ -84,6 +84,19 @@ module.exports.validate = function(type, json, localPath) {
 			failed = true
 		}
 
+		if (!('port' in json)) {
+			console.error(fileError(localPath), yellow('Missing key'), green('port'))
+			failed = true
+		} else if (typeof json.port != 'number') {
+			console.error(fileError(localPath), green('port'), yellow('must be a number'))
+			failed = true
+		}
+
+		if (('remoteAddress' in json) && typeof json.remoteAddress != 'string') {
+			console.error(fileError(localPath), green('remoteAddress'), yellow('must be a string'))
+			failed = true
+		}
+
 		if ('sourcemapEnabled' in json) {
 			if (!(typeof json.sourcemapEnabled == 'object' && !Array.isArray(json.sourcemapEnabled))) {
 				console.error(fileError(localPath), green('sourcemapEnabled'), yellow('must be an object'))

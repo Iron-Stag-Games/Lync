@@ -1,5 +1,6 @@
 {
 	"name": "Example Build",
+	"port": 34873,
 	"base": "default.base.rbxl",
 	"build": "BuildScripts/Build/Build.rbxl",
 	"sourcemapEnabled": {

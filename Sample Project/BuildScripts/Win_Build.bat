@@ -2,5 +2,5 @@
 title Lync Server
 
 cd %~dp0/..
-lync BUILD default.project.json
+lync build
 pause

@@ -2,5 +2,5 @@
 title Lync Server
 
 cd %~dp0/..
-lync FETCH default.project.json
+lync fetch
 pause

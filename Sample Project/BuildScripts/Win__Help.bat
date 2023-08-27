@@ -2,5 +2,5 @@
 title Lync Server
 
 cd %~dp0/..
-lync HELP
+lync help
 pause
