@@ -40,6 +40,7 @@ const { validateJson, validateYaml, validateToml } = require('./validator/valida
 
 if (!process.pkg) process.exit()
 
+const PLATFORM = process.platform == 'win32' && 'windows' || process.platform == 'darwin' && 'macos' || 'linux'
 const UTF8 = new TextDecoder('utf-8')
 const LYNC_INSTALL_DIR = path.dirname(process.execPath)
 const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'lync-config.json')
@@ -58,12 +59,12 @@ try {
 		"StudioModManagerContentPath": "",
 		"LunePath": "lune"
 	}
-	if (process.platform == 'win32') {
+	if (PLATFORM == 'windows') {
 		CONFIG.RobloxVersionsPath = "%LOCALAPPDATA%/Roblox/Versions"
 		CONFIG.RobloxPluginsPath = "%LOCALAPPDATA%/Roblox/Plugins"
 		CONFIG.StudioModManagerContentPath = "%LOCALAPPDATA%/Roblox Studio/content"
 		delete CONFIG.RobloxContentPath
-	} else if (process.platform == 'darwin') {
+	} else if (PLATFORM == 'macos') {
 		CONFIG.RobloxContentPath = "/Applications/RobloxStudio.app/Contents/Resources/content"
 		CONFIG.RobloxPluginsPath = "$HOME/Documents/Roblox/Plugins"
 		delete CONFIG.RobloxVersionsPath
@@ -108,7 +109,7 @@ const ARGS = process.argv.slice(2)
 if (ARGS.length == 0 || ARGS[0].toLowerCase() == 'help') argHelp()
 const MODE = ARGS[0].toLowerCase()
 if (MODE != 'serve' && MODE != 'open' && MODE != 'build' && MODE != 'fetch') argHelp('Mode must be SERVE, OPEN, BUILD, or FETCH')
-if (MODE == 'open' && process.platform != 'win32' && process.platform != 'darwin') argHelp('Cannot use OPEN mode on Linux')
+if (MODE == 'open' && PLATFORM != 'windows' && PLATFORM != 'macos') argHelp('Cannot use OPEN mode on Linux')
 if (MODE != 'serve' && MODE != 'open' && ARGS.length == 1) argHelp(`Expected 2 arguments but only 1 was provided.`)
 const PROJECT_JSON = ARGS[1] && ARGS[1].replace(/\\/g, '/') || 'default.project.json'
 const USE_REMOTE = ARGS[2] && ARGS[2].toLowerCase() == 'remote' // Unimplemented
@@ -606,14 +607,13 @@ async function getAsync(url, headers, responseType) {
 			if (!latest || !('id' in latest)) throw new Error('No response from server')
 			if (latest.id != CONFIG.LatestId) {
 				const updateFile = path.resolve(LYNC_INSTALL_DIR, `Lync-${latest.tag_name}.zip`)
-				const extractedFolder = path.resolve(LYNC_INSTALL_DIR, 'Lync-' + latest.tag_name)
-				const updateFolder = path.resolve(extractedFolder, 'Lync')
+				const updateFolder = path.resolve(LYNC_INSTALL_DIR, 'Lync-' + latest.tag_name)
 
 				// Download latest version
 				console.log(`Updating to ${green(latest.name)} . . .`)
-				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/archive/refs/tags/${latest.tag_name}.zip`, {})
+				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/releases/download/${latest.tag_name}/lync-${latest.tag_name}-${PLATFORM}-${os.arch()}.zip`, {})
 				fs.writeFileSync(updateFile, update, 'binary')
-				await extract(updateFile, { dir: LYNC_INSTALL_DIR })
+				await extract(updateFile, { dir: updateFolder })
 				fs.rmSync(updateFile, { force: true })
 
 				// Write new version
@@ -626,19 +626,14 @@ async function getAsync(url, headers, responseType) {
 				if (fs.existsSync(tempExecutable))
 					fs.rmSync(tempExecutable, { force: true })
 				fs.renameSync(executable, executable + '.temp')
-				switch (process.platform) {
-					case 'win32':
-						fs.renameSync(path.resolve(updateFolder, 'lync-win-' + os.arch() + '.exe'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
-						break
-					case 'darwin':
-						fs.renameSync(path.resolve(updateFolder, 'lync-macos-' + os.arch()), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
-						break
-					default:
-						fs.renameSync(path.resolve(updateFolder, 'lync-linux-' + os.arch()), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
+				if (PLATFORM == 'windows') {
+					fs.renameSync(path.resolve(updateFolder, 'lync.exe'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
+				} else {
+					fs.renameSync(path.resolve(updateFolder, 'lync'), path.resolve(LYNC_INSTALL_DIR, path.parse(executable).base))
 				}
 
 				// Cleanup
-				fs.rmSync(extractedFolder, { force: true, recursive: true })
+				fs.rmSync(updateFolder, { force: true, recursive: true })
 
 				// Restart Lync
 				console.clear()
@@ -698,8 +693,8 @@ async function getAsync(url, headers, responseType) {
 	} else if (MODE == 'build') {
 
 		const buildScriptPath = projectJson.build + '.luau'
-		const lunePath = process.platform == 'win32' && CONFIG.LunePath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
-			|| process.platform == 'darwin' && CONFIG.LunePath.replace('$HOME', process.env.HOME)
+		const lunePath = PLATFORM == 'windows' && CONFIG.LunePath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
+			|| PLATFORM == 'macos' && CONFIG.LunePath.replace('$HOME', process.env.HOME)
 			|| CONFIG.LunePath
 
 		// Map loadstring calls (needed until Lune implements loadstring)
@@ -819,10 +814,10 @@ async function getAsync(url, headers, responseType) {
 			fs.copyFileSync(projectJson.base, projectJson.build)
 		}
 
-		if (process.platform == 'win32' || process.platform == 'darwin') {
+		if (PLATFORM == 'windows' || PLATFORM == 'macos') {
 
 			// Copy plugin
-			const pluginsPath = path.resolve(process.platform == 'win32' && CONFIG.RobloxPluginsPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || process.platform == 'darwin' && CONFIG.RobloxPluginsPath.replace('$HOME', process.env.HOME))
+			const pluginsPath = path.resolve(PLATFORM == 'windows' && CONFIG.RobloxPluginsPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || PLATFORM == 'macos' && CONFIG.RobloxPluginsPath.replace('$HOME', process.env.HOME))
 			if (!fs.existsSync(pluginsPath)) {
 				if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 				fs.mkdirSync(pluginsPath)
@@ -833,7 +828,7 @@ async function getAsync(url, headers, responseType) {
 			// Open Studio
 			if (MODE == 'open') {
 				if (DEBUG) console.log('Opening', cyan(projectJson.build))
-				spawn((process.platform == 'darwin' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
+				spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
 					stdio: 'ignore',
 					detached: true,
 					shell: true,
@@ -1007,7 +1002,7 @@ async function getAsync(url, headers, responseType) {
 				// Create content hard links
 
 				hardLinkPaths = []
-				if (process.platform == 'win32') {
+				if (PLATFORM == 'windows') {
 					const versionsPath = path.resolve(CONFIG.RobloxVersionsPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 					fs.readdirSync(versionsPath).forEach((dirNext) => {
 						const stats = fs.statSync(path.resolve(versionsPath, dirNext))
@@ -1028,7 +1023,7 @@ async function getAsync(url, headers, responseType) {
 						}
 						hardLinkPaths.push(hardLinkPath)
 					}
-				} else if (process.platform == 'darwin') {
+				} else if (PLATFORM == 'macos') {
 					const contentPath = path.resolve(CONFIG.RobloxContentPath)
 					const hardLinkPath = path.resolve(contentPath, 'lync')
 					if (!fs.existsSync(hardLinkPath)) {
