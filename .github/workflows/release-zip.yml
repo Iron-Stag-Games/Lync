@@ -7,30 +7,40 @@ on:
 jobs:
   release-zip:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [
-          windows-x64,
-          macos-x64,
-          macos-arm64,
-          linux-x64,
-          linux-arm64
-        ]
     steps:
 
     - name: Download repository
       uses: actions/checkout@master
 
+    - name: Install Node
+      uses: actions/setup-node@main
+
+    - name: Install pkg
+      run: |
+        npm install -g pkg
+
+    - name: Compile Lync
+      run: |
+        cd Lync
+        pkg package.json --no-bytecode --public-packages "*" --public
+
     - name: Zip Lync
       run: |
         cd Lync
-        if [[ ${{ matrix.os }} == 'windows-x64' ]]; then
-          mv lync-win-x64.exe lync.exe
-          zip lync-${{ matrix.os }}.zip lync.exe LICENSE.md
-        else
-          mv lync-${{ matrix.os }} lync
-          zip lync-${{ matrix.os }}.zip lync LICENSE.md
-        fi
+        mv lync-win-x64.exe lync.exe
+        zip lync-windows-x64.zip lync.exe LICENSE.md
+        mv lync-macos-x64 lync
+        chmod +x lync
+        zip lync-macos-x64.zip lync LICENSE.md
+        mv lync-macos-arm64 lync
+        chmod +x lync
+        zip lync-macos-arm64.zip lync LICENSE.md
+        mv lync-linux-x64 lync
+        chmod +x lync
+        zip lync-linux-x64.zip lync LICENSE.md
+        mv lync-linux-arm64 lync
+        chmod +x lync
+        zip lync-linux-arm64.zip lync LICENSE.md
 
     - name: Get release
       id: get_release
@@ -38,12 +48,52 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ github.token }}
 
-    - name: Upload zip file
+    - name: Upload windows-x64
       uses: actions/upload-release-asset@main
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: Lync/lync-${{ matrix.os }}.zip
-        asset_name: lync-${{ steps.get_release.outputs.tag_name }}-${{ matrix.os }}.zip
+        asset_path: Lync/lync-windows-x64.zip
+        asset_name: lync-${{ steps.get_release.outputs.tag_name }}-windows-x64.zip
+        asset_content_type: application/zip
+
+    - name: Upload macos-x64
+      uses: actions/upload-release-asset@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: Lync/lync-macos-x64.zip
+        asset_name: lync-${{ steps.get_release.outputs.tag_name }}-macos-x64.zip
+        asset_content_type: application/zip
+
+    - name: Upload macos-arm64
+      uses: actions/upload-release-asset@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: Lync/lync-macos-arm64.zip
+        asset_name: lync-${{ steps.get_release.outputs.tag_name }}-macos-arm64.zip
+        asset_content_type: application/zip
+
+    - name: Upload linux-x64
+      uses: actions/upload-release-asset@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: Lync/lync-linux-x64.zip
+        asset_name: lync-${{ steps.get_release.outputs.tag_name }}-linux-x64.zip
+        asset_content_type: application/zip
+
+    - name: Upload linux-arm64
+      uses: actions/upload-release-asset@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: Lync/lync-linux-arm64.zip
+        asset_name: lync-${{ steps.get_release.outputs.tag_name }}-linux-arm64.zip
         asset_content_type: application/zip
