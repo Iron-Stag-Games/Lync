@@ -662,7 +662,7 @@ async function getAsync(url, headers, responseType) {
 
 	if (!fs.existsSync(PROJECT_JSON)) {
 		console.log()
-		console.error(red('Terminated:'), yellow(Project), cyan(PROJECT_JSON), yellow('does not exist'))
+		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('does not exist'))
 		process.exit()
 	}
 	changedJson()

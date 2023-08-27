@@ -29,6 +29,18 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Install Node
+      uses: actions/setup-node@main
+
+    - name: Install pkg
+      run: |
+        npm install -g pkg
+
+    - name: Compile Lync
+      run: |
+        cd ../LyncBinaries
+        pkg package.json --no-bytecode --public-packages "*" --public
+
     - name: Build
       run: |
         ../LyncBinaries/lync-linux-x64 build
