@@ -1,7 +1,8 @@
 desktop.ini
 .DS_Store
-Sample Project/BuildScripts/Build/*
-!Sample Project/BuildScripts/Build/.gitkeep
 *.lock
 ~$*
+Lync/lync-*
+Sample Project/BuildScripts/Build/*
+!Sample Project/BuildScripts/Build/.gitkeep
 Sample Project/sourcemap.json
