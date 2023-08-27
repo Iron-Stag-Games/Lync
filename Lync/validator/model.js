@@ -1,5 +1,10 @@
 const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
 
+/**
+ * @param {any} json 
+ * @param {string} localPath 
+ * @returns {boolean}
+ */
 function scan(json, localPath) {
 	let failed = false
 
@@ -40,6 +45,11 @@ function scan(json, localPath) {
 	return failed
 }
 
+/**
+ * @param {any} json 
+ * @param {string} localPath 
+ * @returns {any | undefined}
+ */
 module.exports.validate = function(json, localPath) {
 	if (scan(json, localPath)) return
 	return json
