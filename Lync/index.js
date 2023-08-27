@@ -89,6 +89,7 @@ try {
 const DEBUG = CONFIG.Debug
 
 // Args
+
 /**
  * @param {string?} err
  * @returns {never}
