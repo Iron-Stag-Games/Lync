@@ -8,13 +8,11 @@ const project = require('./project.js')
 const model = require('./model.js')
 const excel = require('./excel.js')
 
-const UTF8 = new TextDecoder('utf-8')
-
 /**
- * @param {string} type 
- * @param {string} localPath 
- * @param {string} fileRead 
- * @returns {any} 
+ * @param {string?} type
+ * @param {string} localPath
+ * @param {string} fileRead
+ * @returns {Object | undefined}
  */
 module.exports.validateJson = function(type, localPath, fileRead) {
 	let json;
@@ -39,15 +37,15 @@ module.exports.validateJson = function(type, localPath, fileRead) {
 }
 
 /**
- * @param {string} type 
- * @param {string} localPath 
- * @param {BufferSource | undefined} fileRead 
- * @returns {any}
+ * @param {string?} type
+ * @param {string} localPath
+ * @param {string} fileRead
+ * @returns {Object | undefined}
  */
 module.exports.validateYaml = function(type, localPath, fileRead) {
 	let json;
 	try {
-		json = YAML.parse(UTF8.decode(fileRead))
+		json = YAML.parse(fileRead)
 	} catch (err) {
 		console.error(fileError(localPath), yellow('Malformed YAML:'), yellow(err))
 	}
@@ -60,15 +58,15 @@ module.exports.validateYaml = function(type, localPath, fileRead) {
 }
 
 /**
- * @param {string} type 
- * @param {string} localPath 
- * @param {BufferSource | undefined} fileRead 
- * @returns {any}
+ * @param {string?} type
+ * @param {string} localPath
+ * @param {string} fileRead
+ * @returns {Object | undefined}
  */
 module.exports.validateToml = function(type, localPath, fileRead) {
 	let json;
 	try {
-		json = TOML.parse(UTF8.decode(fileRead))
+		json = TOML.parse(fileRead)
 	} catch (err) {
 		console.error(fileError(localPath), yellow('Malformed TOML:'), yellow(err))
 	}

@@ -4,7 +4,7 @@ const ZSTD = require('fzstd')
 const UTF8 = new TextDecoder('utf-8')
 
 /**
- * @type {Buffer | Uint8Array}
+ * @type {Buffer}
  */
 let buf;
 /**
@@ -13,7 +13,7 @@ let buf;
 let start;
 
 /**
- * @param {number} bytes 
+ * @param {number} bytes
  * @returns {Buffer | Uint8Array}
  */
 function readBytes(bytes) {
@@ -23,7 +23,7 @@ function readBytes(bytes) {
 }
 
 /**
- * @param {number} bytes 
+ * @param {number} bytes
  * @returns {string}
  */
 function readUTF8(bytes) {
@@ -51,7 +51,7 @@ function readUInt32LE() {
 }
 
 /**
- * @param {number} value 
+ * @param {number} value
  * @returns {number}
  */
 function untransform_i32(value) {
@@ -63,8 +63,8 @@ function untransform_i32(value) {
 }
 
 /**
- * @param {Int32Array} arr 
- * @returns {Buffer} 
+ * @param {Int32Array} arr
+ * @returns {Buffer}
  */
 function read_interleaved_i32_array(arr) {
 	const output = Buffer.alloc(arr.length)
@@ -78,8 +78,8 @@ function read_interleaved_i32_array(arr) {
 }
 
 /**
- * @param {number} length 
- * @returns {number[]} 
+ * @param {number} length
+ * @returns {number[]}
  */
 function readReferentArray(length) {
 	const output = []
@@ -95,9 +95,9 @@ function readReferentArray(length) {
 }
 
 /**
- * @param {any} target 
- * @param {any[]} instances 
- * @param {any} rbxm 
+ * @param {any} target
+ * @param {any[]} instances
+ * @param {any} rbxm
  */
 function recurse(target, instances, rbxm) {
 	target.className = rbxm.className
@@ -133,8 +133,8 @@ function recurse(target, instances, rbxm) {
 }
 
 /**
- * @param {any} target 
- * @param {Uint8Array} fileRead 
+ * @param {any} target
+ * @param {Buffer} fileRead
  */
 module.exports.fill = function(target, fileRead) {
 	const instances = {}

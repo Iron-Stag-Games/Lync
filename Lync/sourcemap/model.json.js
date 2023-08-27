@@ -1,6 +1,6 @@
 /**
- * @param {any} target 
- * @param {any} json 
+ * @param {Object} target
+ * @param {Object} json
  */
 function recurse(target, json) {
 	target.className = json.ClassName || 'Folder'
@@ -36,8 +36,8 @@ function recurse(target, json) {
 }
 
 /**
- * @param {any} target 
- * @param {string} fileRead 
+ * @param {Object} target
+ * @param {string} fileRead
  */
 module.exports.fill = function(target, fileRead) {
 	recurse(target, JSON.parse(fileRead))

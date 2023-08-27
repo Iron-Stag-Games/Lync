@@ -90,7 +90,7 @@ const DEBUG = CONFIG.Debug
 
 // Args
 /**
- * @param {any} err 
+ * @param {string?} err
  * @returns {never}
  */
 function argHelp(err) {
@@ -132,7 +132,7 @@ var hardLinkPaths;
 // Common Functions
 
 /**
- * @param {string} localPath 
+ * @param {string} localPath
  * @returns {boolean}
  */
 function localPathExtensionIsMappable(localPath) {
@@ -141,7 +141,7 @@ function localPathExtensionIsMappable(localPath) {
 }
 
 /**
- * @param {string} localPath 
+ * @param {string} localPath
  * @returns {boolean}
  */
 function localPathIsInit(localPath) {
@@ -151,6 +151,10 @@ function localPathIsInit(localPath) {
 	return (localPathExt == '.lua' || localPathExt == '.luau') && (localPathName == 'init' || localPathName == 'init.client' || localPathName == 'init.server' || localPathName.endsWith('.init') || localPathName.endsWith('.init.client') || localPathName.endsWith('.init.server'))
 }
 
+/**
+ * @param {string} localPath
+ * @returns {boolean}
+ */
 function localPathIsIgnored(localPath) {
 	localPath = path.relative(path.resolve(), localPath)
 	return globIgnorePathsPicoMatch(localPath.replace(/\\/g, '/'))
@@ -160,9 +164,9 @@ function localPathIsIgnored(localPath) {
 // Mapping Functions
 
 /**
- * @param {string} robloxPath 
- * @param {any} mapDetails 
- * @param {number} mtimeMs 
+ * @param {string} robloxPath
+ * @param {Object} mapDetails
+ * @param {number} mtimeMs
  */
 function assignMap(robloxPath, mapDetails, mtimeMs) {
 	if (mapDetails.Path != undefined) {
@@ -191,14 +195,14 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 }
 
 /**
- * @param {string} localPath 
- * @param {string} robloxPath 
- * @param {any} properties 
- * @param {any} attributes 
- * @param {any} tags 
- * @param {any} metaLocalPath 
- * @param {any} initPath 
- * @param {number} mtimeMs 
+ * @param {string} localPath
+ * @param {string} robloxPath
+ * @param {Object} properties
+ * @param {Object} attributes
+ * @param {string[]} tags
+ * @param {string?} metaLocalPath
+ * @param {string?} initPath
+ * @param {number} mtimeMs
  */
 function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPath, initPath, mtimeMs) {
 	if (localPathIsIgnored(localPath)) return
@@ -216,9 +220,9 @@ function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPa
 }
 
 /**
- * @param {string} localPath 
- * @param {string} robloxPath 
- * @param {string} flag
+ * @param {string} localPath
+ * @param {string} robloxPath
+ * @param {string?} flag
  */
 function mapDirectory(localPath, robloxPath, flag) {
 	if (localPathIsIgnored(localPath)) return
@@ -250,13 +254,13 @@ function mapDirectory(localPath, robloxPath, flag) {
 				const metaLocalPathYaml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.yaml'
 				const metaLocalPathToml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.toml'
 				if (fs.existsSync(metaLocalPathJson)) {
-					luaMeta = validateJson('Meta', metaLocalPathJson, fs.readFileSync(metaLocalPathJson))
+					luaMeta = validateJson('Meta', metaLocalPathJson, fs.readFileSync(metaLocalPathJson, { encoding: 'utf-8' }))
 					metaLocalPath = metaLocalPathJson
 				} else if (fs.existsSync(metaLocalPathYaml)) {
-					luaMeta = validateYaml(metaLocalPathYaml, fs.readFileSync(metaLocalPathYaml))
+					luaMeta = validateYaml('Meta', metaLocalPathYaml, fs.readFileSync(metaLocalPathYaml, { encoding: 'utf-8' }))
 					metaLocalPath = metaLocalPathYaml
 				} else if (fs.existsSync(metaLocalPathToml)) {
-					luaMeta = validateToml(metaLocalPathToml, fs.readFileSync(metaLocalPathToml))
+					luaMeta = validateToml('Meta', metaLocalPathToml, fs.readFileSync(metaLocalPathToml, { encoding: 'utf-8' }))
 					metaLocalPath = metaLocalPathToml
 				}
 				if (luaMeta) {
@@ -288,7 +292,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				// Project Files
 				if (localPathName.endsWith('.project')) {
 					mTimes[localPath] = localPathStats.mtimeMs
-					const subProjectJson = validateJson('SubProject', localPath, fs.readFileSync(localPath))
+					const subProjectJson = validateJson('SubProject', localPath, fs.readFileSync(localPath, { encoding: 'utf-8' }))
 					if (subProjectJson) {
 						const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
 						const externalPackageAppend = parentPathString != '' && parentPathString + '/' || ''
@@ -297,7 +301,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 
 				// Model Files
 				} else if (localPathName.endsWith('.model')) {
-					if (validateJson('Model', localPath, fs.readFileSync(localPath)))
+					if (validateJson('Model', localPath, fs.readFileSync(localPath, { encoding: 'utf-8' })))
 						assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
 							'Type': 'JsonModel',
 							'Path': localPath
@@ -305,7 +309,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 
 				// Excel Tables
 				} else if (localPathName.endsWith('.excel')) {
-					const excel = validateJson('Excel', localPath, fs.readFileSync(localPath))
+					const excel = validateJson('Excel', localPath, fs.readFileSync(localPath, { encoding: 'utf-8' }))
 					if (excel)
 						assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
 							'Type': 'Excel',
@@ -364,7 +368,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 			// Projects
 			mTimes[localPath] = localPathStats.mtimeMs
 			const subProjectJsonPath = localPath + '/default.project.json'
-			const subProjectJson = validateJson('SubProject', subProjectJsonPath, fs.readFileSync(subProjectJsonPath))
+			const subProjectJson = validateJson('SubProject', subProjectJsonPath, fs.readFileSync(subProjectJsonPath, { encoding: 'utf-8' }))
 			if (subProjectJson) {
 				const subProjectJsonStats = fs.statSync(localPath + '/default.project.json')
 				mapJsonRecursive(subProjectJsonPath, subProjectJson, robloxPath, 'tree', true, localPath + '/', subProjectJsonStats.mtimeMs)
@@ -388,13 +392,13 @@ function mapDirectory(localPath, robloxPath, flag) {
 				const metaLocalPathYaml = localPath + '/init.meta.yaml'
 				const metaLocalPathToml = localPath + '/init.meta.toml'
 				if (fs.existsSync(metaLocalPathJson)) {
-					initMeta = validateJson('Meta', metaLocalPathJson, fs.readFileSync(metaLocalPathJson))
+					initMeta = validateJson('Meta', metaLocalPathJson, fs.readFileSync(metaLocalPathJson, { encoding: 'utf-8' }))
 					metaLocalPath = metaLocalPathJson
 				} else if (fs.existsSync(metaLocalPathYaml)) {
-					initMeta = validateYaml('Meta', metaLocalPathYaml, fs.readFileSync(metaLocalPathYaml))
+					initMeta = validateYaml('Meta', metaLocalPathYaml, fs.readFileSync(metaLocalPathYaml, { encoding: 'utf-8' }))
 					metaLocalPath = metaLocalPathYaml
 				} else if (fs.existsSync(metaLocalPathToml)) {
-					initMeta = validateToml('Meta', metaLocalPathToml, fs.readFileSync(metaLocalPathToml))
+					initMeta = validateToml('Meta', metaLocalPathToml, fs.readFileSync(metaLocalPathToml, { encoding: 'utf-8' }))
 					metaLocalPath = metaLocalPathToml
 				}
 				if (initMeta) {
@@ -481,13 +485,13 @@ function mapDirectory(localPath, robloxPath, flag) {
 }
 
 /**
- * @param {string} jsonPath 
- * @param {any} target 
- * @param {string} robloxPath 
- * @param {string} key 
- * @param {boolean} firstLoadingExternalPackage 
- * @param {any} externalPackageAppend 
- * @param {number} mtimeMs 
+ * @param {string} jsonPath
+ * @param {Object} target
+ * @param {string} robloxPath
+ * @param {string} key
+ * @param {boolean} firstLoadingExternalPackage
+ * @param {string?} externalPackageAppend
+ * @param {number} mtimeMs
  */
 function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExternalPackage, externalPackageAppend, mtimeMs) {
 	let nextRobloxPath = robloxPath + '/' + key
@@ -524,7 +528,7 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExterna
 
 function changedJson() {
 	if (DEBUG) console.log('Loading', cyan(PROJECT_JSON))
-	projectJson = validateJson('MainProject', PROJECT_JSON, fs.readFileSync(PROJECT_JSON))
+	projectJson = validateJson('MainProject', PROJECT_JSON, fs.readFileSync(PROJECT_JSON, { encoding: 'utf-8' }))
 	if (!projectJson) {
 		console.log()
 		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('is invalid'))
@@ -570,8 +574,8 @@ function changedJson() {
 // Sync Functions
 
 /**
- * @param {string} existingPath 
- * @param {string} hardLinkPath 
+ * @param {string} existingPath
+ * @param {string} hardLinkPath
  */
 function hardLinkRecursive(existingPath, hardLinkPath) {
 	if (localPathIsIgnored(existingPath)) return
@@ -601,10 +605,10 @@ function hardLinkRecursive(existingPath, hardLinkPath) {
 }
 
 /**
- * @param {string | any} url 
- * @param {OutgoingHttpHeaders} headers 
- * @param {string} responseType 
- * @returns 
+ * @param {string} url
+ * @param {OutgoingHttpHeaders} headers
+ * @param {string} responseType
+ * @returns {Promise}
  */
 async function getAsync(url, headers, responseType) {
 	const newHeaders = { 'user-agent': 'node.js' }
@@ -782,7 +786,7 @@ async function getAsync(url, headers, responseType) {
 						}
 					}
 				}
-				const jsonModel = validateJson('Model', mapping.Path, fs.readFileSync(mapping.Path))
+				const jsonModel = validateJson('Model', mapping.Path, fs.readFileSync(mapping.Path, { encoding: 'utf-8' }))
 				if (jsonModel) mapJsonModel(jsonModel)
 			} else if ('Properties' in mapping)
 				mapProperties(mapping.Properties)
@@ -1124,22 +1128,22 @@ async function getAsync(url, headers, responseType) {
 
 					// Parse JSON
 					if (req.headers.datatype == 'JSON') {
-						const json = validateJson(null, req.headers.path, read)
+						const json = validateJson(null, req.headers.path, UTF8.decode(read))
 						if (json) read = LUA.format(json, { singleQuote: false, spaces: '\t' })
 
 					// Convert YAML to JSON
 					} else if (req.headers.datatype == 'YAML') {
-						const yaml = validateYaml(null, req.headers.path, read)
+						const yaml = validateYaml(null, req.headers.path, UTF8.decode(read))
 						if (yaml) read = LUA.format(yaml, { singleQuote: false, spaces: '\t' })
 
 					// Convert TOML to JSON
 					} else if (req.headers.datatype == 'TOML') {
-						const toml = validateToml(null, req.headers.path, read)
+						const toml = validateToml(null, req.headers.path, UTF8.decode(read))
 						if (toml) read = LUA.format(toml, { singleQuote: false, spaces: '\t' })
 
 					// Read and convert Excel Tables to JSON
 					} else if (req.headers.datatype == 'Excel') {
-						let tableDefinitions = validateJson('Excel', req.headers.path, read)
+						let tableDefinitions = validateJson('Excel', req.headers.path, UTF8.decode(read))
 						if (tableDefinitions) {
 							const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.spreadsheet)
 

@@ -4,9 +4,9 @@ const fs = require('fs')
 const path = require('path')
 
 /**
- * @param {any} json 
- * @param {string} localPath 
- * @returns {any}
+ * @param {Object} json
+ * @param {string} localPath
+ * @returns {Object | undefined}
  */
 module.exports.validate = function(json, localPath) {
 	let failed = false

@@ -1,9 +1,9 @@
 const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
 
 /**
- * @param {any} json 
- * @param {string} localPath 
- * @returns {boolean} 
+ * @param {Object} json
+ * @param {string} localPath
+ * @returns {boolean}
  */
 function scan(json, localPath) {
 	let failed = false
@@ -62,10 +62,10 @@ function scan(json, localPath) {
 }
 
 /**
- * @param {string} type anything
- * @param {any} json 
- * @param {string} localPath 
- * @returns {any | undefined}
+ * @param {string?} type
+ * @param {Object} json
+ * @param {string} localPath
+ * @returns {Object | undefined}
  */
 module.exports.validate = function(type, json, localPath) {
 	let failed = false

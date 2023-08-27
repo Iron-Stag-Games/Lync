@@ -83,12 +83,12 @@ module.exports.generateSourcemap = function(PROJECT_JSON, map, projectJson) {
 							if (pathExt == '.rbxm' && (!('sourcemapEnabled' in projectJson) || projectJson.sourcemapEnabled.RBXM)) {
 								RBXM.fill(target, fs.readFileSync(mapping.Path))
 							} else if (pathExt == '.rbxmx' && (!('sourcemapEnabled' in projectJson) || projectJson.sourcemapEnabled.RBXMX)) {
-								RBXMX.fill(target, fs.readFileSync(mapping.Path))
+								RBXMX.fill(target, fs.readFileSync(mapping.Path, { encoding: 'utf-8' }))
 							}
 							break
 						case 'JsonModel':
 							target.ClassName = ''
-							modelJSON.fill(target, fs.readFileSync(mapping.Path))
+							modelJSON.fill(target, fs.readFileSync(mapping.Path, { encoding: 'utf-8' }))
 							break
 					}
 				} catch (err) {

@@ -3,7 +3,7 @@ const process = require('process')
 const drop = '\n └──'
 
 /**
- * @param {any} s 
+ * @param {string} s
  * @returns {string}
  */
 module.exports.red = function red(s) {
@@ -11,7 +11,7 @@ module.exports.red = function red(s) {
 }
 
 /**
- * @param {any} s 
+ * @param {string} s
  * @returns {string}
  */
 module.exports.yellow = function(s) {
@@ -19,8 +19,8 @@ module.exports.yellow = function(s) {
 }
 
 /**
- * @param {any} s 
- * @param {boolean} hideQuotes 
+ * @param {string} s
+ * @param {boolean?} hideQuotes
  * @returns {string}
  */
 module.exports.green = function(s, hideQuotes) {
@@ -28,8 +28,8 @@ module.exports.green = function(s, hideQuotes) {
 }
 
 /**
- * @param {string} s 
- * @param {boolean} hideBrackets 
+ * @param {string} s
+ * @param {boolean?} hideBrackets
  * @returns {string} 
  */
 module.exports.cyan = function(s, hideBrackets) {
@@ -41,7 +41,7 @@ module.exports.cyan = function(s, hideBrackets) {
 }
 
 /**
- * @param {string} s 
+ * @param {string} s
  * @returns {string}
  */
 module.exports.fileError = function(s) {
@@ -53,7 +53,7 @@ module.exports.fileError = function(s) {
 }
 
 /**
- * @param {string} s 
+ * @param {string} s
  * @returns {string}
  */
 module.exports.fileWarning = function(s) {
