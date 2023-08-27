@@ -110,7 +110,6 @@ if (ARGS.length == 0 || ARGS[0].toLowerCase() == 'help') argHelp()
 const MODE = ARGS[0].toLowerCase()
 if (MODE != 'serve' && MODE != 'open' && MODE != 'build' && MODE != 'fetch') argHelp('Mode must be SERVE, OPEN, BUILD, or FETCH')
 if (MODE == 'open' && PLATFORM != 'windows' && PLATFORM != 'macos') argHelp('Cannot use OPEN mode on Linux')
-if (MODE != 'serve' && MODE != 'open' && ARGS.length == 1) argHelp(`Expected 2 arguments but only 1 was provided.`)
 const PROJECT_JSON = ARGS[1] && ARGS[1].replace(/\\/g, '/') || 'default.project.json'
 const USE_REMOTE = ARGS[2] && ARGS[2].toLowerCase() == 'remote' // Unimplemented
 

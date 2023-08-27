@@ -31,7 +31,7 @@ jobs:
 
     - name: Build
       run: |
-        ../LyncBinaries/lync-linux-x64 BUILD default.project.json
+        ../LyncBinaries/lync-linux-x64 build
 
     - name: Publish
       run: rbxcloud experience publish -f "BuildScripts/Build/Build.rbxl" -p ${{ secrets.PLACE_ID }} -u ${{ secrets.EXPERIENCE_ID }} -t published -a ${{ secrets.API_KEY }}
