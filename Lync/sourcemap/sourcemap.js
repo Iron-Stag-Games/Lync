@@ -9,6 +9,11 @@ const modelJSON = require('./model.json.js')
 
 var sourcemapJson;
 
+/**
+ * @param {string} PROJECT_JSON 
+ * @param {any} map 
+ * @param {any} projectJson 
+ */
 module.exports.generateSourcemap = function(PROJECT_JSON, map, projectJson) {
 	try {
 		const sourcemapJsonPath = path.resolve(PROJECT_JSON, '../sourcemap.json')

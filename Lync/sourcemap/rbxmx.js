@@ -2,6 +2,10 @@ const XML = require('xml-js')
 
 const UTF8 = new TextDecoder('utf-8')
 
+/**
+ * @param {any} target 
+ * @param {any} xml 
+ */
 function recurse(target, xml) {
 	target.className = xml.attributes.class || 'Folder'
 
@@ -42,6 +46,10 @@ function recurse(target, xml) {
 	}
 }
 
+/**
+ * @param {any} target 
+ * @param {BufferSource | undefined} fileRead 
+ */
 module.exports.fill = function(target, fileRead) {
 	const elements = JSON.parse(XML.xml2json(UTF8.decode(fileRead))).elements[0].elements
 	for (const key in elements) {

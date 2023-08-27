@@ -89,6 +89,10 @@ try {
 const DEBUG = CONFIG.Debug
 
 // Args
+/**
+ * @param {any} err 
+ * @returns {never}
+ */
 function argHelp(err) {
 	if (err) console.error(red('Argument error:'), yellow(err) + '\n')
 	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -127,11 +131,19 @@ var hardLinkPaths;
 
 // Common Functions
 
+/**
+ * @param {string} localPath 
+ * @returns {boolean}
+ */
 function localPathExtensionIsMappable(localPath) {
 	const localPathExt = path.parse(localPath).ext.toLowerCase()
 	return localPathExt == '.rbxm' || localPathExt == '.rbxmx' || localPathExt == '.lua' || localPathExt == '.luau' || localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml' || localPathExt == '.txt' || localPathExt == '.csv'
 }
 
+/**
+ * @param {string} localPath 
+ * @returns {boolean}
+ */
 function localPathIsInit(localPath) {
 	const localPathParsed = path.parse(localPath)
 	const localPathName = localPathParsed.name.toLowerCase()
@@ -147,6 +159,11 @@ function localPathIsIgnored(localPath) {
 
 // Mapping Functions
 
+/**
+ * @param {string} robloxPath 
+ * @param {any} mapDetails 
+ * @param {number} mtimeMs 
+ */
 function assignMap(robloxPath, mapDetails, mtimeMs) {
 	if (mapDetails.Path != undefined) {
 		let localPath = mapDetails.Path
@@ -173,6 +190,16 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 	if (mapDetails.Meta) mTimes[mapDetails.Meta] = fs.statSync(mapDetails.Meta).mtimeMs // Meta File stats are never retrieved before this, so they aren't in a function parameter
 }
 
+/**
+ * @param {string} localPath 
+ * @param {string} robloxPath 
+ * @param {any} properties 
+ * @param {any} attributes 
+ * @param {any} tags 
+ * @param {any} metaLocalPath 
+ * @param {any} initPath 
+ * @param {number} mtimeMs 
+ */
 function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPath, initPath, mtimeMs) {
 	if (localPathIsIgnored(localPath)) return
 	const context = (localPath.endsWith('.client.lua') || localPath.endsWith('.client.luau')) && 'Client' || (localPath.endsWith('.server.lua') || localPath.endsWith('.server.luau')) && 'Server' || 'Module'
@@ -188,6 +215,11 @@ function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPa
 	}, mtimeMs)
 }
 
+/**
+ * @param {string} localPath 
+ * @param {string} robloxPath 
+ * @param {string} flag
+ */
 function mapDirectory(localPath, robloxPath, flag) {
 	if (localPathIsIgnored(localPath)) return
 
@@ -448,6 +480,15 @@ function mapDirectory(localPath, robloxPath, flag) {
 	}
 }
 
+/**
+ * @param {string} jsonPath 
+ * @param {any} target 
+ * @param {string} robloxPath 
+ * @param {string} key 
+ * @param {boolean} firstLoadingExternalPackage 
+ * @param {any} externalPackageAppend 
+ * @param {number} mtimeMs 
+ */
 function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExternalPackage, externalPackageAppend, mtimeMs) {
 	let nextRobloxPath = robloxPath + '/' + key
 	if (firstLoadingExternalPackage) nextRobloxPath = robloxPath
@@ -528,6 +569,10 @@ function changedJson() {
 
 // Sync Functions
 
+/**
+ * @param {string} existingPath 
+ * @param {string} hardLinkPath 
+ */
 function hardLinkRecursive(existingPath, hardLinkPath) {
 	if (localPathIsIgnored(existingPath)) return
 	const stats = fs.statSync(existingPath)
@@ -555,6 +600,12 @@ function hardLinkRecursive(existingPath, hardLinkPath) {
 	}
 }
 
+/**
+ * @param {string | any} url 
+ * @param {OutgoingHttpHeaders} headers 
+ * @param {string} responseType 
+ * @returns 
+ */
 async function getAsync(url, headers, responseType) {
 	const newHeaders = { 'user-agent': 'node.js' }
 	for (const header in headers) {

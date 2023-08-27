@@ -3,33 +3,57 @@ const ZSTD = require('fzstd')
 
 const UTF8 = new TextDecoder('utf-8')
 
+/**
+ * @type {Buffer | Uint8Array}
+ */
 let buf;
+/**
+ * @type {number}
+ */
 let start;
 
+/**
+ * @param {number} bytes 
+ * @returns {Buffer | Uint8Array}
+ */
 function readBytes(bytes) {
 	const read = buf.subarray(start, start + bytes)
 	start += bytes
 	return read
 }
 
+/**
+ * @param {number} bytes 
+ * @returns {string}
+ */
 function readUTF8(bytes) {
 	const read = buf.subarray(start, start + bytes)
 	start += bytes
 	return UTF8.decode(read)
 }
 
+/**
+ * @returns {number}
+ */
 function readUInt8() {
 	const read = buf.readUInt8(start)
 	start += 1
 	return read
 }
 
+/**
+ * @returns {number}
+ */
 function readUInt32LE() {
 	const read = buf.readUInt32LE(start)
 	start += 4
 	return read
 }
 
+/**
+ * @param {number} value 
+ * @returns {number}
+ */
 function untransform_i32(value) {
 	if (value % 2 == 0) {
 		return value / 2
@@ -38,6 +62,10 @@ function untransform_i32(value) {
 	}
 }
 
+/**
+ * @param {Int32Array} arr 
+ * @returns {Buffer} 
+ */
 function read_interleaved_i32_array(arr) {
 	const output = Buffer.alloc(arr.length)
 	const len = arr.length / 4
@@ -49,6 +77,10 @@ function read_interleaved_i32_array(arr) {
 	return output
 }
 
+/**
+ * @param {number} length 
+ * @returns {number[]} 
+ */
 function readReferentArray(length) {
 	const output = []
 	let referent = 0
@@ -62,6 +94,11 @@ function readReferentArray(length) {
 	return output
 }
 
+/**
+ * @param {any} target 
+ * @param {any[]} instances 
+ * @param {any} rbxm 
+ */
 function recurse(target, instances, rbxm) {
 	target.className = rbxm.className
 
@@ -95,6 +132,10 @@ function recurse(target, instances, rbxm) {
 	}
 }
 
+/**
+ * @param {any} target 
+ * @param {Uint8Array} fileRead 
+ */
 module.exports.fill = function(target, fileRead) {
 	const instances = {}
 

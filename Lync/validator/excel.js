@@ -3,6 +3,11 @@ const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.
 const fs = require('fs')
 const path = require('path')
 
+/**
+ * @param {any} json 
+ * @param {string} localPath 
+ * @returns {any}
+ */
 module.exports.validate = function(json, localPath) {
 	let failed = false
 

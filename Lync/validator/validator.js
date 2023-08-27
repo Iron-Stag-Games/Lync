@@ -10,6 +10,12 @@ const excel = require('./excel.js')
 
 const UTF8 = new TextDecoder('utf-8')
 
+/**
+ * @param {string} type 
+ * @param {string} localPath 
+ * @param {string} fileRead 
+ * @returns {any} 
+ */
 module.exports.validateJson = function(type, localPath, fileRead) {
 	let json;
 	try {
@@ -32,6 +38,12 @@ module.exports.validateJson = function(type, localPath, fileRead) {
 	}
 }
 
+/**
+ * @param {string} type 
+ * @param {string} localPath 
+ * @param {BufferSource | undefined} fileRead 
+ * @returns {any}
+ */
 module.exports.validateYaml = function(type, localPath, fileRead) {
 	let json;
 	try {
@@ -47,6 +59,12 @@ module.exports.validateYaml = function(type, localPath, fileRead) {
 	}
 }
 
+/**
+ * @param {string} type 
+ * @param {string} localPath 
+ * @param {BufferSource | undefined} fileRead 
+ * @returns {any}
+ */
 module.exports.validateToml = function(type, localPath, fileRead) {
 	let json;
 	try {
