@@ -3,7 +3,6 @@ desktop.ini
 *.lock
 ~$*
 Lync/lync-*
-Lync/Plugin.rbxm
 Sample Project/BuildScripts/Build/*
 !Sample Project/BuildScripts/Build/.gitkeep
 Sample Project/sourcemap.json
