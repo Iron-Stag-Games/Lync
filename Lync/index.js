@@ -1308,7 +1308,7 @@ async function getAsync(url, headers, responseType) {
 		process.exit()
 	})
 	.listen(MODE == 'build' && '34873' || projectJson.port, function() {
-		console.log(`Serving ${green(projectJson.name)} on port ${yellow(projectJson.port)}\n`)
+		if (MODE != 'build') console.log(`Serving ${green(projectJson.name)} on port ${yellow(projectJson.port)}\n`)
 
 		// Generate sourcemap
 
