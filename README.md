@@ -21,57 +21,56 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 ### Legend
 | Symbol | Meaning |
 |-|-|
-| ✅️ | Available |
+| ✔ | Available |
 | ❌️ | Unavailable |
-| … | Pending / WIP |
-| ⚠️ | Broken |
+| ➖ | Pending / WIP |
 
 ### Features
 | | Lync | Rojo |
 |-|-|-|
-| Optional Automatic Updates | ✅️ | ❌️ |
-| Offline Builds | ✅️ | ✅️ |
-| Automatic Sourcemap Generation | ✅️ | ❌️ |
-| Playtest Sync | ✅️ | ❌️ |
-| MeshPart Sync | ✅️ | ❌️ |
-| Full Reverse Sync | ❌️ | ⚠️ |
-| Manual Reverse Script Sync | ✅️ | ❌️ |
-| Unsaved Model Warnings | ✅️ | ❌️ |
-| Patch Viewer | ❌️ | ✅️ |
-| Multiple Project Serving | ❌️ | ✅️ |
-| Server IP Address | … | ✅️ |
-| Server Port | ✅️ | ✅️ |
-| Custom File Downloads | ✅️ | ❌️ |
-| Automatic Shell Scripts | … | ❌️ |
-| Place to Project Tool | ❌️ | ⚠️ |
+| Optional Automatic Updates | ✔ | ❌️ |
+| Offline Builds | ✔ | ✔ |
+| Automatic Sourcemap Generation | ✔ | ❌️ |
+| Playtest Sync | ✔ | ❌️ |
+| MeshPart Sync | ✔ | ❌️ |
+| Full Reverse Sync | ❌️ | ➖ |
+| Manual Reverse Script Sync | ✔ | ❌️ |
+| Unsaved Model Warnings | ✔ | ❌️ |
+| Patch Viewer | ❌️ | ✔ |
+| Multiple Project Serving | ❌️ | ✔ |
+| Server IP Address | ➖ | ✔ |
+| Server Port | ✔ | ✔ |
+| Custom File Downloads | ✔ | ❌️ |
+| Automatic Shell Scripts | ➖ | ❌️ |
+| Place to Project Tool | ❌️ | ➖ |
 
 ### File Types
 | | Lync | Rojo |
 |-|-|-|
-| `*.Project.JSON` | ✅️ | ✅️ |
-| `*.Model.JSON` | ✅️ | ✅️ |
-| `RBXM`/`RBXMX` | ✅️ | ✅️ |
-| `LUAU`/`LUA` | ✅️ | ✅️ |
-| `Init.LUA` (Anonymous) | ✅️ | ✅️ |
-| `*.Init.LUA` (Named) | ✅️ | ❌️ |
-| `JSON` | ✅️ | ✅️ |
-| `YAML` | ✅️ | ❌️ |
-| `TOML` | ✅️ | ✅️ |
-| `XLSX`/`XLS` | ✅️ | ❌️ |
-| `TXT` | ✅️ | ✅️ |
-| `CSV` ([LocalizationTable](https://create.roblox.com/docs/reference/engine/classes/LocalizationTable)) | … | ✅️ |
-| `*.Meta.JSON` | ✅️ | ✅️ |
-| `*.Meta.YAML` | ✅️ | ❌️ |
-| `*.Meta.TOML` | ✅️ | ❌️ |
+| `*.Project.JSON` | ✔ | ✔ |
+| `*.Model.JSON` | ✔ | ✔ |
+| `RBXM`/`RBXMX` | ✔ | ✔ |
+| `LUAU`/`LUA` | ✔ | ✔ |
+| `Init.LUA` (Anonymous) | ✔ | ✔ |
+| `*.Init.LUA` (Named) | ✔ | ❌️ |
+| `JSON` | ✔ | ✔ |
+| `YAML` | ✔ | ❌️ |
+| `TOML` | ✔ | ✔ |
+| `XLSX`/`XLS` | ✔ | ❌️ |
+| `TXT` | ✔ | ✔ |
+| `CSV` ([LocalizationTable](https://create.roblox.com/docs/reference/engine/classes/LocalizationTable)) | ➖ | ✔ |
+| `*.Meta.JSON` | ✔ | ✔ |
+| `*.Meta.YAML` | ✔ | ❌️ |
+| `*.Meta.TOML` | ✔ | ❌️ |
 
 ### Roblox Types
 | | Lync | Rojo |
 |-|-|-|
-| Properties | ✅️ | ✅️ |
-| Attributes | ✅️ | ✅️ |
-| Tags | ✅️ | ✅️ |
-| Terrain | ✅️ | ✅️ |
-| Terrain Material Colors | … | ✅️ |
+| Properties | ✔ | ✔ |
+| Attributes | ✔ | ✔ |
+| Tags | ✔ | ✔ |
+| Terrain | ✔ | ✔ |
+| Terrain Material Colors | ✔ | ✔ |
 
 ### Syntax
 | Lync | Rojo |
