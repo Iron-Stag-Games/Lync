@@ -632,7 +632,7 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 				const assetFolder = `.lync-packages/${owner}/${repo}`
 				let assetFile = assetFolder + `/${tag}`
 				try {
-					if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile + '.rbxm') || fs.existsSync(assetFile)) || tag == 'latest') {
+					if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile)) || tag == 'latest') {
 
 						// Get release info
 						if (DEBUG) console.log(`Getting latest version for ${green(localPath.package)} . . .`)
@@ -641,16 +641,16 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 							Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
 							['X-GitHub-Api-Version']: '2022-11-28'
 						}, 'json')
-						if (!release || !('id' in release)) throw new Error('Failed to get release info')
+						if (!release || !('id' in release)) throw 'Failed to get release info'
 						if (tag == 'latest') {
 							tag = release.tag_name
 							assetFile = assetFolder + `/${tag}`
 						}
 
 						// Download release asset
-						if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile + '.rbxm') || fs.existsSync(assetFile))) {
+						if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile))) {
 							if (DEBUG) console.log(`Downloading ${green(localPath.package)} . . .`)
-							if (release.assets[0]) {
+							if (release.assets[0] && release.assets[0].name.split('.').slice(-1) == 'lua') {
 								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${release.assets[0].id}`, {
 									Accept: 'application/octet-stream',
 									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
@@ -667,7 +667,7 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
 									['X-GitHub-Api-Version']: '2022-11-28'
 								})
-								if (UTF8.decode(asset.subarray(0, 2)) != 'PK') throw new Error('Failed to download update release asset')
+								if (UTF8.decode(asset.subarray(0, 2)) != 'PK') throw 'Failed to download release asset'
 								const assetZip = assetFile + '.zip'
 								const assetUnzip = assetFile + '-unzipped'
 								fs.mkdirSync(assetUnzip, { 'recursive': true })
@@ -688,9 +688,6 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 				}
 				if (fs.existsSync(assetFile + '.lua')) {
 					await mapDirectory(assetFile + '.lua', nextRobloxPath, 'JSON')
-				}
-				if (fs.existsSync(assetFile + '.rbxm')) {
-					await mapDirectory(assetFile + '.rbxm', nextRobloxPath, 'JSON')
 				}
 				if (fs.existsSync(assetFile)) {
 					await mapDirectory(assetFile, nextRobloxPath, 'JSON')
@@ -767,7 +764,7 @@ async function changedJson() {
 				['X-GitHub-Api-Version']: '2022-11-28'
 			}, 'json')
 			if (CONFIG.AutoUpdate_UsePrereleases) latest = latest[0]
-			if (!latest || !('id' in latest)) throw new Error('Failed to get update release info')
+			if (!latest || !('id' in latest)) throw 'Failed to get update release info'
 
 			if (latest.id != CONFIG.AutoUpdate_LatestId) {
 				const updateFile = path.resolve(LYNC_INSTALL_DIR, `Lync-${latest.tag_name}.zip`)
@@ -784,13 +781,13 @@ async function changedJson() {
 						break
 					}
 				}
-				if (!assetId) throw new Error(`Failed to find update release asset with name '${assetName}'`)
+				if (!assetId) throw `Failed to find update release asset with name '${assetName}'`
 				const update = await getAsync(`https://api.github.com/repos/${CONFIG.AutoUpdate_Repo}/releases/assets/${assetId}`, {
 					Accept: 'application/octet-stream',
 					Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
 					['X-GitHub-Api-Version']: '2022-11-28'
 				})
-				if (UTF8.decode(update.subarray(0, 2)) != 'PK') throw new Error('Failed to download update release asset')
+				if (UTF8.decode(update.subarray(0, 2)) != 'PK') throw 'Failed to download update release asset'
 				fs.writeFileSync(updateFile, update)
 				await extractZIP(updateFile, { dir: updateFolder })
 				fs.rmSync(updateFile, { force: true })

@@ -18,15 +18,15 @@
 			"$path": "Assets/Workspace",
 
 			"Terrain": {
-				"$terrainRegion": ["Assets/TerrainRegion.rbxm", ["Vector3int16.new(-32000, -32000, -32000)"], true],
+				"$terrainRegion": [ "Assets/TerrainRegion.rbxm", [ "Vector3int16.new(-32000, -32000, -32000)" ], true ],
 				"$terrainMaterialColors": {
-					"Grass": ["Color3.new(0, 0.5, 0)"]
+					"Grass": [ "Color3.new(0, 0.5, 0)" ]
 				}
 			},
 
 			"Sample Packages": {
-				"Knit": {
-					"$path": { "package": "Sleitnick/Knit" }
+				"Pronghorn": {
+					"$path": { "package": "Iron-Stag-Games/Pronghorn" }
 				},
 	
 				"goodsignal": {
@@ -39,6 +39,10 @@
 	
 				"Fusion": {
 					"$path": { "package": "dphfox/Fusion@v0.2-beta" }
+				},
+
+				"Janitor": {
+					"$path": { "package": "howmanysmall/janitor" }
 				}
 			}
 		}
