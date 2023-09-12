@@ -24,12 +24,22 @@
 				}
 			},
 
-			"Knit-latest": {
-				"$path": { "package": "Sleitnick/Knit" }
-			},
-
-			"Knit-v1.5.0": {
-				"$path": { "package": "Sleitnick/Knit@v1.5.0" }
+			"Sample Packages": {
+				"Knit": {
+					"$path": { "package": "Sleitnick/Knit" }
+				},
+	
+				"goodsignal": {
+					"$path": { "package": "stravant/goodsignal" }
+				},
+	
+				"roblox-lua-promise": {
+					"$path": { "package": "evaera/roblox-lua-promise" }
+				},
+	
+				"Fusion": {
+					"$path": { "package": "dphfox/Fusion@v0.2-beta" }
+				}
 			}
 		}
 	}

@@ -630,9 +630,9 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 				const repo = owner_repo[1]
 				let tag = package[1] || 'latest'
 				const assetFolder = `.lync-packages/${owner}/${repo}`
-				let assetFile = assetFolder + `/${tag}.rbxm`
+				let assetFile = assetFolder + `/${tag}`
 				try {
-					if (!fs.existsSync(assetFile) || tag == 'latest') {
+					if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile + '.rbxm') || fs.existsSync(assetFile)) || tag == 'latest') {
 
 						// Get release info
 						if (DEBUG) console.log(`Getting latest version for ${green(localPath.package)} . . .`)
@@ -644,27 +644,55 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 						if (!release || !('id' in release)) throw new Error('Failed to get release info')
 						if (tag == 'latest') {
 							tag = release.tag_name
-							assetFile = assetFolder + `/${tag}.rbxm`
+							assetFile = assetFolder + `/${tag}`
 						}
 
 						// Download release asset
-						if (!fs.existsSync(assetFile)) {
+						if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile + '.rbxm') || fs.existsSync(assetFile))) {
 							if (DEBUG) console.log(`Downloading ${green(localPath.package)} . . .`)
-							const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${release.assets[0].id}`, {
-								Accept: 'application/octet-stream',
-								Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
-								['X-GitHub-Api-Version']: '2022-11-28'
-							})
-							if (UTF8.decode(asset.subarray(0, 8)) != '<roblox!') throw new Error('Failed to download release asset')
-							fs.mkdirSync(assetFolder, { 'recursive': true })
-							fs.writeFileSync(assetFile, asset)
-							console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile)}`)
+							if (release.assets[0]) {
+								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${release.assets[0].id}`, {
+									Accept: 'application/octet-stream',
+									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
+									['X-GitHub-Api-Version']: '2022-11-28'
+								})
+								const assetName = release.assets[0].name
+								const assetExt = '.' + assetName.split('.').slice(-1)
+								fs.mkdirSync(assetFolder, { 'recursive': true })
+								fs.writeFileSync(assetFile + assetExt, asset)
+								console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile + assetExt)}`)
+							} else {
+								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/zipball/${tag}`, {
+									Accept: 'application/vnd.github+json',
+									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
+									['X-GitHub-Api-Version']: '2022-11-28'
+								})
+								if (UTF8.decode(asset.subarray(0, 2)) != 'PK') throw new Error('Failed to download update release asset')
+								const assetZip = assetFile + '.zip'
+								const assetUnzip = assetFile + '-unzipped'
+								fs.mkdirSync(assetUnzip, { 'recursive': true })
+								fs.writeFileSync(assetZip, asset)
+								await extractZIP(assetZip, { dir: path.resolve(assetFile + '-unzipped') })
+								fs.rmSync(assetFile, { force: true, recursive: true })
+								fs.readdirSync(assetUnzip).forEach((dirNext) => {
+									fs.renameSync(path.resolve(assetUnzip, dirNext), assetFile)
+								})
+								fs.rmSync(assetZip, { force: true })
+								fs.rmSync(assetUnzip, { force: true, recursive: true })
+								console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile)}`)
+							}
 						}
 					}
 				} catch (err) {
 					console.error(red('Failed to download package'), green(localPath.package) + red(':'), yellow(err))
 				}
-				if (assetFile && fs.existsSync(assetFile)) {
+				if (fs.existsSync(assetFile + '.lua')) {
+					await mapDirectory(assetFile + '.lua', nextRobloxPath, 'JSON')
+				}
+				if (fs.existsSync(assetFile + '.rbxm')) {
+					await mapDirectory(assetFile + '.rbxm', nextRobloxPath, 'JSON')
+				}
+				if (fs.existsSync(assetFile)) {
 					await mapDirectory(assetFile, nextRobloxPath, 'JSON')
 				}
 			}
@@ -739,7 +767,7 @@ async function changedJson() {
 				['X-GitHub-Api-Version']: '2022-11-28'
 			}, 'json')
 			if (CONFIG.AutoUpdate_UsePrereleases) latest = latest[0]
-			if (!latest || !('id' in latest)) throw new Error('No response from server')
+			if (!latest || !('id' in latest)) throw new Error('Failed to get update release info')
 
 			if (latest.id != CONFIG.AutoUpdate_LatestId) {
 				const updateFile = path.resolve(LYNC_INSTALL_DIR, `Lync-${latest.tag_name}.zip`)
