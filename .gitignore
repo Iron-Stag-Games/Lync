@@ -3,6 +3,7 @@ desktop.ini
 *.lock
 ~$*
 Lync/lync-*
+Sample Project/.lync-packages/*
 Sample Project/BuildScripts/Build/*
 !Sample Project/BuildScripts/Build/.gitkeep
 Sample Project/sourcemap.json

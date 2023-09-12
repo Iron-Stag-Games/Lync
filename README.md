@@ -25,23 +25,31 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 | ❌️ | Unavailable |
 | ➖ | Pending / WIP |
 
-### Features
+### Sync Features
 | | Lync | Rojo |
 |-|-|-|
-| Optional Automatic Updates | ✔ | ❌️ |
-| Offline Builds | ✔ | ✔ |
-| Automatic Sourcemap Generation | ✔ | ❌️ |
 | Playtest Sync | ✔ | ❌️ |
-| MeshPart Sync | ✔ | ❌️ |
 | Full Reverse Sync | ❌️ | ➖ |
 | Manual Reverse Script Sync | ✔ | ❌️ |
-| Unsaved Model Warnings | ✔ | ❌️ |
-| Patch Viewer | ❌️ | ✔ |
-| Multiple Project Serving | ❌️ | ✔ |
 | Server IP Address | ➖ | ✔ |
 | Server Port | ✔ | ✔ |
+| Multiple Project Serving | ❌️ | ✔ |
+| Unsaved Model Warnings | ✔ | ❌️ |
+| Patch Viewer | ❌️ | ✔ |
+
+### Project Features
+| | Lync | Rojo |
+|-|-|-|
+| Package Management | ✔ | ❌️ |
 | Custom File Downloads | ✔ | ❌️ |
 | Automatic Shell Scripts | ➖ | ❌️ |
+| Automatic Sourcemap Generation | ✔ | ❌️ |
+
+### Misc Features
+| | Lync | Rojo |
+|-|-|-|
+| Automatic Updates | ✔ | ❌️ |
+| Offline Builds | ✔ | ✔ |
 | Place to Project Tool | ❌️ | ➖ |
 
 ### File Types

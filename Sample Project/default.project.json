@@ -22,6 +22,14 @@
 				"$terrainMaterialColors": {
 					"Grass": ["Color3.new(0, 0.5, 0)"]
 				}
+			},
+
+			"Knit-latest": {
+				"$path": { "package": "Sleitnick/Knit" }
+			},
+
+			"Knit-v1.5.0": {
+				"$path": { "package": "Sleitnick/Knit@v1.5.0" }
 			}
 		}
 	}

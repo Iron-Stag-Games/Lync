@@ -36,8 +36,21 @@ function scan(json, localPath) {
 		
 		} else if (key == '$path') {
 			if (typeof(json[key]) == 'object') {
-				if (typeof json[key].optional != 'string') {
-					console.error(fileError(localPath), green('$path.optional'), yellow('must be a string'))
+				if ('optional' in json[key] && 'package' in json[key]) {
+					console.error(fileError(localPath), green('$path'), yellow('cannot have both keys'), green('$path.optional'), yellow('and'), green('$path.package'))
+					failed = true
+				} else if ('optional' in json[key]) {
+					if (typeof json[key].optional != 'string') {
+						console.error(fileError(localPath), green('$path.optional'), yellow('must be a string'))
+						failed = true
+					}
+				} else if ('package' in json[key]) {
+					if (typeof json[key].package != 'string') {
+						console.error(fileError(localPath), green('$path.package'), yellow('must be a string'))
+						failed = true
+					}
+				} else {
+					console.error(fileError(localPath), green('$path'), yellow('is missing key'), green('$path.optional'), yellow('or'), green('$path.package'))
 					failed = true
 				}
 			} else if (typeof(json[key]) != 'string') {

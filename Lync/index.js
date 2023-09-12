@@ -18,7 +18,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 */
-const VERSION = 'Alpha 24'
+const VERSION = 'Alpha 25'
 
 const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
@@ -28,7 +28,7 @@ const process = require('process')
 
 const chokidar = require('chokidar')
 const { parseCSV } = require('csv-load-sync')
-const extract = require('extract-zip')
+const extractZIP = require('extract-zip')
 const { http, https } = require('follow-redirects')
 const LUA = require('lua-json')
 const picomatch = require('picomatch')
@@ -44,6 +44,7 @@ if (!process.pkg) process.exit()
 // Constants
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+const UTF8 = new TextDecoder('utf-8')
 const PLATFORM = process.platform == 'win32' && 'windows' || process.platform == 'darwin' && 'macos' || 'linux'
 const LYNC_INSTALL_DIR = path.dirname(process.execPath)
 
@@ -56,31 +57,32 @@ try {
 	CONFIG = {
 		"Debug": false,
 		"GenerateSourcemap": true,
+		"GithubAccessToken": "",
 		"AutoUpdate": false,
-		"GithubUpdateRepo": "Iron-Stag-Games/Lync",
-		"GithubUpdatePrereleases": false,
-		"LatestId": 0,
-		"RobloxVersionsPath": "",
-		"RobloxContentPath": "",
-		"RobloxPluginsPath": "",
-		"StudioModManagerContentPath": "",
-		"LunePath": "lune"
+		"AutoUpdate_UsePrereleases": false,
+		"AutoUpdate_Repo": "Iron-Stag-Games/Lync",
+		"AutoUpdate_LatestId": 0,
+		"Path_RobloxVersions": "",
+		"Path_RobloxContent": "",
+		"Path_RobloxPlugins": "",
+		"Path_StudioModManagerContent": "",
+		"Path_Lune": "lune"
 	}
 	if (PLATFORM == 'windows') {
-		CONFIG.RobloxVersionsPath = "%LOCALAPPDATA%/Roblox/Versions"
-		CONFIG.RobloxPluginsPath = "%LOCALAPPDATA%/Roblox/Plugins"
-		CONFIG.StudioModManagerContentPath = "%LOCALAPPDATA%/Roblox Studio/content"
-		delete CONFIG.RobloxContentPath
+		CONFIG.Path_RobloxVersions = "%LOCALAPPDATA%/Roblox/Versions"
+		CONFIG.Path_RobloxPlugins = "%LOCALAPPDATA%/Roblox/Plugins"
+		CONFIG.Path_StudioModManagerContent = "%LOCALAPPDATA%/Roblox Studio/content"
+		delete CONFIG.Path_RobloxContent
 	} else if (PLATFORM == 'macos') {
-		CONFIG.RobloxContentPath = "/Applications/RobloxStudio.app/Contents/Resources/content"
-		CONFIG.RobloxPluginsPath = "$HOME/Documents/Roblox/Plugins"
-		delete CONFIG.RobloxVersionsPath
-		delete CONFIG.StudioModManagerContentPath
+		CONFIG.Path_RobloxContent = "/Applications/RobloxStudio.app/Contents/Resources/content"
+		CONFIG.Path_RobloxPlugins = "$HOME/Documents/Roblox/Plugins"
+		delete CONFIG.Path_RobloxVersions
+		delete CONFIG.Path_StudioModManagerContent
 	} else {
-		delete CONFIG.RobloxVersionsPath
-		delete CONFIG.RobloxContentPath
-		delete CONFIG.RobloxPluginsPath
-		delete CONFIG.StudioModManagerContentPath
+		delete CONFIG.Path_RobloxVersions
+		delete CONFIG.Path_RobloxContent
+		delete CONFIG.Path_RobloxPlugins
+		delete CONFIG.Path_StudioModManagerContent
 	}
 	if (fs.existsSync(CONFIG_PATH)) {
 		const oldConfig = JSON.parse(fs.readFileSync(CONFIG_PATH))
@@ -175,6 +177,82 @@ function localPathIsIgnored(localPath) {
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Sync Functions
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @param {string} existingPath
+ * @param {string} hardLinkPath
+ */
+function hardLinkRecursive(existingPath, hardLinkPath) {
+	if (localPathIsIgnored(existingPath)) return
+	const stats = fs.statSync(existingPath)
+	const newPath = path.resolve(hardLinkPath, path.relative(path.resolve(), existingPath))
+	try {
+		const parentPath = path.resolve(newPath, '..')
+		if (!fs.existsSync(parentPath)) {
+			fs.mkdirSync(parentPath)
+		}
+		if (stats.isDirectory()) {
+			if (!fs.existsSync(newPath)) {
+				fs.mkdirSync(newPath)
+			}
+			fs.readdirSync(existingPath).forEach((dirNext) => {
+				hardLinkRecursive(path.resolve(existingPath, dirNext), hardLinkPath)
+			})
+		} else {
+			if (fs.existsSync(newPath)) {
+				fs.unlinkSync(newPath)
+			}
+			fs.linkSync(existingPath, newPath)
+		}
+	} catch (err) {
+		if (DEBUG) console.error(red('Hard link error:'), yellow(err))
+	}
+}
+
+/**
+ * @param {string} url
+ * @param {OutgoingHttpHeaders} headers
+ * @param {string} responseType
+ * @returns {Promise}
+ */
+async function getAsync(url, headers, responseType) {
+	const newHeaders = { 'user-agent': 'node.js' }
+	for (const header in headers) {
+		newHeaders[header] = headers[header]
+	}
+	return new Promise ((resolve, reject) => {
+		const req = https.get(url, {
+			headers: newHeaders
+		}, (res) => {
+			let data = []
+			res.on('data', (chunk) => {
+				data.push(chunk)
+			})
+			res.on('end', () => {
+				try {
+					let buffer = Buffer.concat(data)
+					switch (responseType) {
+						case 'json':
+							resolve(JSON.parse(buffer.toString()))
+							break
+						default:
+							resolve(buffer)
+					}
+				} catch (err) {
+					reject(err)
+				}
+			})
+		})
+		req.on('error', (err) => {
+			reject(err)
+		})
+		req.end()
+	})
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Mapping Functions
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -184,16 +262,20 @@ function localPathIsIgnored(localPath) {
  * @param {number} mtimeMs
  */
 function assignMap(robloxPath, mapDetails, mtimeMs) {
-	if (mapDetails.Path != undefined) {
-		let localPath = mapDetails.Path
+	let localPath = mapDetails.Path
+	if (localPath != undefined) {
 		if (typeof localPath == 'object') {
-			localPath = localPath.optional
+			if ('optional' in localPath) {
+				localPath = localPath.optional
+			} else if ('package' in localPath) {
+				localPath = localPath.package
+			}
 		}
 		if (localPathIsIgnored(localPath)) return
 	}
-	if (DEBUG) console.log('Mapping', mapDetails.Type, green(robloxPath), '->', cyan(mapDetails.Path || ''))
+	if (DEBUG) console.log('Mapping', mapDetails.Type, green(robloxPath), '->', cyan(localPath || ''))
 	if (robloxPath in map) {
-		if (map[robloxPath].Path != mapDetails.Path && !map[robloxPath].ProjectJson) {
+		if (map[robloxPath].Path != localPath && !map[robloxPath].ProjectJson) {
 			console.warn(yellow(`Collision on '${robloxPath}'`))
 			if (DEBUG) console.warn(map[robloxPath], '->', mapDetails)
 		}
@@ -205,7 +287,7 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 	modified[robloxPath] = mapDetails
 	modified_playtest[robloxPath] = mapDetails
 	modified_sourcemap[robloxPath] = mapDetails
-	if (mapDetails.Path) mTimes[mapDetails.Path] = mtimeMs
+	if (localPath) mTimes[localPath] = mtimeMs
 	if (mapDetails.Meta) mTimes[mapDetails.Meta] = fs.statSync(mapDetails.Meta).mtimeMs // Meta File stats are never retrieved before this, so they aren't in a function parameter
 }
 
@@ -239,7 +321,7 @@ function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPa
  * @param {string} robloxPath
  * @param {string?} flag
  */
-function mapDirectory(localPath, robloxPath, flag) {
+async function mapDirectory(localPath, robloxPath, flag) {
 	if (localPathIsIgnored(localPath)) return
 
 	// Update hard link (doesn't trigger during initial mapping)
@@ -311,7 +393,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 					if (subProjectJson) {
 						const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
 						const externalPackageAppend = parentPathString != '' && parentPathString + '/' || ''
-						mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
+						await mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
 					}
 
 				// Model Files
@@ -386,7 +468,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 			const subProjectJson = validateJson('SubProject', subProjectJsonPath, fs.readFileSync(subProjectJsonPath, { encoding: 'utf-8' }))
 			if (subProjectJson) {
 				const subProjectJsonStats = fs.statSync(localPath + '/default.project.json')
-				mapJsonRecursive(subProjectJsonPath, subProjectJson, robloxPath, 'tree', true, localPath + '/', subProjectJsonStats.mtimeMs)
+				await mapJsonRecursive(subProjectJsonPath, subProjectJson, robloxPath, 'tree', true, localPath + '/', subProjectJsonStats.mtimeMs)
 			}
 
 		} else {
@@ -469,7 +551,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 				}, localPathStats.mtimeMs)
 			}
 
-			fs.readdirSync(localPath).forEach((dirNext) => {
+			fs.readdirSync(localPath).forEach(async function(dirNext) {
 				const dirNextLower = dirNext.toLowerCase()
 				const localPathParentNameLower = localPathParentName.toLowerCase()
 				// Do not map Init files. They were just mapped on this run of mapDirectory.
@@ -492,7 +574,7 @@ function mapDirectory(localPath, robloxPath, flag) {
 						break
 					default:
 						const filePathNext = localPath + '/' + dirNext
-						mapDirectory(filePathNext, robloxPath + '/' + dirNext)
+						await mapDirectory(filePathNext, robloxPath + '/' + dirNext)
 				}
 			})
 		}
@@ -508,11 +590,12 @@ function mapDirectory(localPath, robloxPath, flag) {
  * @param {string?} externalPackageAppend
  * @param {number} mtimeMs
  */
-function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExternalPackage, externalPackageAppend, mtimeMs) {
+async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExternalPackage, externalPackageAppend, mtimeMs) {
 	let nextRobloxPath = robloxPath + '/' + key
 	if (firstLoadingExternalPackage) nextRobloxPath = robloxPath
 	let localPath = target[key]['$path']
 	if (externalPackageAppend && localPath) localPath = externalPackageAppend + localPath
+
 	assignMap(nextRobloxPath, {
 		'Type': 'Instance',
 		'ClassName': robloxPath == 'tree' && key || target[key]['$className'] || 'Folder',
@@ -525,23 +608,76 @@ function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingExterna
 		'TerrainRegion': target[key]['$terrainRegion'],
 		'TerrainMaterialColors': target[key]['$terrainMaterialColors']
 	}, mtimeMs)
+
 	for (const nextKey in target[key]) {
 		if (nextKey[0] != '$' && typeof target[key][nextKey] != 'string' && !Array.isArray(target[key][nextKey])) {
-			mapJsonRecursive(jsonPath, target[key], nextRobloxPath, nextKey, false, externalPackageAppend, mtimeMs)
+			await mapJsonRecursive(jsonPath, target[key], nextRobloxPath, nextKey, false, externalPackageAppend, mtimeMs)
 		}
 	}
+
 	if (localPath) {
 		if (typeof localPath == 'object') {
-			mapDirectory(localPath.optional, nextRobloxPath, 'JSON')
+
+			// Optional path
+			if ('optional' in localPath) {
+				await mapDirectory(localPath.optional, nextRobloxPath, 'JSON')
+
+			// Package
+			} else if ('package' in localPath) {
+				const package = localPath.package.split('@')
+				const owner_repo = package[0].split('/')
+				const owner = owner_repo[0]
+				const repo = owner_repo[1]
+				let tag = package[1] || 'latest'
+				const assetFolder = `.lync-packages/${owner}/${repo}`
+				let assetFile = assetFolder + `/${tag}.rbxm`
+				try {
+					if (!fs.existsSync(assetFile) || tag == 'latest') {
+
+						// Get release info
+						if (DEBUG) console.log(`Getting latest version for ${green(localPath.package)} . . .`)
+						const release = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/${tag == 'latest' && tag || 'tags/' + tag}`, {
+							Accept: 'application/vnd.github+json',
+							Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
+							['X-GitHub-Api-Version']: '2022-11-28'
+						}, 'json')
+						if (!release || !('id' in release)) throw new Error('Failed to get release info')
+						if (tag == 'latest') {
+							tag = release.tag_name
+							assetFile = assetFolder + `/${tag}.rbxm`
+						}
+
+						// Download release asset
+						if (!fs.existsSync(assetFile)) {
+							if (DEBUG) console.log(`Downloading ${green(localPath.package)} . . .`)
+							const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${release.assets[0].id}`, {
+								Accept: 'application/octet-stream',
+								Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
+								['X-GitHub-Api-Version']: '2022-11-28'
+							})
+							if (UTF8.decode(asset.subarray(0, 8)) != '<roblox!') throw new Error('Failed to download release asset')
+							fs.mkdirSync(assetFolder, { 'recursive': true })
+							fs.writeFileSync(assetFile, asset)
+							console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile)}`)
+						}
+					}
+				} catch (err) {
+					console.error(red('Failed to download package'), green(localPath.package) + red(':'), yellow(err))
+				}
+				if (assetFile && fs.existsSync(assetFile)) {
+					await mapDirectory(assetFile, nextRobloxPath, 'JSON')
+				}
+			}
+
 		} else if (fs.existsSync(localPath)) {
-			mapDirectory(localPath, nextRobloxPath, 'JSON')
+			await mapDirectory(localPath, nextRobloxPath, 'JSON')
 		} else {
 			console.error(fileError(localPath), yellow('Path does not exist'))
 		}
 	}
 }
 
-function changedJson() {
+async function changedJson() {
 	if (DEBUG) console.log('Loading', cyan(PROJECT_JSON))
 	projectJson = validateJson('MainProject', PROJECT_JSON, fs.readFileSync(PROJECT_JSON, { encoding: 'utf-8' }))
 	if (!projectJson) {
@@ -581,84 +717,8 @@ function changedJson() {
 	const projectJsonStats = fs.statSync(PROJECT_JSON)
 	for (const service in projectJson.tree) {
 		if (service == '$className') continue // Fix for Roblox LSP source map
-		mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, undefined, projectJsonStats.mtimeMs)
+		await mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, undefined, projectJsonStats.mtimeMs)
 	}
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Sync Functions
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @param {string} existingPath
- * @param {string} hardLinkPath
- */
-function hardLinkRecursive(existingPath, hardLinkPath) {
-	if (localPathIsIgnored(existingPath)) return
-	const stats = fs.statSync(existingPath)
-	const newPath = path.resolve(hardLinkPath, path.relative(path.resolve(), existingPath))
-	try {
-		const parentPath = path.resolve(newPath, '..')
-		if (!fs.existsSync(parentPath)) {
-			fs.mkdirSync(parentPath)
-		}
-		if (stats.isDirectory()) {
-			if (!fs.existsSync(newPath)) {
-				fs.mkdirSync(newPath)
-			}
-			fs.readdirSync(existingPath).forEach((dirNext) => {
-				hardLinkRecursive(path.resolve(existingPath, dirNext), hardLinkPath)
-			})
-		} else {
-			if (fs.existsSync(newPath)) {
-				fs.unlinkSync(newPath)
-			}
-			fs.linkSync(existingPath, newPath)
-		}
-	} catch (err) {
-		if (DEBUG) console.error(red('Hard link error:'), yellow(err))
-	}
-}
-
-/**
- * @param {string} url
- * @param {OutgoingHttpHeaders} headers
- * @param {string} responseType
- * @returns {Promise}
- */
-async function getAsync(url, headers, responseType) {
-	const newHeaders = { 'user-agent': 'node.js' }
-	for (const header in headers) {
-		newHeaders[header] = headers[header]
-	}
-	return new Promise ((resolve, reject) => {
-		const req = https.get(url, {
-			headers: newHeaders
-		}, (res) => {
-			let data = []
-			res.on('data', (chunk) => {
-				data.push(chunk)
-			})
-			res.on('end', () => {
-				try {
-					let buffer = Buffer.concat(data)
-					switch (responseType) {
-						case 'json':
-							resolve(JSON.parse(buffer.toString()))
-							break
-						default:
-							resolve(buffer)
-					}
-				} catch (err) {
-					reject(err)
-				}
-			})
-		})
-		req.on('error', (err) => {
-			reject(err)
-		})
-		req.end()
-	})
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -673,22 +733,42 @@ async function getAsync(url, headers, responseType) {
 		console.log('Checking for updates . . .')
 		try {
 			// Grab latest version info
-			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.GithubUpdateRepo}/releases${!CONFIG.GithubUpdatePrereleases && '/latest' || ''}`, {}, 'json')
-			if (CONFIG.GithubUpdatePrereleases) latest = latest[0]
+			let latest = await getAsync(`https://api.github.com/repos/${CONFIG.AutoUpdate_Repo}/releases${!CONFIG.AutoUpdate_UsePrereleases && '/latest' || ''}`, {
+				Accept: 'application/vnd.github+json',
+				Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
+				['X-GitHub-Api-Version']: '2022-11-28'
+			}, 'json')
+			if (CONFIG.AutoUpdate_UsePrereleases) latest = latest[0]
 			if (!latest || !('id' in latest)) throw new Error('No response from server')
-			if (latest.id != CONFIG.LatestId) {
+
+			if (latest.id != CONFIG.AutoUpdate_LatestId) {
 				const updateFile = path.resolve(LYNC_INSTALL_DIR, `Lync-${latest.tag_name}.zip`)
 				const updateFolder = path.resolve(LYNC_INSTALL_DIR, 'Lync-' + latest.tag_name)
 
 				// Download latest version
 				console.log(`Updating to ${green(latest.name)} . . .`)
-				const update = await getAsync(`https://github.com/${CONFIG.GithubUpdateRepo}/releases/download/${latest.tag_name}/lync-${latest.tag_name}-${PLATFORM}-${os.arch()}.zip`, {})
-				fs.writeFileSync(updateFile, update, 'binary')
-				await extract(updateFile, { dir: updateFolder })
+				const assetName = `lync-${latest.tag_name}-${PLATFORM}-${os.arch()}.zip`
+				let assetId;
+				for (const index in latest.assets) {
+					const asset = latest.assets[index]
+					if (asset.name == assetName) {
+						assetId = asset.id
+						break
+					}
+				}
+				if (!assetId) throw new Error(`Failed to find update release asset with name '${assetName}'`)
+				const update = await getAsync(`https://api.github.com/repos/${CONFIG.AutoUpdate_Repo}/releases/assets/${assetId}`, {
+					Accept: 'application/octet-stream',
+					Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
+					['X-GitHub-Api-Version']: '2022-11-28'
+				})
+				if (UTF8.decode(update.subarray(0, 2)) != 'PK') throw new Error('Failed to download update release asset')
+				fs.writeFileSync(updateFile, update)
+				await extractZIP(updateFile, { dir: updateFolder })
 				fs.rmSync(updateFile, { force: true })
 
 				// Write new version
-				CONFIG.LatestId = latest.id
+				CONFIG.AutoUpdate_LatestId = latest.id
 				fs.writeFileSync(CONFIG_PATH, JSON.stringify(CONFIG, null, '\t'))
 
 				// Copy Lync binary and restart
@@ -718,7 +798,7 @@ async function getAsync(url, headers, responseType) {
 			}
 			console.clear()
 		} catch (err) {
-			console.error(red('Failed to update:'), err)
+			console.error(red('Failed to update:'), yellow(err))
 			console.log()
 		}
 	}
@@ -737,7 +817,7 @@ async function getAsync(url, headers, responseType) {
 		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('does not exist'))
 		process.exit()
 	}
-	changedJson()
+	await changedJson()
 
 	// Download sources
 	if (MODE == 'fetch') {
@@ -764,9 +844,9 @@ async function getAsync(url, headers, responseType) {
 	} else if (MODE == 'build') {
 
 		const buildScriptPath = projectJson.build + '.luau'
-		const lunePath = PLATFORM == 'windows' && CONFIG.LunePath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
-			|| PLATFORM == 'macos' && CONFIG.LunePath.replace('$HOME', process.env.HOME)
-			|| CONFIG.LunePath
+		const lunePath = PLATFORM == 'windows' && CONFIG.Path_Lune.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
+			|| PLATFORM == 'macos' && CONFIG.Path_Lune.replace('$HOME', process.env.HOME)
+			|| CONFIG.Path_Lune
 
 		// Map loadstring calls (needed until Lune implements loadstring)
 		let loadstringMapEntries = {}
@@ -888,7 +968,7 @@ async function getAsync(url, headers, responseType) {
 		if (PLATFORM == 'windows' || PLATFORM == 'macos') {
 
 			// Copy plugin
-			const pluginsPath = path.resolve(PLATFORM == 'windows' && CONFIG.RobloxPluginsPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || PLATFORM == 'macos' && CONFIG.RobloxPluginsPath.replace('$HOME', process.env.HOME))
+			const pluginsPath = path.resolve(PLATFORM == 'windows' && CONFIG.Path_RobloxPlugins.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || PLATFORM == 'macos' && CONFIG.Path_RobloxPlugins.replace('$HOME', process.env.HOME))
 			if (!fs.existsSync(pluginsPath)) {
 				if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 				fs.mkdirSync(pluginsPath)
@@ -918,7 +998,7 @@ async function getAsync(url, headers, responseType) {
 			ignorePermissionErrors: true,
 			alwaysStat: true,
 			usePolling: true
-		}).on('all', function(event, localPath, localPathStats) {
+		}).on('all', async function(event, localPath, localPathStats) {
 			if (DEBUG) console.log('E', yellow(event), cyan(localPath))
 			try {
 				if (localPath) {
@@ -944,21 +1024,21 @@ async function getAsync(url, headers, responseType) {
 										modified_playtest[key] = false
 										modified_sourcemap[key] = false
 										if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
-											mapDirectory(parentPathString, key, 'Modified')
+											await mapDirectory(parentPathString, key, 'Modified')
 										}
 									}
 	
 									// Meta
 									if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
 										if (fs.existsSync(map[key].Path)) {
-											mapDirectory(map[key].Path, key, 'Modified')
+											await mapDirectory(map[key].Path, key, 'Modified')
 										}
 									}
 	
 									// JSON member
 									if (key in map && map[key].ProjectJson == localPath) {
 										if (fs.existsSync(map[key].Path)) {
-											mapDirectory(map[key].Path, key, 'Modified')
+											await mapDirectory(map[key].Path, key, 'Modified')
 										}
 									}
 								}
@@ -968,11 +1048,11 @@ async function getAsync(url, headers, responseType) {
 								console.log('M', cyan(localPath))
 								for (const key in map) {
 									if (map[key].InitParent == parentPathString) {
-										mapDirectory(parentPathString, key, 'Modified')
+										await mapDirectory(parentPathString, key, 'Modified')
 									} else if (map[key].Meta == localPath) {
-										mapDirectory(map[key].Path, key, 'Modified')
+										await mapDirectory(map[key].Path, key, 'Modified')
 									} else if (map[key].Path == localPath) {
-										mapDirectory(localPath, key, 'Modified')
+										await mapDirectory(localPath, key, 'Modified')
 									}
 								}
 								mTimes[localPath] = localPathStats.mtimeMs
@@ -994,22 +1074,22 @@ async function getAsync(url, headers, responseType) {
 											const title = localPathParsed.name.slice(0, -5)
 											if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
 												delete map[key]
-												mapDirectory(localPath, title + '.lua')
+												await mapDirectory(localPath, title + '.lua')
 											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.lua')) {
 												delete map[key]
-												mapDirectory(localPath, title + '.client.lua')
+												await mapDirectory(localPath, title + '.client.lua')
 											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.lua')) {
 												delete map[key]
-												mapDirectory(localPath, title + '.server.lua')
+												await mapDirectory(localPath, title + '.server.lua')
 											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
 												delete map[key]
-												mapDirectory(localPath, title + '.luau')
+												await mapDirectory(localPath, title + '.luau')
 											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.luau')) {
 												delete map[key]
-												mapDirectory(localPath, title + '.client.luau')
+												await mapDirectory(localPath, title + '.client.luau')
 											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.luau')) {
 												delete map[key]
-												mapDirectory(localPath, title + '.server.luau')
+												await mapDirectory(localPath, title + '.server.luau')
 											} else {
 												console.error(fileError(localPath), yellow('Stray meta file'))
 												return
@@ -1018,11 +1098,11 @@ async function getAsync(url, headers, responseType) {
 										// Remap parent folder
 										} else if (localPathIsInit(localPath) || localPathName == 'init.meta' && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml') || localPathParsed.base == 'default.project.json') {
 											delete map[key]
-											mapDirectory(parentPathString, key)
+											await mapDirectory(parentPathString, key)
 	
 										// Map only file or directory
 										} else {
-											mapDirectory(localPath, key + '/' + localPathParsed.base)
+											await mapDirectory(localPath, key + '/' + localPathParsed.base)
 										}
 									}
 								}
@@ -1074,7 +1154,7 @@ async function getAsync(url, headers, responseType) {
 
 				hardLinkPaths = []
 				if (PLATFORM == 'windows') {
-					const versionsPath = path.resolve(CONFIG.RobloxVersionsPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+					const versionsPath = path.resolve(CONFIG.Path_RobloxVersions.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 					fs.readdirSync(versionsPath).forEach((dirNext) => {
 						const stats = fs.statSync(path.resolve(versionsPath, dirNext))
 						if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
@@ -1086,7 +1166,7 @@ async function getAsync(url, headers, responseType) {
 						}
 					})
 					// Studio Mod Manager
-					const modManagerContentPath = path.resolve(CONFIG.StudioModManagerContentPath.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+					const modManagerContentPath = path.resolve(CONFIG.Path_StudioModManagerContent.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 					if (fs.existsSync(modManagerContentPath)) {
 						const hardLinkPath = path.resolve(modManagerContentPath, 'lync')
 						if (!fs.existsSync(hardLinkPath)) {
@@ -1095,7 +1175,7 @@ async function getAsync(url, headers, responseType) {
 						hardLinkPaths.push(hardLinkPath)
 					}
 				} else if (PLATFORM == 'macos') {
-					const contentPath = path.resolve(CONFIG.RobloxContentPath)
+					const contentPath = path.resolve(CONFIG.Path_RobloxContent)
 					const hardLinkPath = path.resolve(contentPath, 'lync')
 					if (!fs.existsSync(hardLinkPath)) {
 						fs.mkdirSync(hardLinkPath)
