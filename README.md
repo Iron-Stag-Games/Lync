@@ -1,5 +1,3 @@
-<p align="center"><a href="https://github.com/Iron-Stag-Games/Lync/actions/workflows/test-build.yml"><img src="https://github.com/Iron-Stag-Games/Lync/actions/workflows/test-build.yml/badge.svg" alt="Build and Publish Sample Project"> <a href="https://github.com/Iron-Stag-Games/Lync/actions/workflows/release-zip.yml"><img src="https://github.com/Iron-Stag-Games/Lync/actions/workflows/release-zip.yml/badge.svg" alt="Upload Zip Files to Release"></p>
-
 # What is Lync?
 
 Lync is a file sync tool for Roblox which is offered as an alternative to Rojo focused on expanding the feature set from community feedback and improving maintainability.
