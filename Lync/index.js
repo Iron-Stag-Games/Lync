@@ -650,20 +650,22 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 						// Download release asset
 						if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile))) {
 							if (DEBUG) console.log(`Downloading ${green(localPath.package)} . . .`)
-							if (release.assets[0] && release.assets[0].name.split('.').slice(-1) == 'lua') {
-								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${release.assets[0].id}`, {
+							const firstAsset = release.assets[0]
+							const firstReleaseExt = (firstAsset && firstAsset.name.split('.').slice(-1)[0] || '').toLowerCase()
+							if (firstReleaseExt == 'lua') {
+								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${firstAsset.id}`, {
 									Accept: 'application/octet-stream',
 									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
 									['X-GitHub-Api-Version']: '2022-11-28'
 								})
-								const assetName = release.assets[0].name
+								const assetName = firstAsset.name
 								const assetExt = '.' + assetName.split('.').slice(-1)
 								fs.mkdirSync(assetFolder, { 'recursive': true })
 								fs.writeFileSync(assetFile + assetExt, asset)
 								console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile + assetExt)}`)
 							} else {
-								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/zipball/${tag}`, {
-									Accept: 'application/vnd.github+json',
+								const asset = await getAsync(firstReleaseExt == 'zip' && `https://api.github.com/repos/${owner}/${repo}/releases/assets/${firstAsset.id}` || `https://api.github.com/repos/${owner}/${repo}/zipball/${tag}`, {
+									Accept: firstReleaseExt == 'zip' && 'application/octet-stream' || 'application/vnd.github+json',
 									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
 									['X-GitHub-Api-Version']: '2022-11-28'
 								})
