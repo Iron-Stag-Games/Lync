@@ -652,6 +652,8 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 							if (DEBUG) console.log(`Downloading ${green(localPath.package)} . . .`)
 							const firstAsset = release.assets[0]
 							const firstReleaseExt = (firstAsset && firstAsset.name.split('.').slice(-1)[0] || '').toLowerCase()
+
+							// Lua
 							if (firstReleaseExt == 'lua') {
 								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${firstAsset.id}`, {
 									Accept: 'application/octet-stream',
@@ -663,6 +665,8 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 								fs.mkdirSync(assetFolder, { 'recursive': true })
 								fs.writeFileSync(assetFile + assetExt, asset)
 								console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile + assetExt)}`)
+
+							// Zip / None
 							} else {
 								const asset = await getAsync(firstReleaseExt == 'zip' && `https://api.github.com/repos/${owner}/${repo}/releases/assets/${firstAsset.id}` || `https://api.github.com/repos/${owner}/${repo}/zipball/${tag}`, {
 									Accept: firstReleaseExt == 'zip' && 'application/octet-stream' || 'application/vnd.github+json',
