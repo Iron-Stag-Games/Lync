@@ -26,23 +26,23 @@
 
 			"Sample Packages": {
 				"Pronghorn": {
-					"$path": { "package": "Iron-Stag-Games/Pronghorn" }
+					"$path": { "package": "Iron-Stag-Games/Pronghorn", "type": "repo" }
 				},
 	
 				"goodsignal": {
-					"$path": { "package": "stravant/goodsignal" }
+					"$path": { "package": "stravant/goodsignal", "type": "repo" }
 				},
 	
 				"roblox-lua-promise": {
-					"$path": { "package": "evaera/roblox-lua-promise" }
+					"$path": { "package": "evaera/roblox-lua-promise", "type": "lua" }
 				},
 	
 				"Fusion": {
-					"$path": { "package": "dphfox/Fusion@v0.2-beta" }
+					"$path": { "package": "dphfox/Fusion@v0.2-beta", "type": "rbxm" }
 				},
 
 				"Janitor": {
-					"$path": { "package": "howmanysmall/janitor" }
+					"$path": { "package": "howmanysmall/janitor", "type": "rbxmx" }
 				}
 			}
 		}

@@ -631,8 +631,9 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 				let tag = package[1] || 'latest'
 				const assetFolder = `.lync-packages/${owner}/${repo}`
 				let assetFile = assetFolder + `/${tag}`
+				const assetExt = localPath.type != 'repo' && '.' + localPath.type || ''
 				try {
-					if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile)) || tag == 'latest') {
+					if (!(fs.existsSync(assetFile + assetExt) || fs.existsSync(assetFile)) || tag == 'latest') {
 
 						// Get release info
 						if (DEBUG) console.log(`Getting latest version for ${green(localPath.package)} . . .`)
@@ -648,28 +649,23 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 						}
 
 						// Download release asset
-						if (!(fs.existsSync(assetFile + '.lua') || fs.existsSync(assetFile))) {
+						if (!fs.existsSync(assetFile + assetExt)) {
 							if (DEBUG) console.log(`Downloading ${green(localPath.package)} . . .`)
-							const firstAsset = release.assets[0]
-							const firstReleaseExt = (firstAsset && firstAsset.name.split('.').slice(-1)[0] || '').toLowerCase()
 
-							// Lua
-							if (firstReleaseExt == 'lua') {
-								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${firstAsset.id}`, {
-									Accept: 'application/octet-stream',
-									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
-									['X-GitHub-Api-Version']: '2022-11-28'
-								})
-								const assetName = firstAsset.name
-								const assetExt = '.' + assetName.split('.').slice(-1)
-								fs.mkdirSync(assetFolder, { 'recursive': true })
-								fs.writeFileSync(assetFile + assetExt, asset)
-								console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile + assetExt)}`)
+							let matchingAssetInfo;
+							if (localPath.type != 'repo') {
+								for (const assetInfo of release.assets) {
+									if ('.' + assetInfo.name.split('.').slice(-1)[0] == assetExt) {
+										matchingAssetInfo = assetInfo
+									}
+								}
+								if (!matchingAssetInfo) throw 'No release assets matched type ' + localPath.type
+							}
 
-							// Zip / None
-							} else {
-								const asset = await getAsync(firstReleaseExt == 'zip' && `https://api.github.com/repos/${owner}/${repo}/releases/assets/${firstAsset.id}` || `https://api.github.com/repos/${owner}/${repo}/zipball/${tag}`, {
-									Accept: firstReleaseExt == 'zip' && 'application/octet-stream' || 'application/vnd.github+json',
+							// Repo / ZIP
+							if (localPath.type == 'repo' || localPath.type == 'zip') {
+								const asset = await getAsync(localPath.type == 'repo' && `https://api.github.com/repos/${owner}/${repo}/zipball/${tag}` || `https://api.github.com/repos/${owner}/${repo}/releases/assets/${matchingAssetInfo.id}`, {
+									Accept: localPath.type == 'repo' && 'application/vnd.github+json' || 'application/octet-stream',
 									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
 									['X-GitHub-Api-Version']: '2022-11-28'
 								})
@@ -686,17 +682,27 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 								fs.rmSync(assetZip, { force: true })
 								fs.rmSync(assetUnzip, { force: true, recursive: true })
 								console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile)}`)
+
+							// LUA / LUAU / RBXM / RBXMX
+							} else {
+								const asset = await getAsync(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${matchingAssetInfo.id}`, {
+									Accept: 'application/octet-stream',
+									Authorization: CONFIG.GithubAccessToken != '' && 'Bearer ' + CONFIG.GithubAccessToken,
+									['X-GitHub-Api-Version']: '2022-11-28'
+								})
+								fs.mkdirSync(assetFolder, { 'recursive': true })
+								fs.writeFileSync(assetFile + assetExt, asset)
+								console.log(`Downloaded ${green(localPath.package)} to ${cyan(assetFile + assetExt)}`)
 							}
+						} else {
+							console.log(`Package ${green(localPath.package)} is up to date`)
 						}
 					}
 				} catch (err) {
 					console.error(red('Failed to download package'), green(localPath.package) + red(':'), yellow(err))
 				}
-				if (fs.existsSync(assetFile + '.lua')) {
-					await mapDirectory(assetFile + '.lua', nextRobloxPath, 'JSON')
-				}
-				if (fs.existsSync(assetFile)) {
-					await mapDirectory(assetFile, nextRobloxPath, 'JSON')
+				if (fs.existsSync(assetFile + assetExt)) {
+					await mapDirectory(assetFile + assetExt, nextRobloxPath, 'JSON')
 				}
 			}
 
@@ -712,7 +718,6 @@ async function changedJson() {
 	if (DEBUG) console.log('Loading', cyan(PROJECT_JSON))
 	projectJson = validateJson('MainProject', PROJECT_JSON, fs.readFileSync(PROJECT_JSON, { encoding: 'utf-8' }))
 	if (!projectJson) {
-		console.log()
 		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('is invalid'))
 		process.exit()
 	}
@@ -730,15 +735,12 @@ async function changedJson() {
 	globIgnorePathsPicoMatch = picomatch(globIgnorePaths)
 	if (MODE == 'open' || MODE == 'build') {
 		if (projectJson.base == '') {
-			console.log()
 			console.error(red('Terminated:'), green('base'), yellow('cannot be a blank string with OPEN or BUILD mode'))
 			process.exit()
 		} else if (!fs.existsSync(projectJson.base)) {
-			console.log()
 			console.error(red('Terminated:'), yellow('Base'), cyan(projectJson.base), yellow('does not exist'))
 			process.exit()
 		} else if (projectJson.build == '') {
-			console.log()
 			console.error(red('Terminated:'), green('build'), yellow('cannot be a blank string with OPEN or BUILD mode'))
 			process.exit()
 		}
@@ -830,7 +832,6 @@ async function changedJson() {
 			console.clear()
 		} catch (err) {
 			console.error(red('Failed to update:'), yellow(err))
-			console.log()
 		}
 	}
 
@@ -844,7 +845,6 @@ async function changedJson() {
 	// Map project
 
 	if (!fs.existsSync(PROJECT_JSON)) {
-		console.log()
 		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('does not exist'))
 		process.exit()
 	}
@@ -853,6 +853,7 @@ async function changedJson() {
 	// Download sources
 	if (MODE == 'fetch') {
 		console.log()
+		if (!('sources' in projectJson) || projectJson.length == 0) console.log('Nothing to download')
 		for (const index in projectJson.sources) {
 			const source = projectJson.sources[index]
 			console.log('Fetching source', green(source.name), '. . .')
@@ -873,6 +874,7 @@ async function changedJson() {
 
 	// Build
 	} else if (MODE == 'build') {
+		console.log()
 
 		const buildScriptPath = projectJson.build + '.luau'
 		const lunePath = PLATFORM == 'windows' && CONFIG.Path_Lune.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
@@ -1171,7 +1173,6 @@ async function changedJson() {
 				console.log(`Client connected: ${yellow(req.socket.remoteAddress)}`)
 			} else if (req.headers.key != securityKeys[req.socket.remoteAddress]) {
 				const errText = `Security key mismatch. The current session will now be terminated. (Key = ${req.headers.key})\nPlease check for any malicious plugins or scripts and try again.`
-				console.log()
 				console.error(red('Terminated:'), yellow(errText))
 				res.writeHead(403)
 				res.end(errText)
@@ -1420,12 +1421,11 @@ async function changedJson() {
 		}
 	})
 	.on('error', function(err) {
-		console.log()
 		console.error(red('Terminated: Server error:'), err)
 		process.exit()
 	})
 	.listen(MODE == 'build' && '34873' || projectJson.port, function() {
-		if (MODE != 'build') console.log(`Serving ${green(projectJson.name)} on port ${yellow(projectJson.port)}\n`)
+		if (MODE != 'build') console.log(`\nServing ${green(projectJson.name)} on port ${yellow(projectJson.port)}`)
 
 		// Generate sourcemap
 

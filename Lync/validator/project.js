@@ -49,6 +49,10 @@ function scan(json, localPath) {
 						console.error(fileError(localPath), green('$path.package'), yellow('must be a string'))
 						failed = true
 					}
+					if (json[key].type != 'repo' && json[key].type != 'zip' && json[key].type != 'lua' && json[key].type != 'luau' && json[key].type != 'rbxm' && json[key].type != 'rbxmx') {
+						console.error(fileError(localPath), green('$path.type'), yellow('must be repo, zip, lua, luau, rbxm, or rbxmx'))
+						failed = true
+					}
 				} else {
 					console.error(fileError(localPath), green('$path'), yellow('is missing key'), green('$path.optional'), yellow('or'), green('$path.package'))
 					failed = true
