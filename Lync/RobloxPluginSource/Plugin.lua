@@ -276,7 +276,11 @@ end
 
 local function terminate(errorMessage: string)
 	connecting = false
-	error("[Lync] - Terminated: " .. errorMessage, 0)
+	if connected then
+		task.spawn(error, "[Lync] - " .. errorMessage, 0)
+	else
+		error("[Lync] - Terminated: " .. errorMessage, 0)
+	end
 end
 
 local function lpcall(context: string, func: any, ...): (boolean, any)
@@ -417,7 +421,7 @@ local function eval(value: any): any
 		if validateLuaProperty(value[1]) then
 			return (loadstring("return " .. value[1]) :: any)()
 		else
-			terminate(`Security: Lua string [ {value[1]} ] doesn't match the JSON property format`)
+			terminate(`Lua string [ {value[1]} ] doesn't match the JSON property format`)
 			return
 		end
 	else
@@ -563,7 +567,7 @@ local function buildPath(path: string)
 					objects[1].Parent = target
 					listenForChanges(objects[1])
 				else
-					task.spawn(error, `[Lync] - '{data.Path}' cannot contain zero or multiple root Instances`)
+					terminate(`'{data.Path}' cannot contain zero or multiple root Instances`)
 				end
 			end
 		elseif data.Type == "JSON" or data.Type == "YAML" or data.Type == "TOML" or data.Type == "Excel" then
@@ -669,11 +673,11 @@ local function buildPath(path: string)
 							end
 						end)
 					else
-						task.spawn(error, `[Lync] - '{data.TerrainRegion[1]}' cannot contain zero or multiple root Instances`)
+						terminate(`'{data.TerrainRegion[1]}' cannot contain zero or multiple root Instances`)
 					end
 				end
 			else
-				task.spawn(error, "[Lync] - Cannot use $terrainRegion property with " .. tostring(target))
+				terminate("Cannot use $terrainRegion property with " .. tostring(target))
 			end
 		end
 		if data.TerrainMaterialColors then
@@ -689,7 +693,7 @@ local function buildPath(path: string)
 					end
 				end
 			else
-				task.spawn(error, "[Lync] - Cannot use $terrainMaterialColors property with " .. tostring(target))
+				terminate("Cannot use $terrainMaterialColors property with " .. tostring(target))
 			end
 		end
 	end

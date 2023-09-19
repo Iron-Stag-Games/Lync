@@ -1365,13 +1365,8 @@ async function changedJson() {
 						read = JSON.stringify(entries)
 					}
 
-					if (read) {
-						res.writeHead(200)
-						res.end(read)
-					} else {
-						res.writeHead(403)
-						res.end('Invalid read')
-					}
+					res.writeHead(200)
+					res.end(read)
 				} catch (err) {
 					console.error(red('Server error:'), err)
 					res.writeHead(500)
