@@ -832,6 +832,7 @@ async function changedJson() {
 			console.clear()
 		} catch (err) {
 			console.error(red('Failed to update:'), yellow(err))
+			console.log()
 		}
 	}
 
