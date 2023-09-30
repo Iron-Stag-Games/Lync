@@ -1,7 +1,7 @@
-const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
-
 const fs = require('fs')
 const path = require('path')
+
+const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
 
 /**
  * @param {Object} json

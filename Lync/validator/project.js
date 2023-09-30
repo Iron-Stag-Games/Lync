@@ -1,3 +1,5 @@
+const path = require('path')
+
 const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
 
 /**
@@ -110,6 +112,12 @@ module.exports.validate = function(type, json, localPath) {
 		} else if (typeof json.build != 'string') {
 			console.error(fileError(localPath), green('build'), yellow('must be a string'))
 			failed = true
+		} else {
+			const pathExt = path.parse(json.build).ext.toLowerCase()
+			if (pathExt != '.rbxl' && pathExt != '.rbxlx') {
+				console.error(fileError(localPath), green('build'), yellow('must point to an overwritable RBXL or RBXLX file'))
+				failed = true
+			}
 		}
 
 		if (!('port' in json)) {
