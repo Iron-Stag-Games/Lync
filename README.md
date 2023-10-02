@@ -10,7 +10,20 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 - **Manual** - Download [the latest release asset](https://github.com/Iron-Stag-Games/Lync/releases/latest) and extract the binary to wherever is most convenient. It's recommended that you modify your `Path` system environment variable so you can run the tool with simply `lync`.
 
 ## Usage
-- Run `lync help` to display the list of available arguments.
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ LYNC HELP                          Displays the list of available arguments.          ┃
+┃      CONFIG                        Opens the config file.                             ┃
+┃      SERVE project.json? REMOTE?   Syncs the project.                                 ┃
+┃      OPEN  project.json? REMOTE?   Syncs the project and opens it in Roblox Studio.   ┃
+┃      BUILD project.json?           Builds the project to file.                        ┃
+┃      FETCH project.json?           Downloads the list of sources in the project file. ┃
+┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
+┃ project.json?   The project file to read from and serve.                              ┃
+┃ REMOTE?         Connect to the project's 'remoteAddress' instead of the localhost.    ┃
+┃                 Warning: REMOTE is unimplemented!                                     ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
 - The config file (`lync-config.json`) is located beside your Lync installation. It contains several settings which might be necessary to change in order to use Lync. You can also specify whether or not to install updates automatically, and from which repository.
 - [Lune](https://github.com/filiptibell/lune) must be installed for offline RBXL builds. You can specify the path to your Lune installation in the config file.
 
