@@ -107,7 +107,8 @@ const DEBUG = CONFIG.Debug
 function argHelp(err) {
 	if (err) console.error(red('Argument error:'), yellow(err) + '\n')
 	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ LYNC HELP                          Displays the list of available arguments.          ┃ 
+┃ LYNC HELP                          Displays the list of available arguments.          ┃
+┃      CONFIG                        Opens the config file.                             ┃
 ┃      SERVE ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Syncs the project.                                 ┃
 ┃      OPEN  ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Syncs the project and opens it in Roblox Studio.   ┃
 ┃      BUILD ${cyan('project.json', true)}?           Builds the project to file.                        ┃
@@ -121,8 +122,18 @@ function argHelp(err) {
 	process.exit(err && -1 || 0)
 }
 const ARGS = process.argv.slice(2)
-if (ARGS.length == 0 || ARGS[0].toLowerCase() == 'help') argHelp()
-const MODE = ARGS[0].toLowerCase()
+const MODE = (ARGS[0] || '').toLowerCase()
+if (MODE == '' || MODE == 'help') {
+	argHelp()
+} else if (MODE == 'config') {
+	spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${CONFIG_PATH}"`, [], {
+		stdio: 'ignore',
+		detached: true,
+		shell: true,
+		windowsHide: true
+	})
+	process.exit(0)
+}
 if (MODE != 'serve' && MODE != 'open' && MODE != 'build' && MODE != 'fetch') argHelp('Mode must be SERVE, OPEN, BUILD, or FETCH')
 if (MODE == 'open' && PLATFORM != 'windows' && PLATFORM != 'macos') argHelp('Cannot use OPEN mode on Linux')
 const PROJECT_JSON = ARGS[1] && ARGS[1].replace(/\\/g, '/') || 'default.project.json'
@@ -762,7 +773,7 @@ async function changedJson() {
 
 	// Check for updates
 
-	if (CONFIG.AutoUpdate) {
+	if (MODE != 'fetch' && CONFIG.AutoUpdate) {
 		console.log('Checking for updates . . .')
 		try {
 			// Grab latest version info
