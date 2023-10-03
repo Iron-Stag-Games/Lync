@@ -32,6 +32,7 @@ local CollectionService = game:GetService("CollectionService")
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local ScriptEditorService = game:GetService("ScriptEditorService")
 local Selection = game:GetService("Selection")
 local StudioService = game:GetService("StudioService")
 local TweenService = game:GetService("TweenService")
@@ -554,7 +555,13 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					target.Source = result
+					if isBuildScript then
+						target.Source = result
+					else
+						ScriptEditorService:UpdateSourceAsync(target, function(_oldContent: string)
+							return result
+						end)
+					end
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
 				end
@@ -584,7 +591,13 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					target.Source = result
+					if isBuildScript then
+						target.Source = result
+					else
+						ScriptEditorService:UpdateSourceAsync(target, function(_oldContent: string)
+							return result
+						end)
+					end
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
 				end
@@ -862,7 +875,7 @@ if not IS_PLAYTEST_SERVER then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
 							local success, result = pcall(function()
-								HttpService:PostAsync("http://localhost:" .. getPort(), StudioService.ActiveScript.Source, Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
+								HttpService:PostAsync("http://localhost:" .. getPort(), ScriptEditorService:GetEditorSource(StudioService.ActiveScript :: LuaSourceContainer), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
 							end)
 							if success then
 								print("[Lync] - Saved script:", data.Path)
@@ -905,14 +918,17 @@ if not IS_PLAYTEST_SERVER then
 	revertScript.MouseButton1Down:Connect(function()
 		if revertScript.Active and not revertScriptHeldTween then
 			local tween = TweenService:Create(revertScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
-			revertScriptHeldTween =tween
+			revertScriptHeldTween = tween
 			tween:Play()
 			tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
 				if playbackState == Enum.PlaybackState.Completed then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
 							local success, result = pcall(function()
-								data.Instance.Source = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+								local source = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+								ScriptEditorService:UpdateSourceAsync(data.Instance, function(_oldContent: string)
+									return source
+								end)
 							end)
 							if success then
 								print("[Lync] - Reverted script:", data.Path)
