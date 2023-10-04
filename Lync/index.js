@@ -277,9 +277,11 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 	if (localPath != undefined) {
 		if (typeof localPath == 'object') {
 			if ('optional' in localPath) {
-				localPath = localPath.optional
+				mapDetails.Path = localPath.optional
+				localPath = mapDetails.Path
 			} else if ('package' in localPath) {
-				localPath = localPath.package
+				mapDetails.Path = localPath.package
+				localPath = mapDetails.Path
 			}
 		}
 		if (localPathIsIgnored(localPath)) return
@@ -712,6 +714,7 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 				} catch (err) {
 					console.error(red('Failed to download package'), green(localPath.package) + red(':'), yellow(err))
 				}
+				map[nextRobloxPath].Path.package = assetFile
 				if (fs.existsSync(assetFile + assetExt)) {
 					await mapDirectory(assetFile + assetExt, nextRobloxPath, 'JSON')
 				}
