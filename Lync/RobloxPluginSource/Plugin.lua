@@ -458,6 +458,28 @@ local function setDetails(target: any, data: any)
 	end
 end
 
+local function setScriptSourceLive(container: LuaSourceContainer, lua: string)
+	local document = ScriptEditorService:FindScriptDocument(container)
+	local cursorLine: number, cursorChar: number, anchorLine: number, anchorChar: number;
+	if document then
+		cursorLine, cursorChar, anchorLine, anchorChar = document:GetSelection()
+	end
+	ScriptEditorService:UpdateSourceAsync(container, function(_oldContent: string)
+		return lua
+	end)
+	if document then
+		local maxLine = document:GetLineCount()
+		local maxCursorChar = document:GetLine(math.min(cursorLine, maxLine)):len() + 1
+		local maxAnchorChar = document:GetLine(math.min(anchorLine, maxLine)):len() + 1
+		document:ForceSetSelectionAsync(
+			math.min(cursorLine, maxLine),
+			math.min(cursorChar, maxCursorChar),
+			math.min(anchorLine, maxLine),
+			math.min(anchorChar, maxAnchorChar)
+		)
+	end
+end
+
 local function buildJsonModel(target: any, data: any)
 	if data.Children then
 		for _, childData in data.Children do
@@ -558,9 +580,7 @@ local function buildPath(path: string)
 					if isBuildScript then
 						target.Source = result
 					else
-						ScriptEditorService:UpdateSourceAsync(target, function(_oldContent: string)
-							return result
-						end)
+						setScriptSourceLive(target, result)
 					end
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
@@ -594,9 +614,7 @@ local function buildPath(path: string)
 					if isBuildScript then
 						target.Source = result
 					else
-						ScriptEditorService:UpdateSourceAsync(target, function(_oldContent: string)
-							return result
-						end)
+						setScriptSourceLive(target, result)
 					end
 				else
 					terminate(`The server did not return a source for '{data.Path}'`)
@@ -926,9 +944,7 @@ if not IS_PLAYTEST_SERVER then
 						if data.Instance == StudioService.ActiveScript then
 							local success, result = pcall(function()
 								local source = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
-								ScriptEditorService:UpdateSourceAsync(data.Instance, function(_oldContent: string)
-									return source
-								end)
+								setScriptSourceLive(data.Instance, source)
 							end)
 							if success then
 								print("[Lync] - Reverted script:", data.Path)
