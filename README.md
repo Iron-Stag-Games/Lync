@@ -6,8 +6,9 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 > This tool is currently provided without any documentation whatsoever! Because the two tools are so similar, please refer to [the Rojo documentation](https://rojo.space/docs/v7/) for the time being.
 
 ## Installation
-- **Aftman** - `aftman add Iron-Stag-Games/Lync@version`
+- **Aftman** - `aftman add --global Iron-Stag-Games/Lync`
 - **Manual** - Download [the latest release asset](https://github.com/Iron-Stag-Games/Lync/releases/latest) and extract the binary to wherever is most convenient. It's recommended that you modify your `Path` system environment variable so you can run the tool with simply `lync`.
+- **Auto Updates** - Run `lync config` and set `AutoUpdate` to `true`.
 
 ## Usage
 ```
