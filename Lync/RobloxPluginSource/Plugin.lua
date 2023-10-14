@@ -715,7 +715,7 @@ local function buildPath(path: string)
 			if target == workspace.Terrain then
 				for material, value in data.TerrainMaterialColors do
 					lpcall("Set Terrain Material Color", function()
-						workspace.Terrain:SetMaterialColor(material, eval(value))
+						workspace.Terrain:SetMaterialColor((Enum.Material :: any)[material], eval(value))
 					end)
 				end
 			else

@@ -4,6 +4,7 @@ local luau = require("@lune/luau")
 local net = require("@lune/net")
 local roblox = require("@lune/roblox")
 
+local Enum = roblox.Enum
 local Instance = roblox.Instance
 
 local isBuildScript = true
