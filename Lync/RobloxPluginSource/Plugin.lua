@@ -713,15 +713,10 @@ local function buildPath(path: string)
 		end
 		if data.TerrainMaterialColors then
 			if target == workspace.Terrain then
-				if isBuildScript then
-					-- Temporary. Awaiting rbx-dom / Lune update.
-					print("Terrain material colors unimplemented!")
-				else
-					for material, value in data.TerrainMaterialColors do
-						lpcall("Set Terrain Material Color", function()
-							workspace.Terrain:SetMaterialColor(material, eval(value))
-						end)
-					end
+				for material, value in data.TerrainMaterialColors do
+					lpcall("Set Terrain Material Color", function()
+						workspace.Terrain:SetMaterialColor(material, eval(value))
+					end)
 				end
 			else
 				terminate("Cannot use $terrainMaterialColors property with " .. tostring(target))
