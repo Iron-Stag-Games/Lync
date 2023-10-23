@@ -183,7 +183,7 @@ function localPathIsInit(localPath) {
  * @returns {boolean}
  */
 function localPathIsIgnored(localPath) {
-	localPath = path.relative(path.resolve(), localPath)
+	localPath = path.relative(process.cwd(), localPath)
 	return globIgnorePathsPicoMatch(localPath.replace(/\\/g, '/'))
 }
 
@@ -198,7 +198,7 @@ function localPathIsIgnored(localPath) {
 function hardLinkRecursive(existingPath, hardLinkPath) {
 	if (localPathIsIgnored(existingPath)) return
 	const stats = fs.statSync(existingPath)
-	const newPath = path.resolve(hardLinkPath, path.relative(path.resolve(), existingPath))
+	const newPath = path.resolve(hardLinkPath, path.relative(process.cwd(), existingPath))
 	try {
 		const parentPath = path.resolve(newPath, '..')
 		if (!fs.existsSync(parentPath)) {
@@ -404,7 +404,7 @@ async function mapDirectory(localPath, robloxPath, flag) {
 					mTimes[localPath] = localPathStats.mtimeMs
 					const subProjectJson = validateJson('SubProject', localPath, fs.readFileSync(localPath, { encoding: 'utf-8' }))
 					if (subProjectJson) {
-						const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
+						const parentPathString = path.relative(process.cwd(), path.resolve(localPath, '..')).replace(/\\/g, '/')
 						const externalPackageAppend = parentPathString != '' && parentPathString + '/' || ''
 						await mapJsonRecursive(localPath, subProjectJson, robloxPath, 'tree', true, externalPackageAppend, localPathStats.mtimeMs)
 					}
@@ -424,7 +424,7 @@ async function mapDirectory(localPath, robloxPath, flag) {
 						assignMap(flag != 'Modified' && robloxPath.slice(0, -6) || robloxPath, {
 							'Type': 'Excel',
 							'Path': localPath,
-							'Meta': path.relative(path.resolve(), path.resolve(localPath, '..', excel.spreadsheet)).replace(/\\/g, '/')
+							'Meta': path.relative(process.cwd(), path.resolve(localPath, '..', excel.spreadsheet)).replace(/\\/g, '/')
 						}, localPathStats.mtimeMs)
 
 				// Modules
@@ -729,16 +729,21 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 }
 
 async function changedJson() {
+	if (!fs.existsSync(PROJECT_JSON)) {
+		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('does not exist'))
+		process.exit()
+	}
 	if (DEBUG) console.log('Loading', cyan(PROJECT_JSON))
 	projectJson = validateJson('MainProject', PROJECT_JSON, fs.readFileSync(PROJECT_JSON, { encoding: 'utf-8' }))
 	if (!projectJson) {
 		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('is invalid'))
 		process.exit()
 	}
+	process.chdir(path.resolve(PROJECT_JSON, '..'))
 	if (MODE != 'serve' && MODE != 'open' && MODE != 'build') return
 	let globIgnorePathsArr = [
 		PROJECT_JSON,
-		path.relative(path.resolve(), path.resolve(PROJECT_JSON, '../sourcemap.json')).replace(/\\/g, '/'),
+		path.relative(process.cwd(), path.resolve(PROJECT_JSON, '../sourcemap.json')).replace(/\\/g, '/'),
 		'*.lock',
 		'.git/*',
 		'~$*'
@@ -852,17 +857,13 @@ async function changedJson() {
 
 	// Begin
 
-	console.log('Path:', cyan(path.resolve()))
+	console.log('Path:', cyan(process.cwd()))
 	console.log('Args:', ARGS)
 
 	http.globalAgent.maxSockets = 65535
 
 	// Map project
 
-	if (!fs.existsSync(PROJECT_JSON)) {
-		console.error(red('Terminated:'), yellow('Project'), cyan(PROJECT_JSON), yellow('does not exist'))
-		process.exit()
-	}
 	await changedJson()
 
 	// Download sources
@@ -1038,7 +1039,7 @@ async function changedJson() {
 
 		// Sync file changes
 		chokidar.watch('.', {
-			cwd: path.resolve(),
+			cwd: process.cwd(),
 			disableGlobbing: true,
 			ignoreInitial: true,
 			ignored: globIgnorePaths,
@@ -1050,11 +1051,11 @@ async function changedJson() {
 			if (DEBUG) console.log('E', yellow(event), cyan(localPath))
 			try {
 				if (localPath) {
-					localPath = path.relative(path.resolve(), localPath)
+					localPath = path.relative(process.cwd(), localPath)
 
 					if (!localPathIsIgnored(localPath)) {
 						localPath = localPath.replace(/\\/g, '/')
-						const parentPathString = path.relative(path.resolve(), path.resolve(localPath, '..')).replace(/\\/g, '/')
+						const parentPathString = path.relative(process.cwd(), path.resolve(localPath, '..')).replace(/\\/g, '/')
 
 						if (localPath in mTimes) {
 	
@@ -1233,7 +1234,7 @@ async function changedJson() {
 					try {
 						fs.rmSync(hardLinkPath, { force: true, recursive: true })
 					} catch (err) {}
-					hardLinkRecursive(path.resolve(), hardLinkPath)
+					hardLinkRecursive(process.cwd(), hardLinkPath)
 				}
 
 				// Send map
@@ -1390,7 +1391,7 @@ async function changedJson() {
 				break
 
 			case 'ReverseSync':
-				const workingDir = path.resolve()
+				const workingDir = process.cwd()
 				if (path.resolve(req.headers.path).substring(0, workingDir.length) != workingDir) {
 					res.writeHead(403)
 					res.end('File not located in project directory')
