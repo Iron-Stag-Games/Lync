@@ -55,33 +55,33 @@ const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'lync-config.json')
 let CONFIG;
 try {
 	CONFIG = {
-		"Debug": false,
-		"GenerateSourcemap": true,
-		"GithubAccessToken": "",
-		"AutoUpdate": false,
-		"AutoUpdate_UsePrereleases": false,
-		"AutoUpdate_Repo": "Iron-Stag-Games/Lync",
-		"AutoUpdate_LatestId": 0,
-		"Path_RobloxVersions": "",
-		"Path_RobloxContent": "",
-		"Path_RobloxPlugins": "",
-		"Path_StudioModManagerContent": "",
-		"Path_Lune": "lune"
+		'Debug': false,
+		'GenerateSourcemap': true,
+		'GithubAccessToken': '',
+		'AutoUpdate': false,
+		'AutoUpdate_UsePrereleases': false,
+		'AutoUpdate_Repo': 'Iron-Stag-Games/Lync',
+		'AutoUpdate_LatestId': 0,
+		'Path_RobloxVersions': '',
+		'Path_RobloxContent': '',
+		'Path_RobloxPlugins': '',
+		'Path_StudioModManagerContent': '',
+		'Path_Lune': 'lune'
 	}
 	if (PLATFORM == 'windows') {
-		CONFIG.Path_RobloxVersions = "%LOCALAPPDATA%/Roblox/Versions"
-		CONFIG.Path_RobloxPlugins = "%LOCALAPPDATA%/Roblox/Plugins"
-		CONFIG.Path_StudioModManagerContent = "%LOCALAPPDATA%/Roblox Studio/content"
+		CONFIG.Path_RobloxVersions = '%LOCALAPPDATA%/Roblox/Versions'
+		CONFIG.Path_RobloxPlugins = '%LOCALAPPDATA%/Roblox/Plugins'
+		CONFIG.Path_StudioModManagerContent = '%LOCALAPPDATA%/Roblox Studio/content'
 		delete CONFIG.Path_RobloxContent
 	} else if (PLATFORM == 'macos') {
-		CONFIG.Path_RobloxContent = "/Applications/RobloxStudio.app/Contents/Resources/content"
-		CONFIG.Path_RobloxPlugins = "$HOME/Documents/Roblox/Plugins"
+		CONFIG.Path_RobloxContent = '/Applications/RobloxStudio.app/Contents/Resources/content'
+		CONFIG.Path_RobloxPlugins = '$HOME/Documents/Roblox/Plugins'
 		delete CONFIG.Path_RobloxVersions
 		delete CONFIG.Path_StudioModManagerContent
 	} else {
-		delete CONFIG.Path_RobloxVersions
+		CONFIG.Path_RobloxVersions = ''
+		CONFIG.Path_RobloxPlugins = ''
 		delete CONFIG.Path_RobloxContent
-		delete CONFIG.Path_RobloxPlugins
 		delete CONFIG.Path_StudioModManagerContent
 	}
 	if (fs.existsSync(CONFIG_PATH)) {
@@ -125,7 +125,7 @@ const ARGS = process.argv.slice(2)
 const MODE = (ARGS[0] || '').toLowerCase()
 if (MODE == '' || MODE == 'help') {
 	argHelp()
-} else if (MODE == 'config') {
+} else if (MODE == 'config' || (MODE == 'serve' || MODE == 'open') && PLATFORM == 'linux' && (CONFIG.Path_RobloxVersions == '' || CONFIG.Path_RobloxPlugins == '')) {
 	spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${CONFIG_PATH}"`, [], {
 		stdio: 'ignore',
 		detached: true,
@@ -1014,18 +1014,17 @@ async function changedJson() {
 			fs.copyFileSync(projectJson.base, projectJson.build)
 		}
 
+		// Copy plugin
+		const pluginsPath = path.resolve(PLATFORM == 'windows' && CONFIG.Path_RobloxPlugins.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || PLATFORM == 'macos' && CONFIG.Path_RobloxPlugins.replace('$HOME', process.env.HOME) || CONFIG.Path_RobloxPlugins)
+		if (!fs.existsSync(pluginsPath)) {
+			if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
+			fs.mkdirSync(pluginsPath)
+		}
+		if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
+		fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
+
+		// Open Studio
 		if (PLATFORM == 'windows' || PLATFORM == 'macos') {
-
-			// Copy plugin
-			const pluginsPath = path.resolve(PLATFORM == 'windows' && CONFIG.Path_RobloxPlugins.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || PLATFORM == 'macos' && CONFIG.Path_RobloxPlugins.replace('$HOME', process.env.HOME))
-			if (!fs.existsSync(pluginsPath)) {
-				if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
-				fs.mkdirSync(pluginsPath)
-			}
-			if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
-			fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
-
-			// Open Studio
 			if (MODE == 'open') {
 				if (DEBUG) console.log('Opening', cyan(projectJson.build))
 				spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
@@ -1201,8 +1200,8 @@ async function changedJson() {
 				// Create content hard links
 
 				hardLinkPaths = []
-				if (PLATFORM == 'windows') {
-					const versionsPath = path.resolve(CONFIG.Path_RobloxVersions.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+				if (PLATFORM == 'windows' || PLATFORM == 'linux') {
+					const versionsPath = path.resolve(PLATFORM == 'windows' && CONFIG.Path_RobloxVersions.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || CONFIG.Path_RobloxVersions)
 					fs.readdirSync(versionsPath).forEach((dirNext) => {
 						const stats = fs.statSync(path.resolve(versionsPath, dirNext))
 						if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
@@ -1213,14 +1212,16 @@ async function changedJson() {
 							hardLinkPaths.push(hardLinkPath)
 						}
 					})
-					// Studio Mod Manager
-					const modManagerContentPath = path.resolve(CONFIG.Path_StudioModManagerContent.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
-					if (fs.existsSync(modManagerContentPath)) {
-						const hardLinkPath = path.resolve(modManagerContentPath, 'lync')
-						if (!fs.existsSync(hardLinkPath)) {
-							fs.mkdirSync(hardLinkPath)
+					if (PLATFORM == 'windows') {
+						// Studio Mod Manager
+						const modManagerContentPath = path.resolve(CONFIG.Path_StudioModManagerContent.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
+						if (fs.existsSync(modManagerContentPath)) {
+							const hardLinkPath = path.resolve(modManagerContentPath, 'lync')
+							if (!fs.existsSync(hardLinkPath)) {
+								fs.mkdirSync(hardLinkPath)
+							}
+							hardLinkPaths.push(hardLinkPath)
 						}
-						hardLinkPaths.push(hardLinkPath)
 					}
 				} else if (PLATFORM == 'macos') {
 					const contentPath = path.resolve(CONFIG.Path_RobloxContent)
