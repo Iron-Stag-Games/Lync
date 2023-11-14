@@ -19,7 +19,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 ]]
-local VERSION = "Alpha 25"
+local VERSION = "Alpha 26"
 
 if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
@@ -431,6 +431,17 @@ local function eval(value: any): any
 end
 
 local function setDetails(target: any, data: any)
+	if data.Context then
+		lpcall("Set Context " .. data.Context, function()
+			if data.Context == "Legacy" then
+				target.RunContext = Enum.RunContext.Legacy
+			elseif data.Context == "Client" then
+				target.RunContext = Enum.RunContext.Client
+			elseif data.Context == "Server" then
+				target.RunContext = Enum.RunContext.Server
+			end
+		end)
+	end
 	if data.Properties then
 		for property, value in data.Properties do
 			lpcall("Set Property " .. property, function()
@@ -511,7 +522,7 @@ local function buildPath(path: string)
 					not data
 					or data.Type == "Model" or data.Type == "JsonModel"
 					or data.Type == "Instance" and nextTarget.ClassName ~= data.ClassName
-					or data.Type == "Lua" and nextTarget.ClassName ~= (if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript")
+					or data.Type == "Lua" and nextTarget.ClassName ~= (if data.Context == "ModuleScript" then "ModuleScript" elseif data.Context == "LocalScript" then "LocalScript" else "Script")
 				then
 					if not pcall(function()
 						nextTarget.Parent = nil
@@ -565,7 +576,7 @@ local function buildPath(path: string)
 			end
 		elseif data.Type == "Lua" then
 			if createInstance then
-				local newInstance = Instance.new(if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript")
+				local newInstance = Instance.new(if data.Context == "ModuleScript" then "ModuleScript" elseif data.Context == "LocalScript" then "LocalScript" else "Script")
 				newInstance.Name = name
 				newInstance.Parent = target
 				target = newInstance

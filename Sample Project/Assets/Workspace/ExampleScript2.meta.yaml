@@ -1,3 +1,2 @@
-properties:
-  Enabled: false
-  RunContext: ["Enum.RunContext.Client"]
+attributes:
+  Number: 2

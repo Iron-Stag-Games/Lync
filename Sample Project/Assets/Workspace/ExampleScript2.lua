@@ -1,4 +1,6 @@
--- This is a script with a JSON meta file
+--@script:server
+--@disabled
+-- This is a script with a YAML meta file
 
 print(require(script.Parent:WaitForChild("ExampleModule")))
 

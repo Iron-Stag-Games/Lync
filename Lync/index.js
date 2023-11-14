@@ -18,7 +18,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 */
-const VERSION = 'Alpha 25'
+const VERSION = 'Alpha 26'
 
 const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
@@ -175,7 +175,7 @@ function localPathIsInit(localPath) {
 	const localPathParsed = path.parse(localPath)
 	const localPathName = localPathParsed.name.toLowerCase()
 	const localPathExt = localPathParsed.ext.toLowerCase()
-	return (localPathExt == '.lua' || localPathExt == '.luau') && (localPathName == 'init' || localPathName == 'init.client' || localPathName == 'init.server' || localPathName.endsWith('.init') || localPathName.endsWith('.init.client') || localPathName.endsWith('.init.server'))
+	return (localPathExt == '.lua' || localPathExt == '.luau') && (localPathName == 'init' || localPathName.endsWith('.init'))
 }
 
 /**
@@ -307,16 +307,58 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 /**
  * @param {string} localPath
  * @param {string} robloxPath
- * @param {Object} properties
  * @param {Object} attributes
  * @param {string[]} tags
  * @param {string?} metaLocalPath
  * @param {string?} initPath
  * @param {number} mtimeMs
  */
-function mapLua(localPath, robloxPath, properties, attributes, tags, metaLocalPath, initPath, mtimeMs) {
+function mapLua(localPath, robloxPath, attributes, tags, metaLocalPath, initPath, mtimeMs) {
 	if (localPathIsIgnored(localPath)) return
-	const context = (localPath.endsWith('.client.lua') || localPath.endsWith('.client.luau')) && 'Client' || (localPath.endsWith('.server.lua') || localPath.endsWith('.server.luau')) && 'Server' || 'Module'
+
+	const properties = {}
+	let context = 'ModuleScript'
+
+	// Scan for directives (run context, disabled)
+	try {
+		const directives = fs.readFileSync(localPath, { encoding: 'utf-8' }).split(/[\r\n]+/)
+		for (const index in directives) {
+			const line = directives[index].toLowerCase()
+			if (line.startsWith('--@')) {
+				if (line.startsWith('--@script:')) {
+					if (line == '--@script:legacy') {
+						context = 'Legacy'
+					} else if (line == '--@script:server') {
+						context = 'Server'
+					} else if (line == '--@script:client') {
+						context = 'Client'
+					} else if (line == '--@script:localscript') {
+						context = 'LocalScript'
+					} else {
+						console.error(fileError(localPath), yellow('Invalid run context directive:'), green(line))
+					}
+				} else if (line == '--@disabled') {
+					properties.Enabled = false
+				} else {
+					console.error(fileError(localPath), yellow('Unknown directive:'), green(line))
+				}
+			} else if (!line.startsWith('--!')) {
+				break
+			}
+		}
+	} catch (err) {
+		console.error(fileError(localPath), yellow(err))
+	}
+
+	if (context == 'ModuleScript') {
+		if ('Enabled' in properties) {
+			delete properties.Enabled
+			console.error(fileError(localPath), yellow('Cannot use'), green('--@disabled'), yellow('directive on ModuleScripts'))
+		}
+	} else {
+		if (!('Enabled' in properties)) properties.Enabled = true
+	}
+
 	assignMap(robloxPath, {
 		'Type': 'Lua',
 		'Context': context,
@@ -359,10 +401,9 @@ async function mapDirectory(localPath, robloxPath, flag) {
 			// Lua Meta Files
 			if (localPathExt == '.lua' || localPathExt == '.luau' || localPathExt == '.txt' || localPathExt == '.csv') {
 				let luaMeta;
-				const title = (localPathExt == '.lua' || localPathExt == '.luau') && (localPathName.endsWith('.client') || localPathName.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name
-				const metaLocalPathJson = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.json'
-				const metaLocalPathYaml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.yaml'
-				const metaLocalPathToml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + title + '.meta.toml'
+				const metaLocalPathJson = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + localPathParsed.name + '.meta.json'
+				const metaLocalPathYaml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + localPathParsed.name + '.meta.yaml'
+				const metaLocalPathToml = localPath.slice(0, localPath.lastIndexOf('/')) + '/' + localPathParsed.name + '.meta.toml'
 				if (fs.existsSync(metaLocalPathJson)) {
 					luaMeta = validateJson('Meta', metaLocalPathJson, fs.readFileSync(metaLocalPathJson, { encoding: 'utf-8' }))
 					metaLocalPath = metaLocalPathJson
@@ -385,8 +426,8 @@ async function mapDirectory(localPath, robloxPath, flag) {
 			// Lua
 			if (localPathExt == '.lua' || localPathExt == '.luau') {
 				let newRobloxPath = robloxPath
-				if (flag != 'JSON' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + ((localPathName.endsWith('.client') || localPathName.endsWith('.server')) && localPathParsed.name.slice(0, -7) || localPathParsed.name)
-				mapLua(localPath, newRobloxPath, properties, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
+				if (flag != 'JSON' && flag != 'Modified') newRobloxPath = robloxPathParsed.dir + '/' + localPathParsed.name
+				mapLua(localPath, newRobloxPath, attributes, tags, metaLocalPath, undefined, localPathStats.mtimeMs)
 
 			// Models
 			} else if (localPathExt == '.rbxm' || localPathExt == '.rbxmx') {
@@ -524,31 +565,15 @@ async function mapDirectory(localPath, robloxPath, flag) {
 
 			// Lync-Style Init Lua
 			if (fs.existsSync(localPath + '/' + localPathParentName + '.init.lua')) {
-				mapLua(localPath + '/' + localPathParentName + '.init.lua', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
-			} else if (fs.existsSync(localPath + '/' + localPathParentName + '.init.client.lua')) {
-				mapLua(localPath + '/' + localPathParentName + '.init.client.lua', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
-			} else if (fs.existsSync(localPath + '/' + localPathParentName + '.init.server.lua')) {
-				mapLua(localPath + '/' + localPathParentName + '.init.server.lua', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
+				mapLua(localPath + '/' + localPathParentName + '.init.lua', robloxPath, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
 			} else if (fs.existsSync(localPath + '/' + localPathParentName + '.init.luau')) {
-				mapLua(localPath + '/' + localPathParentName + '.init.luau', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
-			} else if (fs.existsSync(localPath + '/' + localPathParentName + '.init.client.luau')) {
-				mapLua(localPath + '/' + localPathParentName + '.init.client.luau', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
-			} else if (fs.existsSync(localPath + '/' + localPathParentName + '.init.server.luau')) {
-				mapLua(localPath + '/' + localPathParentName + '.init.server.luau', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
+				mapLua(localPath + '/' + localPathParentName + '.init.luau', robloxPath, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
 
 			// Rojo-Style Init Lua
 			} else if (fs.existsSync(localPath + '/init.lua')) {
-				mapLua(localPath + '/init.lua', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
-			} else if (fs.existsSync(localPath + '/init.client.lua')) {
-				mapLua(localPath + '/init.client.lua', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
-			} else if (fs.existsSync(localPath + '/init.server.lua')) {
-				mapLua(localPath + '/init.server.lua', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
+				mapLua(localPath + '/init.lua', robloxPath, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
 			} else if (fs.existsSync(localPath + '/init.luau')) {
-				mapLua(localPath + '/init.luau', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
-			} else if (fs.existsSync(localPath + '/init.client.luau')) {
-				mapLua(localPath + '/init.client.luau', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
-			} else if (fs.existsSync(localPath + '/init.server.luau')) {
-				mapLua(localPath + '/init.server.luau', robloxPath, properties, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
+				mapLua(localPath + '/init.luau', robloxPath, attributes, tags, undefined, localPath, localPathStats.mtimeMs)
 
 			// Folders
 			} else if (flag != 'JSON') {
@@ -573,17 +598,9 @@ async function mapDirectory(localPath, robloxPath, flag) {
 					case 'init.meta.yaml':
 					case 'init.meta.toml':
 					case localPathParentNameLower + '.init.lua':
-					case localPathParentNameLower + '.init.client.lua':
-					case localPathParentNameLower + '.init.server.lua':
 					case localPathParentNameLower + '.init.luau':
-					case localPathParentNameLower + '.init.client.luau':
-					case localPathParentNameLower + '.init.server.luau':
 					case 'init.lua':
-					case 'init.client.lua':
-					case 'init.server.lua':
 					case 'init.luau':
-					case 'init.client.luau':
-					case 'init.server.luau':
 						break
 					default:
 						const filePathNext = localPath + '/' + dirNext
@@ -1123,21 +1140,9 @@ async function changedJson() {
 											if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
 												delete map[key]
 												await mapDirectory(localPath, title + '.lua')
-											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.lua')) {
-												delete map[key]
-												await mapDirectory(localPath, title + '.client.lua')
-											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.lua')) {
-												delete map[key]
-												await mapDirectory(localPath, title + '.server.lua')
 											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
 												delete map[key]
 												await mapDirectory(localPath, title + '.luau')
-											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.client.luau')) {
-												delete map[key]
-												await mapDirectory(localPath, title + '.client.luau')
-											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.server.luau')) {
-												delete map[key]
-												await mapDirectory(localPath, title + '.server.luau')
 											} else {
 												console.error(fileError(localPath), yellow('Stray meta file'))
 												return

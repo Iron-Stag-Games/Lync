@@ -1,3 +1,5 @@
+--@script:client
+--@disabled
 -- This is a script with a TOML meta file
 
 print(require(script.Parent:WaitForChild("ExampleModule")))
