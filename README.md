@@ -30,6 +30,8 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 
 # How does Lync compare to Rojo?
 
+*If this list is inaccurate, [please submit an issue](https://github.com/Iron-Stag-Games/Lync/issues/new)!*
+
 ### Legend
 | Symbol | Meaning |
 |-|-|
@@ -115,4 +117,3 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 - **NDA title** - RB Battles PVP
 - **NDA title #1** - Fund For Games
 - **NDA title #2** - Fund For Games
-- **NDA title** - Purple Toast Productions
