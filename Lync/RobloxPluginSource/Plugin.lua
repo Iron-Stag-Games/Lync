@@ -510,6 +510,7 @@ local function buildPath(path: string)
 				if
 					not data
 					or data.Type == "Model" or data.Type == "JsonModel"
+					or data.Type == "Instance" and nextTarget.ClassName ~= data.ClassName
 					or data.Type == "Lua" and nextTarget.ClassName ~= (if data.Context == "Client" then "LocalScript" elseif data.Context == "Server" then "Script" else "ModuleScript")
 				then
 					if not pcall(function()
