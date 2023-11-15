@@ -55,18 +55,19 @@ const CONFIG_PATH = path.resolve(LYNC_INSTALL_DIR, 'lync-config.json')
 let CONFIG;
 try {
 	CONFIG = {
-		'Debug': false,
-		'GenerateSourcemap': true,
-		'GithubAccessToken': '',
-		'AutoUpdate': false,
-		'AutoUpdate_UsePrereleases': false,
-		'AutoUpdate_Repo': 'Iron-Stag-Games/Lync',
-		'AutoUpdate_LatestId': 0,
-		'Path_RobloxVersions': '',
-		'Path_RobloxContent': '',
-		'Path_RobloxPlugins': '',
-		'Path_StudioModManagerContent': '',
-		'Path_Lune': 'lune'
+		Debug: false,
+		GenerateSourcemap: true,
+		GithubAccessToken: '',
+		AutoUpdate: false,
+		AutoUpdate_UsePrereleases: false,
+		AutoUpdate_Repo: 'Iron-Stag-Games/Lync',
+		AutoUpdate_LatestId: 0,
+		Path_RobloxVersions: '',
+		Path_RobloxContent: '',
+		Path_RobloxPlugins: '',
+		Path_StudioModManagerContent: '',
+		Path_Lune: 'lune',
+		JobCommands: {}
 	}
 	if (PLATFORM == 'windows') {
 		CONFIG.Path_RobloxVersions = '%LOCALAPPDATA%/Roblox/Versions'
@@ -145,12 +146,12 @@ const USE_REMOTE = ARGS[2] && ARGS[2].toLowerCase() == 'remote' // Unimplemented
 
 const securityKeys = {}
 const mTimes = {}
+var firstMapped = false
 var map = {}
 var modified = {}
 var modified_playtest = {}
 var modified_sourcemap = {}
 var projectJson;
-var globIgnorePaths;
 var globIgnorePathsPicoMatch;
 var hardLinkPaths;
 
@@ -302,6 +303,9 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 	modified_sourcemap[robloxPath] = mapDetails
 	if (localPath) mTimes[localPath] = mtimeMs
 	if (mapDetails.Meta) mTimes[mapDetails.Meta] = fs.statSync(mapDetails.Meta).mtimeMs // Meta File stats are never retrieved before this, so they aren't in a function parameter
+	if (MODE != 'build' && !firstMapped && localPath) {
+		runJobs('start', localPath)
+	}
 }
 
 /**
@@ -792,8 +796,42 @@ async function changedJson() {
 	map = {}
 	const projectJsonStats = fs.statSync(PROJECT_JSON)
 	for (const service in projectJson.tree) {
-		if (service == '$className') continue // Fix for Roblox LSP source map
 		await mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, undefined, projectJsonStats.mtimeMs)
+	}
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Automated Job Functions
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @param {string} event
+ * @param {string} localPath
+ * @param {boolean?} afterSync
+ */
+function runJobs(event, localPath, afterSync) {
+	if ('jobs' in projectJson) {
+		for (const index in projectJson.jobs) {
+			const job = projectJson.jobs[index]
+			if ((event == 'start' || job.afterSync == afterSync) && job.on.includes(event)) {
+				for (const path of job.globPaths) {
+					if (picomatch(path)(localPath.replace(/\\/g, '/'))) {
+						console.log('Running job command', green(job.commandName))
+						if (job.commandName in CONFIG.JobCommands) {
+							spawn(CONFIG.JobCommands[job.commandName], [], {
+								stdio: 'ignore',
+								detached: true,
+								shell: true,
+								windowsHide: true
+							})
+						} else {
+							console.error(fileError(CONFIG_PATH), yellow("Missing job command"), green(job.commandName))
+						}
+						break
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -889,6 +927,7 @@ async function changedJson() {
 	// Map project
 
 	await changedJson()
+	firstMapped = true
 
 	// Download sources
 	if (MODE == 'fetch') {
@@ -1065,121 +1104,124 @@ async function changedJson() {
 			cwd: process.cwd(),
 			disableGlobbing: true,
 			ignoreInitial: true,
-			ignored: globIgnorePaths,
 			persistent: true,
 			ignorePermissionErrors: true,
 			alwaysStat: true,
 			usePolling: true
 		}).on('all', async function(event, localPath, localPathStats) {
-			if (DEBUG) console.log('E', yellow(event), cyan(localPath))
-			try {
-				if (localPath) {
-					localPath = path.relative(process.cwd(), localPath)
+			runJobs(event, localPath, false)
+			if (!globIgnorePathsPicoMatch(localPath.replace(/\\/g, '/'))) {
+				if (DEBUG) console.log('E', yellow(event), cyan(localPath))
+				try {
+					if (localPath) {
+						localPath = path.relative(process.cwd(), localPath)
 
-					if (!localPathIsIgnored(localPath)) {
-						localPath = localPath.replace(/\\/g, '/')
-						const parentPathString = path.relative(process.cwd(), path.resolve(localPath, '..')).replace(/\\/g, '/')
+						if (!localPathIsIgnored(localPath)) {
+							localPath = localPath.replace(/\\/g, '/')
+							const parentPathString = path.relative(process.cwd(), path.resolve(localPath, '..')).replace(/\\/g, '/')
 
-						if (localPath in mTimes) {
-	
-							// Deleted
-							if (!localPathStats) {
-								console.log('D', cyan(localPath))
-								for (const key in map) {
-	
-									// Direct
-									if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
-										delete mTimes[localPath]
-										delete mTimes[map[key].Path]
-										delete map[key]
-										modified[key] = false
-										modified_playtest[key] = false
-										modified_sourcemap[key] = false
-										if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
-											await mapDirectory(parentPathString, key, 'Modified')
-										}
-									}
-	
-									// Meta
-									if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
-										if (fs.existsSync(map[key].Path)) {
-											await mapDirectory(map[key].Path, key, 'Modified')
-										}
-									}
-	
-									// JSON member
-									if (key in map && map[key].ProjectJson == localPath) {
-										if (fs.existsSync(map[key].Path)) {
-											await mapDirectory(map[key].Path, key, 'Modified')
-										}
-									}
-								}
-	
-							// Changed
-							} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
-								console.log('M', cyan(localPath))
-								for (const key in map) {
-									if (map[key].InitParent == parentPathString) {
-										await mapDirectory(parentPathString, key, 'Modified')
-									} else if (map[key].Meta == localPath) {
-										await mapDirectory(map[key].Path, key, 'Modified')
-									} else if (map[key].Path == localPath) {
-										await mapDirectory(localPath, key, 'Modified')
-									}
-								}
-								mTimes[localPath] = localPathStats.mtimeMs
-							}
-	
-						} else if ((event == 'add' | event == 'addDir') && localPathStats) {
-	
-							// Added
-							if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
-								console.log('A', cyan(localPath))
-								for (const key in map) {
-									if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
-										const localPathParsed = path.parse(localPath)
-										const localPathName = localPathParsed.name.toLowerCase()
-										const localPathExt = localPathParsed.ext.toLowerCase()
-	
-										// Remap adjacent matching file
-										if (localPathName != 'init.meta' && localPathName.endsWith('.meta') && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml')) {
-											const title = localPathParsed.name.slice(0, -5)
-											if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
-												delete map[key]
-												await mapDirectory(localPath, title + '.lua')
-											} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
-												delete map[key]
-												await mapDirectory(localPath, title + '.luau')
-											} else {
-												console.error(fileError(localPath), yellow('Stray meta file'))
-												return
-											}
-	
-										// Remap parent folder
-										} else if (localPathIsInit(localPath) || localPathName == 'init.meta' && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml') || localPathParsed.base == 'default.project.json') {
+							if (localPath in mTimes) {
+		
+								// Deleted
+								if (!localPathStats) {
+									console.log('D', cyan(localPath))
+									for (const key in map) {
+		
+										// Direct
+										if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
+											delete mTimes[localPath]
+											delete mTimes[map[key].Path]
 											delete map[key]
-											await mapDirectory(parentPathString, key)
-	
-										// Map only file or directory
-										} else {
-											await mapDirectory(localPath, key + '/' + localPathParsed.base)
+											modified[key] = false
+											modified_playtest[key] = false
+											modified_sourcemap[key] = false
+											if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
+												await mapDirectory(parentPathString, key, 'Modified')
+											}
+										}
+		
+										// Meta
+										if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
+											if (fs.existsSync(map[key].Path)) {
+												await mapDirectory(map[key].Path, key, 'Modified')
+											}
+										}
+		
+										// JSON member
+										if (key in map && map[key].ProjectJson == localPath) {
+											if (fs.existsSync(map[key].Path)) {
+												await mapDirectory(map[key].Path, key, 'Modified')
+											}
 										}
 									}
+		
+								// Changed
+								} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
+									console.log('M', cyan(localPath))
+									for (const key in map) {
+										if (map[key].InitParent == parentPathString) {
+											await mapDirectory(parentPathString, key, 'Modified')
+										} else if (map[key].Meta == localPath) {
+											await mapDirectory(map[key].Path, key, 'Modified')
+										} else if (map[key].Path == localPath) {
+											await mapDirectory(localPath, key, 'Modified')
+										}
+									}
+									mTimes[localPath] = localPathStats.mtimeMs
 								}
-								if (!mTimes[localPath]) console.error(red('Lync bug:'), yellow('Failed to add'), cyan(localPath))
+		
+							} else if ((event == 'add' | event == 'addDir') && localPathStats) {
+		
+								// Added
+								if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
+									console.log('A', cyan(localPath))
+									for (const key in map) {
+										if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
+											const localPathParsed = path.parse(localPath)
+											const localPathName = localPathParsed.name.toLowerCase()
+											const localPathExt = localPathParsed.ext.toLowerCase()
+		
+											// Remap adjacent matching file
+											if (localPathName != 'init.meta' && localPathName.endsWith('.meta') && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml')) {
+												const title = localPathParsed.name.slice(0, -5)
+												if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
+													delete map[key]
+													await mapDirectory(localPath, title + '.lua')
+												} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
+													delete map[key]
+													await mapDirectory(localPath, title + '.luau')
+												} else {
+													console.error(fileError(localPath), yellow('Stray meta file'))
+													return
+												}
+		
+											// Remap parent folder
+											} else if (localPathIsInit(localPath) || localPathName == 'init.meta' && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml') || localPathParsed.base == 'default.project.json') {
+												delete map[key]
+												await mapDirectory(parentPathString, key)
+		
+											// Map only file or directory
+											} else {
+												await mapDirectory(localPath, key + '/' + localPathParsed.base)
+											}
+										}
+									}
+									if (!mTimes[localPath]) console.error(red('Lync bug:'), yellow('Failed to add'), cyan(localPath))
+								}
 							}
-						}
-	
-						// Modify sourcemap
-						if (CONFIG.GenerateSourcemap && Object.keys(modified_sourcemap).length > 0) {
-							generateSourcemap(PROJECT_JSON, modified_sourcemap, projectJson)
-							modified_sourcemap = {}
+		
+							// Modify sourcemap
+							if (CONFIG.GenerateSourcemap && Object.keys(modified_sourcemap).length > 0) {
+								generateSourcemap(PROJECT_JSON, modified_sourcemap, projectJson)
+								modified_sourcemap = {}
+							}
 						}
 					}
+				} catch (err) {
+					console.error(red('Sync error:'), err)
 				}
-			} catch (err) {
-				console.error(red('Sync error:'), err)
 			}
+			runJobs(event, localPath, true)
 		})
 	}
 

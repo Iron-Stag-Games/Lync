@@ -96,7 +96,7 @@ module.exports.validate = function(type, json, localPath) {
 			console.error(fileError(localPath), yellow('Missing key'), green('name'))
 			failed = true
 		} else if (typeof json.name != 'string') {
-			console.error(fileError(localPath), green('name'), yellow('must be a string'))
+			console.error(jsonError(localPath, json, json, 'name'), yellow('Must be a string'))
 			failed = true
 		}
 
@@ -104,7 +104,7 @@ module.exports.validate = function(type, json, localPath) {
 			console.error(fileError(localPath), yellow('Missing key'), green('base'))
 			failed = true
 		} else if (typeof json.base != 'string') {
-			console.error(fileError(localPath), green('base'), yellow('must be a string'))
+			console.error(jsonError(localPath, json, json, 'base'), yellow('Must be a string'))
 			failed = true
 		}
 
@@ -112,12 +112,12 @@ module.exports.validate = function(type, json, localPath) {
 			console.error(fileError(localPath), yellow('Missing key'), green('build'))
 			failed = true
 		} else if (typeof json.build != 'string') {
-			console.error(fileError(localPath), green('build'), yellow('must be a string'))
+			console.error(jsonError(localPath, json, json, 'build'), yellow('Must be a string'))
 			failed = true
 		} else {
 			const pathExt = path.parse(json.build).ext.toLowerCase()
 			if (pathExt != '.rbxl' && pathExt != '.rbxlx') {
-				console.error(fileError(localPath), green('build'), yellow('must point to an overwritable RBXL or RBXLX file'))
+				console.error(jsonError(localPath, json, json, 'build'), yellow('Must point to an overwritable RBXL or RBXLX file'))
 				failed = true
 			}
 		}
@@ -126,29 +126,43 @@ module.exports.validate = function(type, json, localPath) {
 			console.error(fileError(localPath), yellow('Missing key'), green('port'))
 			failed = true
 		} else if (typeof json.port != 'number') {
-			console.error(fileError(localPath), green('port'), yellow('must be a number'))
+			console.error(jsonError(localPath, json, json, 'port'), yellow('Must be a number'))
 			failed = true
 		}
 
 		if (('remoteAddress' in json) && typeof json.remoteAddress != 'string') {
-			console.error(fileError(localPath), green('remoteAddress'), yellow('must be a string'))
+			console.error(jsonError(localPath, json, json, 'remoteAddress'), yellow('Must be a string'))
 			failed = true
+		}
+
+		if ('globIgnorePaths' in json) {
+			if (!(typeof json.globIgnorePaths == 'object' && Array.isArray(json.globIgnorePaths))) {
+				console.error(jsonError(localPath, json, json, 'globIgnorePaths'), yellow('Must be an array'))
+				failed = true
+			} else {
+				for (const index in json.globIgnorePaths) {
+					if (typeof json.globIgnorePaths[index] != 'string') {
+						console.error(jsonError(localPath, json, json.globIgnorePaths, key), yellow('Must be a string'))
+						failed = true
+					}
+				}
+			}
 		}
 
 		if ('sourcemapEnabled' in json) {
 			if (!(typeof json.sourcemapEnabled == 'object' && !Array.isArray(json.sourcemapEnabled))) {
-				console.error(fileError(localPath), green('sourcemapEnabled'), yellow('must be an object'))
+				console.error(jsonError(localPath, json, json, 'sourcemapEnabled'), yellow('Must be an object'))
 				failed = true
 			} else {
 				for (const key in json.sourcemapEnabled) {
 					if (key != 'RBXM'
 						&& key != 'RBXMX'
 					) {
-						console.error(fileError(localPath), 'Unexpected key', green('sourcemapEnabled\\' + key))
+						console.error(jsonError(localPath, json, json.sourcemapEnabled, key), 'Unexpected key')
 					} else {
 						const value = json.sourcemapEnabled[key]
 						if (typeof value != 'boolean') {
-							console.error(fileError(localPath), green('sourcemapEnabled\\' + key), yellow('must be a boolean'))
+							console.error(jsonError(localPath, json, json.sourcemapEnabled, key), yellow('Must be a boolean'))
 							failed = true
 						}
 					}
@@ -158,59 +172,59 @@ module.exports.validate = function(type, json, localPath) {
 
 		if ('sources' in json) {
 			if (!(typeof json.sources == 'object' && Array.isArray(json.sources))) {
-				console.error(fileError(localPath), green('sources'), yellow('must be an array'))
+				console.error(jsonError(localPath, json, json, 'sources'), yellow('Must be an array'))
 				failed = true
 			} else {
 				for (const index in json.sources) {
 					const source = json.sources[index]
 
 					if (!('name' in source)) {
-						console.error(fileError(localPath), yellow('Missing key'), green('sources.name'))
+						console.error(jsonError(localPath, json, source), yellow('Missing key'), green('name'))
 						failed = true
 					} else if (typeof source.name != 'string') {
-						console.error(fileError(localPath), green('sources.name'), yellow('must be a string'))
+						console.error(jsonError(localPath, json, source, 'name'), yellow('Must be a string'))
 						failed = true
 					}
 
 					if (!('url' in source)) {
-						console.error(fileError(localPath), yellow('Missing key'), green('sources.url'))
+						console.error(jsonError(localPath, json, source), yellow('Missing key'), green('url'))
 						failed = true
 					} else if (typeof source.url != 'string') {
-						console.error(fileError(localPath), green('sources.url'), yellow('must be a string'))
+						console.error(jsonError(localPath, json, source, 'url'), yellow('Must be a string'))
 						failed = true
 					}
 
 					if (!('type' in source)) {
-						console.error(fileError(localPath), yellow('Missing key'), green('sources.type'))
+						console.error(jsonError(localPath, json, source), yellow('Missing key'), green('type'))
 						failed = true
 					} else if (source.type != 'GET' && source.type != 'POST') {
-						console.error(fileError(localPath), green('sources.type'), yellow('must be GET or POST'))
+						console.error(jsonError(localPath, json, source, 'type'), yellow('Must be GET or POST'))
 						failed = true
 					}
 
 					if (!('headers' in source)) {
-						console.error(fileError(localPath), yellow('Missing key'), green('sources.headers'))
+						console.error(jsonError(localPath, json, source), yellow('Missing key'), green('headers'))
 						failed = true
 					} else if (!(typeof source.headers == 'object' && !Array.isArray(source.headers))) {
-						console.error(fileError(localPath), green('sources.headers'), yellow('must be an object'))
+						console.error(jsonError(localPath, json, source, 'headers'), green('sources.headers'), yellow('must be an object'))
 						failed = true
 					}
 
 					if ('postData' in source) {
 						if (typeof source.postData != 'string' && !(typeof source.postData == 'object' && !Array.isArray(source.postData))) {
-							console.error(fileError(localPath), green('sources.postData'), yellow('must be a string or an object'))
+							console.error(jsonError(localPath, json, source, 'postData'), yellow('must be a string or an object'))
 							failed = true
 						} else if (source.type != 'POST') {
-							console.error(fileError(localPath), yellow('Cannot use key'), green('sources.postData'), yellow('with POST type'))
+							console.error(jsonError(localPath, json, source, 'postData'), yellow('Cannot use key with POST type'))
 							failed = true
 						}
 					}
 
 					if (!('path' in source)) {
-						console.error(fileError(localPath), yellow('Missing key'), green('sources.path'))
+						console.error(jsonError(localPath, json, source), yellow('Missing key'), green('path'))
 						failed = true
 					} else if (typeof source.path != 'string') {
-						console.error(fileError(localPath), green('sources.path'), yellow('must be a string'))
+						console.error(jsonError(localPath, json, source, 'path'), yellow('Must be a string'))
 						failed = true
 					}
 
@@ -222,8 +236,47 @@ module.exports.validate = function(type, json, localPath) {
 							&& sourceKey != 'postData'
 							&& sourceKey != 'path'
 						) {
-							console.error(fileError(localPath), 'Unexpected key', green('sources[' + index + ']\\' + sourceKey))
+							console.error(jsonError(localPath, json, source, sourceKey), 'Unexpected key')
 						}
+					}
+				}
+			}
+		}
+
+		if ('jobs' in json) {
+			if (!(typeof json.jobs == 'object' && Array.isArray(json.jobs))) {
+				console.error(jsonError(localPath, json, json, 'jobs'), yellow('Must be an array'))
+				failed = true
+			} else {
+				for (const index in json.jobs) {
+					const job = json.jobs[index]
+
+					if (!('globPaths' in job)) {
+						console.error(jsonError(localPath, json, job), yellow('Missing key'), green('globPaths'))
+						failed = true
+					} else if (!(typeof job.globPaths == 'object' && Array.isArray(job.globPaths))) {
+						console.error(jsonError(localPath, json, job, 'globPaths'), yellow('Must be an array'))
+						failed = true
+					} else {
+
+					}
+
+					if (!('on' in job)) {
+						console.error(jsonError(localPath, json, job), yellow('Missing key'), green('on'))
+						failed = true
+					} else if (!(typeof job.on == 'object' && Array.isArray(job.on))) {
+						console.error(jsonError(localPath, json, job, 'on'), yellow('Must be an array'))
+						failed = true
+					} else {
+						
+					}
+
+					if (!('afterSync' in job)) {
+						console.error(jsonError(localPath, json, job), yellow('Missing key'), green('afterSync'))
+						failed = true
+					} else if (typeof job.afterSync != 'boolean') {
+						console.error(jsonError(localPath, json, job, 'afterSync'), yellow('Must be a boolean'))
+						failed = true
 					}
 				}
 			}

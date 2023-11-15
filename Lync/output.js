@@ -45,7 +45,7 @@ module.exports.cyan = function(s, hideBrackets) {
 /**
  * @param {Object} from
  * @param {Object} to
- * @param {string} append
+ * @param {string?} append
  * @returns {string}
  */
 function iterRelative(from, to, append) {
@@ -81,9 +81,10 @@ module.exports.fileError = function(s) {
 }
 
 /**
+ * @param {string} s
  * @param {Object} from
  * @param {Object} to
- * @param {string} s
+ * @param {string?} key
  * @returns {string}
  */
 module.exports.jsonError = function(s, from, to, key) {

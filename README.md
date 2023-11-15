@@ -56,7 +56,7 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 |-|-|-|
 | Package Management | ✔ | ❌️ |
 | Custom File Downloads | ✔ | ❌️ |
-| Automatic Shell Scripts | ➖ | ❌️ |
+| Automated Jobs | ✔ | ❌️ |
 | Automatic Sourcemap Generation | ✔ | ❌️ |
 
 ### Misc Features
