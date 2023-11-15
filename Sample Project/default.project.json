@@ -8,15 +8,6 @@
 		"RBXMX": true
 	},
 
-	"jobs": [
-		{
-			"globPaths": [ "**/*.txt" ],
-			"on": [ "start", "add", "addDir", "change", "unlink" ],
-			"afterSync": false,
-			"commandName": "Test"
-		}
-	],
-
 	"tree": {
 		"Workspace": {
 			"$properties": {
