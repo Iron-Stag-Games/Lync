@@ -1,7 +1,7 @@
 const TOML = require('toml')
 const YAML = require('yaml')
 
-const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
+const { red, yellow, green, cyan, fileError, jsonError } = require('../output.js')
 
 const meta = require('./meta.js')
 const project = require('./project.js')

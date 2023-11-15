@@ -1,78 +1,80 @@
 const path = require('path')
 
-const { red, yellow, green, cyan, fileError, fileWarning } = require('../output.js')
+const { red, yellow, green, cyan, fileError, jsonError } = require('../output.js')
 
 /**
  * @param {Object} json
+ * @param {Object} root
  * @param {string} localPath
  * @returns {boolean}
  */
-function scan(json, localPath) {
+function scan(json, root, localPath) {
 	let failed = false
 
 	for (const key in json) {
 		if (key == '$className' && typeof json[key] != 'string') {
-			console.error(fileError(localPath), green('$className'), yellow('must be a string'))
+			console.error(jsonError(localPath, root, json, '$className'), yellow('Must be a string'))
 			failed = true
 
 		} else if (key == '$properties') {
 			if (!(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-				console.error(fileError(localPath), green('$properties'), yellow('must be an object'))
+				console.error(jsonError(localPath, root, json, '$properties'), yellow('Must be an object'))
 				failed = true
 			} else {
 				for (const property in json[key]) {
 					if (typeof json[key][property] == 'object' && Array.isArray(json[key][property]) && json[key][property].length > 1) {
-						console.error(fileError(localPath), yellow('Property'), green(property), yellow('is an array with size > 1; check property syntax'))
+						console.error(jsonError(localPath, root, json, '$properties\\' + property), yellow('Array with size > 1; check property syntax'))
 						failed = true
 					}
 				}
 			}
 
 		} else if (key == '$attributes' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('$attributes'), yellow('must be an object'))
+			console.error(jsonError(localPath, root, json, '$attributes'), yellow('Must be an object'))
 			failed = true
 
 		} else if (key == '$tags' && !(typeof json[key] == 'object' && Array.isArray(json[key]))) {
-			console.error(fileError(localPath), green('$tags'), yellow('must be an array'))
+			console.error(jsonError(localPath, root, json, '$tags'), yellow('Must be an array'))
 			failed = true
 		
 		} else if (key == '$path') {
 			if (typeof(json[key]) == 'object') {
 				if ('optional' in json[key] && 'package' in json[key]) {
-					console.error(fileError(localPath), green('$path'), yellow('cannot have both keys'), green('$path.optional'), yellow('and'), green('$path.package'))
+					console.error(jsonError(localPath, root, json, '$path'), yellow('Cannot have both keys'), green('$path\\optional'), yellow('and'), green('$path\\package'))
 					failed = true
 				} else if ('optional' in json[key]) {
 					if (typeof json[key].optional != 'string') {
-						console.error(fileError(localPath), green('$path.optional'), yellow('must be a string'))
+						console.error(jsonError(localPath, root, json, '$path\\optional'), yellow('Must be a string'))
 						failed = true
 					}
 				} else if ('package' in json[key]) {
 					if (typeof json[key].package != 'string') {
-						console.error(fileError(localPath), green('$path.package'), yellow('must be a string'))
+						console.error(jsonError(localPath, root, json, '$path\\package'), yellow('Must be a string'))
 						failed = true
 					}
 					if (json[key].type != 'repo' && json[key].type != 'zip' && json[key].type != 'lua' && json[key].type != 'luau' && json[key].type != 'rbxm' && json[key].type != 'rbxmx') {
-						console.error(fileError(localPath), green('$path.type'), yellow('must be repo, zip, lua, luau, rbxm, or rbxmx'))
+						console.error(jsonError(localPath, root, json, '$path\\type'), yellow('Must be repo, zip, lua, luau, rbxm, or rbxmx'))
 						failed = true
 					}
 				} else {
-					console.error(fileError(localPath), green('$path'), yellow('is missing key'), green('$path.optional'), yellow('or'), green('$path.package'))
+					console.error(jsonError(localPath, root, json, '$path'), yellow('Missing key'), green('$path\\optional'), yellow('or'), green('$path\\package'))
 					failed = true
 				}
 			} else if (typeof(json[key]) != 'string') {
-				console.error(fileError(localPath), green('$path'), yellow('must be a string or an object'))
+				console.error(jsonError(localPath, root, json, '$path'), yellow('Must be a string or an object'))
 				failed = true
 			}
 
 		} else if (key == '$clearOnSync' && (typeof json[key] != 'boolean')) {
-			console.error(fileError(localPath), green('$clearOnSync'), yellow('must be a boolean'))
+			console.error(jsonError(localPath, root, json, '$clearOnSync'), yellow('Must be a boolean'))
 			failed = true
 
 		} else if (key == '$ignoreUnknownInstances') {
-			console.error(fileWarning(localPath), 'Unsupported key', green('$ignoreUnknownInstances') + '; must replace with', green('$clearOnSync'))
+			console.error(jsonError(localPath, root, json, '$ignoreUnknownInstances'), 'Unsupported key; must replace with', green('$clearOnSync'))
+			failed = true
 
 		} else if (typeof json[key] == 'object') {
-			const scanFailed = scan(json[key], localPath)
+			const scanFailed = scan(json[key], root, localPath)
 			failed = failed || scanFailed
 		}
 	}
@@ -142,11 +144,11 @@ module.exports.validate = function(type, json, localPath) {
 					if (key != 'RBXM'
 						&& key != 'RBXMX'
 					) {
-						console.error(fileWarning(localPath), 'Unexpected key', green('sourcemapEnabled.' + key))
+						console.error(fileError(localPath), 'Unexpected key', green('sourcemapEnabled\\' + key))
 					} else {
 						const value = json.sourcemapEnabled[key]
 						if (typeof value != 'boolean') {
-							console.error(fileError(localPath), green(key), yellow('must be a boolean'))
+							console.error(fileError(localPath), green('sourcemapEnabled\\' + key), yellow('must be a boolean'))
 							failed = true
 						}
 					}
@@ -220,7 +222,7 @@ module.exports.validate = function(type, json, localPath) {
 							&& sourceKey != 'postData'
 							&& sourceKey != 'path'
 						) {
-							console.error(fileWarning(localPath), 'Unexpected key', green('sources[' + index + '].' + sourceKey))
+							console.error(fileError(localPath), 'Unexpected key', green('sources[' + index + ']\\' + sourceKey))
 						}
 					}
 				}
@@ -228,7 +230,7 @@ module.exports.validate = function(type, json, localPath) {
 		}
 	}
 
-	const scanFailed = scan(json, localPath)
+	const scanFailed = scan(json, json, localPath)
 	failed = failed || scanFailed
 
 	if (failed) return

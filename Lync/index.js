@@ -34,7 +34,7 @@ const LUA = require('lua-json')
 const picomatch = require('picomatch')
 const XLSX = require('xlsx')
 
-const { red, yellow, green, cyan, fileError, fileWarning } = require('./output.js')
+const { red, yellow, green, cyan, fileError, jsonError } = require('./output.js')
 const { generateSourcemap } = require('./sourcemap/sourcemap.js')
 const { validateJson, validateYaml, validateToml } = require('./validator/validator.js')
 
@@ -289,8 +289,8 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 	if (DEBUG) console.log('Mapping', mapDetails.Type, green(robloxPath), '->', cyan(localPath || ''))
 	if (robloxPath in map) {
 		if (map[robloxPath].Path != localPath && !map[robloxPath].ProjectJson) {
-			console.warn(yellow(`Collision on '${robloxPath}'`))
-			if (DEBUG) console.warn(map[robloxPath], '->', mapDetails)
+			console.error(yellow(`Collision on '${robloxPath}'`))
+			if (DEBUG) console.error(map[robloxPath], '->', mapDetails)
 		}
 		if (map[robloxPath].ProjectJson) {
 			mapDetails.ProjectJson = map[robloxPath].ProjectJson
@@ -335,12 +335,12 @@ function mapLua(localPath, robloxPath, attributes, tags, metaLocalPath, initPath
 					} else if (line == '--@script:localscript') {
 						context = 'LocalScript'
 					} else {
-						console.error(fileError(localPath), yellow('Invalid run context directive:'), green(line))
+						console.error(fileError(localPath), yellow('Invalid run context directive'), green(line))
 					}
 				} else if (line == '--@disabled') {
 					properties.Enabled = false
 				} else {
-					console.error(fileError(localPath), yellow('Unknown directive:'), green(line))
+					console.error(fileError(localPath), 'Unknown directive', green(line))
 				}
 			} else if (!line.startsWith('--!')) {
 				break
@@ -357,6 +357,13 @@ function mapLua(localPath, robloxPath, attributes, tags, metaLocalPath, initPath
 		}
 	} else {
 		if (!('Enabled' in properties)) properties.Enabled = true
+	}
+
+	const localPathLower = localPath.toLowerCase()
+	if (localPathLower.endsWith('.server.lua') || localPathLower.endsWith('.server.luau')) {
+		console.error(fileError(localPath), yellow('Unsupported file name; must add'), green('--@script:legacy'), yellow('directive to the beginning of the file'))
+	} else if (localPathLower.endsWith('.client.lua') || localPathLower.endsWith('.client.luau')) {
+		console.error(fileError(localPath), yellow('Unsupported file name; must add'), green('--@script:localscript'), yellow('directive to the beginning of the file'))
 	}
 
 	assignMap(robloxPath, {
