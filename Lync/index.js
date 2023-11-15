@@ -369,9 +369,9 @@ function mapLua(localPath, robloxPath, attributes, tags, metaLocalPath, initPath
 
 	const localPathLower = localPath.toLowerCase()
 	if (localPathLower.endsWith('.server.lua') || localPathLower.endsWith('.server.luau')) {
-		console.error(fileError(localPath), yellow('Unsupported file name; must add'), green('--@script:legacy'), yellow('directive to the beginning of the file'))
+		console.error(fileError(localPath), yellow('Unsupported file name; must add'), green('--@script'), yellow('directive to the beginning of the file'))
 	} else if (localPathLower.endsWith('.client.lua') || localPathLower.endsWith('.client.luau')) {
-		console.error(fileError(localPath), yellow('Unsupported file name; must add'), green('--@script:localscript'), yellow('directive to the beginning of the file'))
+		console.error(fileError(localPath), yellow('Unsupported file name; must add'), green('--@localscript'), yellow('directive to the beginning of the file'))
 	}
 
 	assignMap(robloxPath, {
