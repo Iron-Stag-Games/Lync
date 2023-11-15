@@ -341,9 +341,9 @@ function mapLua(localPath, robloxPath, attributes, tags, metaLocalPath, initPath
 					} else {
 						console.error(fileError(localPath), yellow('Invalid run context directive'), green(line))
 					}
-				} else if (line == '--@script') { // Redundancy for --@script:legacy
+				} else if (line == '--@script') { // Redundancy for '--@script:legacy'
 					context = 'Legacy'
-				} else if (line == '--@localscript') { // Redundancy for --@script:localscript
+				} else if (line == '--@localscript') { // Redundancy for '--@script:localscript'
 					context = 'LocalScript'
 				} else if (line == '--@disabled') {
 					properties.Enabled = false
