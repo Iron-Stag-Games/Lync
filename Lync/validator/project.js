@@ -142,7 +142,7 @@ module.exports.validate = function(type, json, localPath) {
 			} else {
 				for (const index in json.globIgnorePaths) {
 					if (typeof json.globIgnorePaths[index] != 'string') {
-						console.error(jsonError(localPath, json, json.globIgnorePaths, key), yellow('Must be a string'))
+						console.error(jsonError(localPath, json, json.globIgnorePaths, index), yellow('Must be a string'))
 						failed = true
 					}
 				}
@@ -158,7 +158,7 @@ module.exports.validate = function(type, json, localPath) {
 					if (key != 'RBXM'
 						&& key != 'RBXMX'
 					) {
-						console.error(jsonError(localPath, json, json.sourcemapEnabled, key), 'Unexpected key')
+						console.error(jsonError(localPath, json, json.sourcemapEnabled, key), yellow('Unexpected key'))
 					} else {
 						const value = json.sourcemapEnabled[key]
 						if (typeof value != 'boolean') {
@@ -236,7 +236,7 @@ module.exports.validate = function(type, json, localPath) {
 							&& sourceKey != 'postData'
 							&& sourceKey != 'path'
 						) {
-							console.error(jsonError(localPath, json, source, sourceKey), 'Unexpected key')
+							console.error(jsonError(localPath, json, source, sourceKey), yellow('Unexpected key'))
 						}
 					}
 				}
@@ -251,14 +251,12 @@ module.exports.validate = function(type, json, localPath) {
 				for (const index in json.jobs) {
 					const job = json.jobs[index]
 
-					if (!('globPaths' in job)) {
-						console.error(jsonError(localPath, json, job), yellow('Missing key'), green('globPaths'))
+					if (!('globPath' in job)) {
+						console.error(jsonError(localPath, json, job), yellow('Missing key'), green('globPath'))
 						failed = true
-					} else if (!(typeof job.globPaths == 'object' && Array.isArray(job.globPaths))) {
-						console.error(jsonError(localPath, json, job, 'globPaths'), yellow('Must be an array'))
+					} else if (typeof job.globPath != 'string') {
+						console.error(jsonError(localPath, json, job, 'globPath'), yellow('Must be a string'))
 						failed = true
-					} else {
-
 					}
 
 					if (!('on' in job)) {
@@ -268,15 +266,29 @@ module.exports.validate = function(type, json, localPath) {
 						console.error(jsonError(localPath, json, job, 'on'), yellow('Must be an array'))
 						failed = true
 					} else {
-						
+						for (const onIndex in job.on) {
+							if (typeof job.on[onIndex] != 'string') {
+								console.error(jsonError(localPath, json, job.on, onIndex), yellow('Must be a string'))
+								failed = true
+							}
+						}
 					}
 
-					if (!('afterSync' in job)) {
-						console.error(jsonError(localPath, json, job), yellow('Missing key'), green('afterSync'))
+					if (!('commandName' in job)) {
+						console.error(jsonError(localPath, json, job), yellow('Missing key'), green('commandName'))
 						failed = true
-					} else if (typeof job.afterSync != 'boolean') {
-						console.error(jsonError(localPath, json, job, 'afterSync'), yellow('Must be a boolean'))
+					} else if (typeof job.commandName != 'string') {
+						console.error(jsonError(localPath, json, job, 'commandName'), yellow('Must be a string'))
 						failed = true
+					}
+
+					for (const jobKey in job) {
+						if (jobKey != 'globPath'
+							&& jobKey != 'on'
+							&& jobKey != 'commandName'
+						) {
+							console.error(jsonError(localPath, json, job, jobKey), yellow('Unexpected key'))
+						}
 					}
 				}
 			}

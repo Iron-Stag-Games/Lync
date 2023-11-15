@@ -807,28 +807,22 @@ async function changedJson() {
 /**
  * @param {string} event
  * @param {string} localPath
- * @param {boolean?} afterSync
  */
-function runJobs(event, localPath, afterSync) {
+function runJobs(event, localPath) {
 	if ('jobs' in projectJson) {
 		for (const index in projectJson.jobs) {
 			const job = projectJson.jobs[index]
-			if ((event == 'start' || job.afterSync == afterSync) && job.on.includes(event)) {
-				for (const path of job.globPaths) {
-					if (picomatch(path)(localPath.replace(/\\/g, '/'))) {
-						console.log('Running job command', green(job.commandName))
-						if (job.commandName in CONFIG.JobCommands) {
-							spawn(CONFIG.JobCommands[job.commandName], [], {
-								stdio: 'ignore',
-								detached: true,
-								shell: true,
-								windowsHide: true
-							})
-						} else {
-							console.error(fileError(CONFIG_PATH), yellow("Missing job command"), green(job.commandName))
-						}
-						break
-					}
+			if (job.on.includes(event) && picomatch(job.globPath)(localPath.replace(/\\/g, '/'))) {
+				console.log('Running job command', green(job.commandName))
+				if (job.commandName in CONFIG.JobCommands) {
+					spawn(CONFIG.JobCommands[job.commandName], [], {
+						stdio: 'ignore',
+						detached: true,
+						shell: true,
+						windowsHide: true
+					})
+				} else {
+					console.error(fileError(CONFIG_PATH), yellow("Missing job command"), green(job.commandName))
 				}
 			}
 		}
@@ -1109,7 +1103,6 @@ function runJobs(event, localPath, afterSync) {
 			alwaysStat: true,
 			usePolling: true
 		}).on('all', async function(event, localPath, localPathStats) {
-			runJobs(event, localPath, false)
 			if (!globIgnorePathsPicoMatch(localPath.replace(/\\/g, '/'))) {
 				if (DEBUG) console.log('E', yellow(event), cyan(localPath))
 				try {
@@ -1221,7 +1214,7 @@ function runJobs(event, localPath, afterSync) {
 					console.error(red('Sync error:'), err)
 				}
 			}
-			runJobs(event, localPath, true)
+			runJobs(event, localPath)
 		})
 	}
 
