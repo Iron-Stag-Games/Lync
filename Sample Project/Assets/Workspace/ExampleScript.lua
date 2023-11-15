@@ -1,4 +1,4 @@
---@script:legacy
+--@script
 -- This is a script with a JSON meta file
 
 print(require(script.Parent:WaitForChild("ExampleModule")))
