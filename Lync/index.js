@@ -800,7 +800,7 @@ async function changedJson() {
 	map = {}
 	const projectJsonStats = fs.statSync(PROJECT_JSON)
 	for (const service in projectJson.tree) {
-		await mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, undefined, projectJsonStats.mtimeMs)
+		if (service != '$className') await mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, undefined, projectJsonStats.mtimeMs)
 	}
 }
 
