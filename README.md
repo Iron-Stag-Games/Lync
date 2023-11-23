@@ -2,6 +2,7 @@
 
 Lync is a file sync tool for Roblox which is offered as an alternative to Rojo focused on expanding the feature set from community feedback and improving maintainability.
 
+> [!IMPORTANT]
 > This tool is currently provided without any documentation whatsoever! Because the two tools are so similar, please refer to [the Rojo documentation](https://rojo.space/docs/v7/) for the time being.
 
 ## Installation
@@ -104,7 +105,9 @@ Lync is a file sync tool for Roblox which is offered as an alternative to Rojo f
 | Terrain.$terrainRegion | Terrain.$path |
 | Terrain.$terrainMaterialColors | Terrain.$path |
 
-> Complex expressions in property fields may not be supported by other tools, so please avoid doing things like math or calling string functions when releasing packages.
+
+> [!NOTE]
+> Complex expressions in property fields may not be supported by other tools, so when releasing packages made with Lync, avoid using things like math or string functions.
 >
 > Simple expressions like `Color3.new(0, 0, 0)` are easy for other tools to interpret without using a Luau VM.
 
