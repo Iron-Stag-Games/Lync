@@ -476,7 +476,7 @@ local function setScriptSourceLive(container: LuaSourceContainer, lua: string)
 		cursorLine, cursorChar, anchorLine, anchorChar = document:GetSelection()
 	end
 	ScriptEditorService:UpdateSourceAsync(container, function(_oldContent: string)
-		return lua
+		return ({lua:gsub("\r", "")})[1]
 	end)
 	if document then
 		local maxLine = document:GetLineCount()
