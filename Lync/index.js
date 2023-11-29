@@ -18,7 +18,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 */
-const VERSION = 'Alpha 26'
+const VERSION = 'Alpha 27'
 
 const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
@@ -107,18 +107,18 @@ const DEBUG = CONFIG.Debug
  */
 function argHelp(err) {
 	if (err) console.error(red('Argument error:'), yellow(err) + '\n')
-	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ LYNC HELP                          Displays the list of available arguments.          ┃
-┃      CONFIG                        Opens the config file.                             ┃
-┃      SERVE ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Syncs the project.                                 ┃
-┃      OPEN  ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Syncs the project and opens it in Roblox Studio.   ┃
-┃      BUILD ${cyan('project.json', true)}?           Builds the project to file.                        ┃
-┃      FETCH ${cyan('project.json', true)}?           Downloads the list of sources in the project file. ┃
-┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
-┃ ${cyan('project.json', true)}?   The project file to read from and serve.                              ┃
-┃ ${green('REMOTE', true)}?         Connect to the project's ${green('remoteAddress')} instead of the localhost.    ┃
-┃                 ${red('Warning:')} ${yellow('REMOTE is unimplemented!')}                                     ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
+	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ LYNC HELP                          Displays the list of available arguments.              ┃
+┃      CONFIG                        Opens the config file.                                 ┃
+┃      SERVE ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Syncs the project.                                     ┃
+┃      OPEN  ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Builds, syncs, and opens the project in Roblox Studio. ┃
+┃      BUILD ${cyan('project.json', true)}?           Builds the project to file.                            ┃
+┃      FETCH ${cyan('project.json', true)}?           Downloads the list of sources in the project file.     ┃
+┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
+┃ ${cyan('project.json', true)}?   The project file to read from and serve.                                  ┃
+┃ ${green('REMOTE', true)}?         Connect to the project's ${green('remoteAddress')} instead of the localhost.        ┃
+┃                 ${red('Warning:')} ${yellow('REMOTE is unimplemented!')}                                         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
 `)
 	process.exit(err && -1 || 0)
 }
@@ -784,18 +784,6 @@ async function changedJson() {
 		globIgnorePathsArr.push(projectJson.globIgnorePaths)
 	globIgnorePaths = `{${globIgnorePathsArr.join(',')}}`
 	globIgnorePathsPicoMatch = picomatch(globIgnorePaths)
-	if (MODE == 'open' || MODE == 'build') {
-		if (projectJson.base == '') {
-			console.error(red('Terminated:'), green('base'), yellow('cannot be a blank string with OPEN or BUILD mode'))
-			process.exit()
-		} else if (!fs.existsSync(projectJson.base)) {
-			console.error(red('Terminated:'), yellow('Base'), cyan(projectJson.base), yellow('does not exist'))
-			process.exit()
-		} else if (projectJson.build == '') {
-			console.error(red('Terminated:'), green('build'), yellow('cannot be a blank string with OPEN or BUILD mode'))
-			process.exit()
-		}
-	}
 	if (DEBUG) console.log('Mapping', green(projectJson.name))
 	map = {}
 	const projectJsonStats = fs.statSync(PROJECT_JSON)
@@ -948,9 +936,10 @@ function runJobs(event, localPath) {
 			}
 		}
 		process.exit()
-
+	}
+	
 	// Build
-	} else if (MODE == 'build') {
+	if (MODE == 'open' || MODE == 'build') {
 		console.log()
 
 		const buildScriptPath = projectJson.build + '.luau'
@@ -1036,9 +1025,11 @@ function runJobs(event, localPath) {
 		// Write build script
 		if (DEBUG) console.log('Writing build script . . .')
 		let buildScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
-		buildScript += `local game = roblox.deserializePlace(fs.readFile("${projectJson.base}"))\n`
+		buildScript += `local game = Instance.new("DataModel")\n`
 		buildScript += 'local workspace = game:GetService("Workspace")\n'
+		buildScript += 'workspace:SetAttribute("__lyncbuildfile", true)\n'
 		buildScript += `${pluginSource}\n`
+		buildScript += `port = "${projectJson.port}"\n`
 		buildScript += `map = net.jsonDecode("${toEscapeSequence(JSON.stringify(map, null, '\t'))}")\n`
 		buildScript += `buildAll()\n`
 		buildScript += `fs.writeFile("${projectJson.build}", roblox.serializePlace(game))\n`
@@ -1063,17 +1054,26 @@ function runJobs(event, localPath) {
 			}
 			console.log('Build saved to', cyan(projectJson.build))
 			fs.rmSync(buildScriptPath)
-			process.exit()
+			if (MODE == 'build') {
+				process.exit()
+			} else {
+				// Open Studio
+				for (const key in securityKeys) delete securityKeys[key]
+				if (PLATFORM == 'windows' || PLATFORM == 'macos') {
+					if (DEBUG) console.log('Opening', cyan(projectJson.build))
+					spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
+						stdio: 'ignore',
+						detached: true,
+						shell: true,
+						windowsHide: true
+					})
+				}
+			}
 		})
+	}
 
 	// Sync
-	} else {
-
-		// Copy base file
-		if (MODE == 'open') {
-			if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
-			fs.copyFileSync(projectJson.base, projectJson.build)
-		}
+	if (MODE == 'serve' || MODE == 'open') {
 
 		// Copy plugin
 		const pluginsPath = path.resolve(PLATFORM == 'windows' && CONFIG.Path_RobloxPlugins.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || PLATFORM == 'macos' && CONFIG.Path_RobloxPlugins.replace('$HOME', process.env.HOME) || CONFIG.Path_RobloxPlugins)
@@ -1083,19 +1083,6 @@ function runJobs(event, localPath) {
 		}
 		if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
 		fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
-
-		// Open Studio
-		if (PLATFORM == 'windows' || PLATFORM == 'macos') {
-			if (MODE == 'open') {
-				if (DEBUG) console.log('Opening', cyan(projectJson.build))
-				spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
-					stdio: 'ignore',
-					detached: true,
-					shell: true,
-					windowsHide: true
-				})
-			}
-		}
 
 		// Sync file changes
 		chokidar.watch('.', {
@@ -1487,7 +1474,7 @@ function runJobs(event, localPath) {
 		console.error(red('Terminated: Server error:'), err)
 		process.exit()
 	})
-	.listen(MODE == 'build' && '34873' || projectJson.port, function() {
+	.listen(projectJson.port, function() {
 		if (MODE != 'build') console.log(`\nServing ${green(projectJson.name)} on port ${yellow(projectJson.port)}`)
 
 		// Generate sourcemap

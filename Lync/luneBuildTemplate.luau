@@ -7,7 +7,8 @@ local roblox = require("@lune/roblox")
 local Enum = roblox.Enum
 local Instance = roblox.Instance
 
-local isBuildScript = true
+local serverKey = "BuildScript"
+local port = "34873"
 local map = {}
 local activeSourceRequests = 0
 
@@ -64,7 +65,7 @@ local Vector3int16 = roblox.Vector3int16
 ]] .. code))
 end
 
-local function lpcall(_context, func, ...)
+local function lpcall(_context, _warning, func, ...)
 	return true, func(...)
 end
 
@@ -76,7 +77,7 @@ local function listenForChanges()
 end
 
 local function getPort()
-	return "34873"
+	return port
 end
 
 local function LuaCsv(_)

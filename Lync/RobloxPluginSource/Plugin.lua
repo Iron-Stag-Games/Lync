@@ -19,7 +19,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 ]]
-local VERSION = "Alpha 26"
+local VERSION = "Alpha 27"
 
 if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
@@ -43,9 +43,16 @@ local TweenService = game:GetService("TweenService")
 
 -- Constants
 local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
+local SUPPRESSED_CLASSES = {
+	"Terrain";
+	"StarterCharacterScripts";
+	"StarterPlayerScripts";
+	"ChatWindowConfiguration";
+	"ChatInputBarConfiguration";
+	"BubbleChatConfiguration";
+}
 
 -- Defines
-local isBuildScript = false
 local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
 local connected = false
@@ -284,17 +291,21 @@ local function terminate(errorMessage: string)
 	end
 end
 
-local function lpcall(context: string, func: any, ...): (boolean, any)
+local function lpcall(context: string, warning: boolean, func: any, ...): (boolean, any)
 	local args = {...}
 	return xpcall(function()
 		return func(unpack(args))
 	end, function(err)
-		task.spawn(error, "[Lync] - " .. context .. ": " .. err)
+		if not warning then
+			task.spawn(error, "[Lync] - " .. context .. ": " .. err)
+		elseif debugPrints then
+			warn("[Lync] - " .. context .. ": " .. err)
+		end
 	end)
 end
 
 local function getObjects(url: string): {Instance}?
-	local success, result = lpcall("Get Objects", game.GetObjects, game, url)
+	local success, result = lpcall("Get Objects", false, game.GetObjects, game, url)
 	return if success then result else nil
 end
 
@@ -432,7 +443,7 @@ end
 
 local function setDetails(target: any, data: any)
 	if data.Context then
-		lpcall("Set Context " .. data.Context, function()
+		lpcall("Set Context " .. data.Context, false, function()
 			if data.Context == "Legacy" then
 				target.RunContext = Enum.RunContext.Legacy
 			elseif data.Context == "Client" then
@@ -443,9 +454,10 @@ local function setDetails(target: any, data: any)
 		end)
 	end
 	if data.Properties then
+		local warning = if serverKey ~= "BuildScript" and (target.Parent == game or table.find(SUPPRESSED_CLASSES, target.ClassName)) then true else false
 		for property, value in data.Properties do
-			lpcall("Set Property " .. property, function()
-				if not isBuildScript and target:IsA("Model") and property == "Scale" then
+			lpcall("Set Property " .. property, warning, function()
+				if serverKey ~= "BuildScript" and target:IsA("Model") and property == "Scale" then
 					target:ScaleTo(eval(value))
 				else
 					target[property] = eval(value)
@@ -455,14 +467,14 @@ local function setDetails(target: any, data: any)
 	end
 	if data.Attributes then
 		for attribute, value in data.Attributes do
-			lpcall("Set Attribute", function()
+			lpcall("Set Attribute", false, function()
 				target:SetAttribute(attribute, value)
 			end)
 		end
 	end
 	if data.Tags then
 		for _, tag in data.Tags do
-			lpcall("Set Tag", function()
+			lpcall("Set Tag", false, function()
 				CollectionService:AddTag(target, tag)
 			end)
 		end
@@ -589,7 +601,7 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					if isBuildScript then
+					if serverKey == "BuildScript" then
 						target.Source = result
 					else
 						setScriptSourceLive(target, result)
@@ -623,7 +635,7 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					if isBuildScript then
+					if serverKey == "BuildScript" then
 						target.Source = result
 					else
 						setScriptSourceLive(target, result)
@@ -687,8 +699,8 @@ local function buildPath(path: string)
 				end)
 				activeSourceRequests -= 1
 				if success then
-					lpcall("Set Entries", function()
-						if isBuildScript then
+					lpcall("Set Entries", false, function()
+						if serverKey == "BuildScript" then
 							-- Temporary. Awaiting rbx-dom / Lune update.
 							print("Localization entries unimplemented!")
 						else
@@ -706,8 +718,8 @@ local function buildPath(path: string)
 				local objects = getObjects("rbxasset://lync/" .. data.TerrainRegion[1])
 				if objects then
 					if #objects == 1 then
-						lpcall("Set Terrain Region", function()
-							if isBuildScript then
+						lpcall("Set Terrain Region", false, function()
+							if serverKey == "BuildScript" then
 								-- Temporary. Awaiting rbx-dom / Lune update.
 								workspace.Terrain.SmoothGrid = (objects[1] :: any).SmoothGrid
 							else
@@ -726,7 +738,7 @@ local function buildPath(path: string)
 		if data.TerrainMaterialColors then
 			if target == workspace.Terrain then
 				for material, value in data.TerrainMaterialColors do
-					lpcall("Set Terrain Material Color", function()
+					lpcall("Set Terrain Material Color", false, function()
 						workspace.Terrain:SetMaterialColor((Enum.Material :: any)[material], eval(value))
 					end)
 				end
