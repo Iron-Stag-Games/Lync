@@ -914,10 +914,10 @@ function runJobs(event, localPath) {
 
 	await changedJson()
 	firstMapped = true
+	console.log()
 
 	// Download sources
 	if (MODE == 'fetch') {
-		console.log()
 		if (!('sources' in projectJson) || projectJson.length == 0) console.log('Nothing to download')
 		for (const index in projectJson.sources) {
 			const source = projectJson.sources[index]
@@ -940,8 +940,6 @@ function runJobs(event, localPath) {
 	
 	// Build
 	if (MODE == 'open' || MODE == 'build') {
-		console.log()
-
 		const buildScriptPath = projectJson.build + '.luau'
 		const lunePath = PLATFORM == 'windows' && CONFIG.Path_Lune.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
 			|| PLATFORM == 'macos' && CONFIG.Path_Lune.replace('$HOME', process.env.HOME)
@@ -1475,7 +1473,7 @@ function runJobs(event, localPath) {
 		process.exit()
 	})
 	.listen(projectJson.port, function() {
-		if (MODE != 'build') console.log(`\nServing ${green(projectJson.name)} on port ${yellow(projectJson.port)}`)
+		if (MODE != 'build') console.log(`Serving ${green(projectJson.name)} on port ${yellow(projectJson.port)}`)
 
 		// Generate sourcemap
 
