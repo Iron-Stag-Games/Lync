@@ -504,11 +504,14 @@ local function setScriptSourceLive(container: LuaSourceContainer, lua: string)
 end
 
 local function buildJsonModel(target: any, data: any)
-	if data.Children then
-		for _, childData in data.Children do
-			local newInstance = Instance.new(childData.ClassName or "Folder")
-			if childData.Name then
-				newInstance.Name = childData.Name
+	data.Properties = data.properties
+	data.Attributes = data.attributes
+	data.Tags = data.tags
+	if data.children then
+		for _, childData in data.children do
+			local newInstance = Instance.new(childData.className or "Folder")
+			if childData.name then
+				newInstance.Name = childData.name
 			end
 			buildJsonModel(newInstance, childData)
 			newInstance.Parent = target
@@ -654,7 +657,7 @@ local function buildPath(path: string)
 				if success then
 					local json = HttpService:JSONDecode(result)
 					if createInstance then
-						local newInstance = Instance.new(json.ClassName or "Folder")
+						local newInstance = Instance.new(json.className or "Folder")
 						newInstance.Name = name
 						newInstance.Parent = target
 						target = newInstance

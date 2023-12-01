@@ -1,19 +1,17 @@
 {
-	"ClassName": "Model",
-	"Properties": {
-		"Scale": 2
-	},
-	"Children": [
+    "name": "Money",
+	"className": "Model",
+	"children": [
 		{
-			"Name": "RootPart",
-			"ClassName": "Part",
-			"Properties": {
-				"Size": ["Vector3.new(2, 2, 2)"]
+			"className": "Part",
+			"properties": {
+				"BrickColor": [ "BrickColor.new(\"Bright green\")" ],
+				"Size": [ "Vector3.new(1, 0.4, 2)" ]
 			}
 		},
 		{
-			"Name": "SendMoney",
-			"ClassName": "RemoteEvent"
+			"name": "CollectMoney",
+			"className": "RemoteEvent"
 		}
 	]
 }
