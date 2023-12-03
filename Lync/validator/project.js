@@ -100,8 +100,9 @@ module.exports.validate = function(type, json, localPath) {
 			failed = true
 		}
 
-		if ('base' in json) {
-			console.error(fileError(localPath), yellow('Deprecated key'), green('base'))
+		if (('base' in json) && typeof json.base != 'string') {
+			console.error(jsonError(localPath, json, json, 'base'), yellow('Must be a string'))
+			failed = true
 		}
 
 		if (!('build' in json)) {

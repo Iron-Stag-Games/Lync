@@ -939,7 +939,7 @@ function runJobs(event, localPath) {
 	}
 	
 	// Build
-	if (MODE == 'open' || MODE == 'build') {
+	if (MODE == 'open' && !('base' in projectJson) || MODE == 'build') {
 		const buildScriptPath = projectJson.build + '.luau'
 		const lunePath = PLATFORM == 'windows' && CONFIG.Path_Lune.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
 			|| PLATFORM == 'macos' && CONFIG.Path_Lune.replace('$HOME', process.env.HOME)
@@ -1068,6 +1068,24 @@ function runJobs(event, localPath) {
 				}
 			}
 		})
+	}
+
+	// Copy base file
+	if (MODE == 'open' && ('base' in projectJson)) {
+		if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
+		fs.copyFileSync(projectJson.base, projectJson.build)
+
+		// Open Studio
+		for (const key in securityKeys) delete securityKeys[key]
+		if (PLATFORM == 'windows' || PLATFORM == 'macos') {
+			if (DEBUG) console.log('Opening', cyan(projectJson.build))
+			spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
+				stdio: 'ignore',
+				detached: true,
+				shell: true,
+				windowsHide: true
+			})
+		}
 	}
 
 	// Sync
