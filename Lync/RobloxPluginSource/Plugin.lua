@@ -1082,10 +1082,12 @@ end
 
 if workspace:GetAttribute("__lyncbuildfile") and not IS_PLAYTEST_SERVER or syncDuringTest and IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
 	if syncDuringTest and IS_PLAYTEST_SERVER then warn("[Lync] - Playtest Sync is active.") end
-	portTextBox.Text = ""
-	portTextBox.PlaceholderText = workspace:GetAttribute("__lyncbuildfile")
-	portTextBox.TextEditable = false
-	portTextBox.Active = false
+	if workspace:GetAttribute("__lyncbuildfile") then
+		portTextBox.Text = ""
+		portTextBox.PlaceholderText = workspace:GetAttribute("__lyncbuildfile")
+		portTextBox.TextEditable = false
+		portTextBox.Active = false
+	end
 	setConnected(true)
 end
 
