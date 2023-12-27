@@ -18,9 +18,10 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 */
-const VERSION = 'Alpha 27'
+const VERSION = 'Alpha 28'
 
 const { spawn, spawnSync } = require('child_process')
+const crypto = require('crypto')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -193,33 +194,40 @@ function localPathIsIgnored(localPath) {
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @param {string} existingPath
- * @param {string} hardLinkPath
+ * @param {string} sourcePath
+ * @param {string} hardLinkRootPath
  */
-function hardLinkRecursive(existingPath, hardLinkPath) {
-	if (localPathIsIgnored(existingPath)) return
-	const stats = fs.statSync(existingPath)
-	const newPath = path.resolve(hardLinkPath, path.relative(process.cwd(), existingPath))
+function hardLinkRecursive(sourcePath, hardLinkRootPath) {
+	if (localPathIsIgnored(sourcePath)) return
+	const hardLinkPath = path.resolve(hardLinkRootPath, path.parse(process.cwd()).name, PROJECT_JSON, path.relative(process.cwd(), sourcePath))
+	if (process.cwd() == sourcePath) {
+		try {
+			fs.rmSync(hardLinkPath, { force: true, recursive: true })
+		} catch (err) {
+			console.error(red('Hard link error:'), yellow(err))
+		}
+	}
+	const stats = fs.statSync(sourcePath)
+	const parentPath = path.resolve(hardLinkPath, '..')
 	try {
-		const parentPath = path.resolve(newPath, '..')
 		if (!fs.existsSync(parentPath)) {
-			fs.mkdirSync(parentPath)
+			fs.mkdirSync(parentPath, { recursive: true })
 		}
 		if (stats.isDirectory()) {
-			if (!fs.existsSync(newPath)) {
-				fs.mkdirSync(newPath)
+			if (!fs.existsSync(hardLinkPath)) {
+				fs.mkdirSync(hardLinkPath)
 			}
-			fs.readdirSync(existingPath).forEach((dirNext) => {
-				hardLinkRecursive(path.resolve(existingPath, dirNext), hardLinkPath)
+			fs.readdirSync(sourcePath).forEach((dirNext) => {
+				hardLinkRecursive(path.resolve(sourcePath, dirNext), hardLinkRootPath)
 			})
 		} else {
-			if (fs.existsSync(newPath)) {
-				fs.unlinkSync(newPath)
+			if (fs.existsSync(hardLinkPath)) {
+				fs.unlinkSync(hardLinkPath)
 			}
-			fs.linkSync(existingPath, newPath)
+			fs.linkSync(sourcePath, hardLinkPath)
 		}
 	} catch (err) {
-		if (DEBUG) console.error(red('Hard link error:'), yellow(err))
+		console.error(red('Hard link error:'), yellow(err))
 	}
 }
 
@@ -1023,14 +1031,11 @@ function runJobs(event, localPath) {
 		// Write build script
 		if (DEBUG) console.log('Writing build script . . .')
 		let buildScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
-		buildScript += `local game = Instance.new("DataModel")\n`
-		buildScript += 'local workspace = game:GetService("Workspace")\n'
-		buildScript += 'workspace:SetAttribute("__lyncbuildfile", true)\n'
-		buildScript += `${pluginSource}\n`
-		buildScript += `port = "${projectJson.port}"\n`
-		buildScript += `map = net.jsonDecode("${toEscapeSequence(JSON.stringify(map, null, '\t'))}")\n`
-		buildScript += `buildAll()\n`
-		buildScript += `fs.writeFile("${projectJson.build}", roblox.serializePlace(game))\n`
+		+ `\nworkspace:SetAttribute("__lyncbuildfile", ${projectJson.port})\n`
+		+ `${pluginSource}\n`
+		+ `map = net.jsonDecode("${toEscapeSequence(JSON.stringify(map, null, '\t'))}")\n`
+		+ `buildAll()\n`
+		+ `fs.writeFile("${projectJson.build}", roblox.serializePlace(game))\n`
 		if (fs.existsSync(buildScriptPath))
 			fs.rmSync(buildScriptPath)
 		fs.writeFileSync(buildScriptPath, buildScript)
@@ -1097,8 +1102,13 @@ function runJobs(event, localPath) {
 			if (DEBUG) console.log('Creating folder', cyan(pluginsPath))
 			fs.mkdirSync(pluginsPath)
 		}
-		if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(path.resolve(pluginsPath, 'Lync.rbxm')))
-		fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), path.resolve(pluginsPath, 'Lync.rbxm'))
+		const pluginPath = path.resolve(pluginsPath, 'Lync.rbxm')
+		const currentHash = fs.existsSync(pluginPath) && crypto.createHash('md5').update(fs.readFileSync(pluginPath)).digest('hex')
+		const newHash = crypto.createHash('md5').update(fs.readFileSync(path.resolve(__dirname, 'Plugin.rbxm'))).digest('hex')
+		if (currentHash != newHash) {
+			if (DEBUG) console.log('Copying', cyan(path.resolve(__dirname, 'Plugin.rbxm')), '->', cyan(pluginPath))
+			fs.copyFileSync(path.resolve(__dirname, 'Plugin.rbxm'), pluginPath)
+		}
 
 		// Sync file changes
 		chokidar.watch('.', {
@@ -1286,19 +1296,18 @@ function runJobs(event, localPath) {
 					hardLinkPaths.push(hardLinkPath)
 				}
 				for (const hardLinkPath of hardLinkPaths) {
-					try {
-						fs.rmSync(hardLinkPath, { force: true, recursive: true })
-					} catch (err) {}
 					hardLinkRecursive(process.cwd(), hardLinkPath)
 				}
 
 				// Send map
 				map.Version = VERSION
 				map.Debug = DEBUG
+				map.ContentRoot = path.join('lync', path.parse(process.cwd()).name, PROJECT_JSON).replaceAll('\\', '/') + '/'
 				map.ServePlaceIds = projectJson.servePlaceIds
 				const mapJsonString = JSON.stringify(map)
 				delete map['Version']
 				delete map['Debug']
+				delete map['ContentRoot']
 				delete map['ServePlaceIds']
 				if ('playtest' in req.headers) {
 					modified_playtest = {}

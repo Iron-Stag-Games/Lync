@@ -19,7 +19,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 ]]
-local VERSION = "Alpha 27"
+local VERSION = "Alpha 28"
 
 if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
@@ -28,7 +28,6 @@ if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
-local CollectionService = game:GetService("CollectionService")
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
@@ -53,6 +52,7 @@ local SUPPRESSED_CLASSES = {
 }
 
 -- Defines
+local contentRoot = ""
 local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
 local connected = false
@@ -278,8 +278,8 @@ local function setTheme()
 	updateChangedModelUi()
 end
 
-local function getPort(): string
-	return portTextBox.Text ~= "" and portTextBox.Text or portTextBox.PlaceholderText
+local function getHost(): string
+	return "http://localhost:" .. (portTextBox.Text ~= "" and portTextBox.Text or portTextBox.PlaceholderText)
 end
 
 local function terminate(errorMessage: string)
@@ -361,6 +361,28 @@ local function listenForChanges(object: Instance)
 			changedModels[object] = nil
 			updateChangedModelUi()
 		end)
+	end
+end
+
+local function setScriptSourceLive(container: LuaSourceContainer, lua: string)
+	local document = ScriptEditorService:FindScriptDocument(container)
+	local cursorLine: number, cursorChar: number, anchorLine: number, anchorChar: number;
+	if document then
+		cursorLine, cursorChar, anchorLine, anchorChar = document:GetSelection()
+	end
+	ScriptEditorService:UpdateSourceAsync(container, function(_oldContent: string)
+		return ({lua:gsub("\r", "")})[1]
+	end)
+	if document then
+		local maxLine = document:GetLineCount()
+		local maxCursorChar = document:GetLine(math.min(cursorLine, maxLine)):len() + 1
+		local maxAnchorChar = document:GetLine(math.min(anchorLine, maxLine)):len() + 1
+		document:ForceSetSelectionAsync(
+			math.min(cursorLine, maxLine),
+			math.min(cursorChar, maxCursorChar),
+			math.min(anchorLine, maxLine),
+			math.min(anchorChar, maxAnchorChar)
+		)
 	end
 end
 
@@ -454,7 +476,7 @@ local function setDetails(target: any, data: any)
 		end)
 	end
 	if data.Properties then
-		local warning = if serverKey ~= "BuildScript" and (target.Parent == game or table.find(SUPPRESSED_CLASSES, target.ClassName)) then true else false
+		local warning = if target.Parent == game or table.find(SUPPRESSED_CLASSES, target.ClassName) then true else false
 		for property, value in data.Properties do
 			lpcall("Set Property " .. property, warning, function()
 				if serverKey ~= "BuildScript" and target:IsA("Model") and property == "Scale" then
@@ -475,31 +497,9 @@ local function setDetails(target: any, data: any)
 	if data.Tags then
 		for _, tag in data.Tags do
 			lpcall("Set Tag", false, function()
-				CollectionService:AddTag(target, tag)
+				game:GetService("CollectionService"):AddTag(target, tag)
 			end)
 		end
-	end
-end
-
-local function setScriptSourceLive(container: LuaSourceContainer, lua: string)
-	local document = ScriptEditorService:FindScriptDocument(container)
-	local cursorLine: number, cursorChar: number, anchorLine: number, anchorChar: number;
-	if document then
-		cursorLine, cursorChar, anchorLine, anchorChar = document:GetSelection()
-	end
-	ScriptEditorService:UpdateSourceAsync(container, function(_oldContent: string)
-		return ({lua:gsub("\r", "")})[1]
-	end)
-	if document then
-		local maxLine = document:GetLineCount()
-		local maxCursorChar = document:GetLine(math.min(cursorLine, maxLine)):len() + 1
-		local maxAnchorChar = document:GetLine(math.min(anchorLine, maxLine)):len() + 1
-		document:ForceSetSelectionAsync(
-			math.min(cursorLine, maxLine),
-			math.min(cursorChar, maxCursorChar),
-			math.min(anchorLine, maxLine),
-			math.min(anchorChar, maxAnchorChar)
-		)
 	end
 end
 
@@ -600,7 +600,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -614,7 +614,7 @@ local function buildPath(path: string)
 				end
 			end)
 		elseif data.Type == "Model" then
-			local objects = getObjects("rbxasset://lync/" .. data.Path)
+			local objects = getObjects("rbxasset://" .. contentRoot .. data.Path)
 			if objects then
 				if #objects == 1 then
 					objects[1].Name = name
@@ -634,7 +634,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -651,7 +651,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -679,7 +679,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -698,7 +698,7 @@ local function buildPath(path: string)
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = "Localization"})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = "Localization"})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -718,7 +718,7 @@ local function buildPath(path: string)
 		setDetails(target, data)
 		if data.TerrainRegion then
 			if target == workspace.Terrain then
-				local objects = getObjects("rbxasset://lync/" .. data.TerrainRegion[1])
+				local objects = getObjects("rbxasset://" .. contentRoot .. data.TerrainRegion[1])
 				if objects then
 					if #objects == 1 then
 						lpcall("Set Terrain Region", false, function()
@@ -787,13 +787,15 @@ local function setConnected(newConnected: boolean)
 		if newConnected then
 			if not map then
 				local success, result = pcall(function()
-					local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
+					local get = HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
 					return get ~= "{}" and HttpService:JSONDecode(get) or nil
 				end)
 				if success then
 					if result.Version == VERSION then
 						debugPrints = result.Debug
+						contentRoot = result.ContentRoot
 						result.Debug = nil
+						result.ContentRoot = nil
 						map = result
 						if not IS_PLAYTEST_SERVER then
 							if debugPrints then warn("[Lync] - Map:", result) end
@@ -824,7 +826,7 @@ local function setConnected(newConnected: boolean)
 				end
 			else
 				local success, result = pcall(function()
-					HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Resume"})
+					HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Resume"})
 				end)
 				if not success then
 					task.spawn(error, "[Lync] - " .. result)
@@ -881,7 +883,7 @@ if not IS_PLAYTEST_SERVER then
 	-- Port
 
 	portTextBox.MouseEnter:Connect(function()
-		if portTextBox:IsFocused() then return end
+		if not portTextBox.Active or portTextBox:IsFocused() then return end
 		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderHover")
 	end)
 
@@ -891,6 +893,7 @@ if not IS_PLAYTEST_SERVER then
 	end)
 
 	portTextBox.Focused:Connect(function()
+		if not portTextBox.Active then return end
 		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderSelected")
 	end)
 
@@ -915,7 +918,7 @@ if not IS_PLAYTEST_SERVER then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
 							local success, result = pcall(function()
-								HttpService:PostAsync("http://localhost:" .. getPort(), ScriptEditorService:GetEditorSource(StudioService.ActiveScript :: LuaSourceContainer), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
+								HttpService:PostAsync(getHost(), ScriptEditorService:GetEditorSource(StudioService.ActiveScript :: LuaSourceContainer), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
 							end)
 							if success then
 								print("[Lync] - Saved script:", data.Path)
@@ -965,7 +968,7 @@ if not IS_PLAYTEST_SERVER then
 					for _, data in map do
 						if data.Instance == StudioService.ActiveScript then
 							local success, result = pcall(function()
-								local source = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+								local source = HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
 								setScriptSourceLive(data.Instance, source)
 							end)
 							if success then
@@ -1079,13 +1082,17 @@ end
 
 if workspace:GetAttribute("__lyncbuildfile") and not IS_PLAYTEST_SERVER or syncDuringTest and IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
 	if syncDuringTest and IS_PLAYTEST_SERVER then warn("[Lync] - Playtest Sync is active.") end
+	portTextBox.Text = ""
+	portTextBox.PlaceholderText = workspace:GetAttribute("__lyncbuildfile")
+	portTextBox.TextEditable = false
+	portTextBox.Active = false
 	setConnected(true)
 end
 
 while task.wait(0.5) do
 	if connected then
 		local success, result = pcall(function()
-			local get = HttpService:GetAsync("http://localhost:" .. getPort(), false, {Key = serverKey, Type = "Modified", Playtest = IS_PLAYTEST_SERVER})
+			local get = HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Modified", Playtest = IS_PLAYTEST_SERVER})
 			return get ~= "{}" and HttpService:JSONDecode(get) or nil
 		end)
 		if success then

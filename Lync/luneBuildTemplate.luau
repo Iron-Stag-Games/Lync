@@ -7,10 +7,16 @@ local roblox = require("@lune/roblox")
 local Enum = roblox.Enum
 local Instance = roblox.Instance
 
+local game = Instance.new("DataModel")
+local workspace = game:GetService("Workspace")
+
+local SUPPRESSED_CLASSES = {}
+
+local contentRoot = ""
 local serverKey = "BuildScript"
-local port = "34873"
 local map = {}
 local activeSourceRequests = 0
+local changedModels = {}
 
 local terminate = error
 
@@ -70,16 +76,18 @@ local function lpcall(_context, _warning, func, ...)
 end
 
 local function getObjects(url)
-	return roblox.deserializeModel(fs.readFile(url:sub(17)))
+	return roblox.deserializeModel(fs.readFile(url:sub(12)))
 end
 
 local function listenForChanges()
 end
 
-local function getPort()
-	return port
+local function getHost()
+	return "http://localhost:" .. workspace:GetAttribute("__lyncbuildfile")
 end
 
-local function LuaCsv(_)
-	return ""
+local function setScriptSourceLive()
+end
+
+local function updateChangedModelUi()
 end

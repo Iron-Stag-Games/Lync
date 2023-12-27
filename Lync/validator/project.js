@@ -15,27 +15,6 @@ function scan(json, root, localPath) {
 		if (key == '$className' && typeof json[key] != 'string') {
 			console.error(jsonError(localPath, root, json, '$className'), yellow('Must be a string'))
 			failed = true
-
-		} else if (key == '$properties') {
-			if (!(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-				console.error(jsonError(localPath, root, json, '$properties'), yellow('Must be an object'))
-				failed = true
-			} else {
-				for (const property in json[key]) {
-					if (typeof json[key][property] == 'object' && Array.isArray(json[key][property]) && json[key][property].length > 1) {
-						console.error(jsonError(localPath, root, json, '$properties\\' + property), yellow('Array with size > 1; check property syntax'))
-						failed = true
-					}
-				}
-			}
-
-		} else if (key == '$attributes' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
-			console.error(jsonError(localPath, root, json, '$attributes'), yellow('Must be an object'))
-			failed = true
-
-		} else if (key == '$tags' && !(typeof json[key] == 'object' && Array.isArray(json[key]))) {
-			console.error(jsonError(localPath, root, json, '$tags'), yellow('Must be an array'))
-			failed = true
 		
 		} else if (key == '$path') {
 			if (typeof(json[key]) == 'object') {
@@ -64,6 +43,27 @@ function scan(json, root, localPath) {
 				console.error(jsonError(localPath, root, json, '$path'), yellow('Must be a string or an object'))
 				failed = true
 			}
+
+		} else if (key == '$properties') {
+			if (!(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
+				console.error(jsonError(localPath, root, json, '$properties'), yellow('Must be an object'))
+				failed = true
+			} else {
+				for (const property in json[key]) {
+					if (typeof json[key][property] == 'object' && Array.isArray(json[key][property]) && json[key][property].length > 1) {
+						console.error(jsonError(localPath, root, json, '$properties\\' + property), yellow('Array with size > 1; check property syntax'))
+						failed = true
+					}
+				}
+			}
+
+		} else if (key == '$attributes' && !(typeof json[key] == 'object' && !Array.isArray(json[key]))) {
+			console.error(jsonError(localPath, root, json, '$attributes'), yellow('Must be an object'))
+			failed = true
+
+		} else if (key == '$tags' && !(typeof json[key] == 'object' && Array.isArray(json[key]))) {
+			console.error(jsonError(localPath, root, json, '$tags'), yellow('Must be an array'))
+			failed = true
 
 		} else if (key == '$clearOnSync' && (typeof json[key] != 'boolean')) {
 			console.error(jsonError(localPath, root, json, '$clearOnSync'), yellow('Must be a boolean'))
@@ -130,6 +130,20 @@ module.exports.validate = function(type, json, localPath) {
 		if (('remoteAddress' in json) && typeof json.remoteAddress != 'string') {
 			console.error(jsonError(localPath, json, json, 'remoteAddress'), yellow('Must be a string'))
 			failed = true
+		}
+
+		if ('servePlaceIds' in json) {
+			if (!(typeof json.servePlaceIds == 'object' && Array.isArray(json.servePlaceIds))) {
+				console.error(jsonError(localPath, json, json, 'servePlaceIds'), yellow('Must be an array'))
+				failed = true
+			} else {
+				for (const index in json.servePlaceIds) {
+					if (typeof json.servePlaceIds[index] != 'number') {
+						console.error(jsonError(localPath, json, json.servePlaceIds, index), yellow('Must be a number'))
+						failed = true
+					}
+				}
+			}
 		}
 
 		if ('globIgnorePaths' in json) {
