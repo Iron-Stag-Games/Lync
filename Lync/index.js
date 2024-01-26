@@ -108,18 +108,16 @@ const DEBUG = CONFIG.Debug
  */
 function argHelp(err) {
 	if (err) console.error(red('Argument error:'), yellow(err) + '\n')
-	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ LYNC HELP                          Displays the list of available arguments.              ┃
-┃      CONFIG                        Opens the config file.                                 ┃
-┃      SERVE ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Syncs the project.                                     ┃
-┃      OPEN  ${cyan('project.json', true)}? ${green('REMOTE', true)}?   Builds, syncs, and opens the project in Roblox Studio. ┃
-┃      BUILD ${cyan('project.json', true)}?           Builds the project to file.                            ┃
-┃      FETCH ${cyan('project.json', true)}?           Downloads the list of sources in the project file.     ┃
-┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
-┃ ${cyan('project.json', true)}?   The project file to read from and serve.                                  ┃
-┃ ${green('REMOTE', true)}?         Connect to the project's ${green('remoteAddress')} instead of the localhost.        ┃
-┃                 ${red('Warning:')} ${yellow('REMOTE is unimplemented!')}                                         ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
+	console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ LYNC HELP                  Displays the list of available arguments.              ┃
+┃      CONFIG                Opens the config file.                                 ┃
+┃      SERVE ${cyan('project.json', true)}?   Syncs the project.                                     ┃
+┃      OPEN  ${cyan('project.json', true)}?   Builds, syncs, and opens the project in Roblox Studio. ┃
+┃      BUILD ${cyan('project.json', true)}?   Builds the project to file.                            ┃
+┃      FETCH ${cyan('project.json', true)}?   Downloads the list of sources in the project file.     ┃
+┣╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┫
+┃ ${cyan('project.json', true)}?   The project file to read from and serve.                          ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
 `)
 	process.exit(err && -1 || 0)
 }
@@ -139,7 +137,6 @@ if (MODE == '' || MODE == 'help') {
 if (MODE != 'serve' && MODE != 'open' && MODE != 'build' && MODE != 'fetch') argHelp('Mode must be SERVE, OPEN, BUILD, or FETCH')
 if (MODE == 'open' && PLATFORM != 'windows' && PLATFORM != 'macos') argHelp('Cannot use OPEN mode on Linux')
 const PROJECT_JSON = ARGS[1] && ARGS[1].replace(/\\/g, '/') || 'default.project.json'
-const USE_REMOTE = ARGS[2] && ARGS[2].toLowerCase() == 'remote' // Unimplemented
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Globals

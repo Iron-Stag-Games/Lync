@@ -127,11 +127,6 @@ module.exports.validate = function(type, json, localPath) {
 			failed = true
 		}
 
-		if (('remoteAddress' in json) && typeof json.remoteAddress != 'string') {
-			console.error(jsonError(localPath, json, json, 'remoteAddress'), yellow('Must be a string'))
-			failed = true
-		}
-
 		if ('servePlaceIds' in json) {
 			if (!(typeof json.servePlaceIds == 'object' && Array.isArray(json.servePlaceIds))) {
 				console.error(jsonError(localPath, json, json, 'servePlaceIds'), yellow('Must be an array'))
