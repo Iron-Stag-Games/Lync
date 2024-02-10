@@ -1012,7 +1012,7 @@ function runJobs(event, localPath) {
 
 		// Validate loadstrings
 		if (DEBUG) console.log('Validating loadstrings . . .')
-		const validationStatus = spawnSync(lunePath, [ `${buildScriptPath}` ], {
+		const validationStatus = spawnSync(lunePath, [ 'run', `${buildScriptPath}` ], {
 			cwd: process.cwd(),
 			detached: false,
 			stdio: 'inherit'
@@ -1039,7 +1039,7 @@ function runJobs(event, localPath) {
 
 		// Build RBXL
 		if (DEBUG) console.log('Building RBXL . . .')
-		const build = spawn(lunePath, [ `${buildScriptPath}` ], {
+		const build = spawn(lunePath, [ 'run', `${buildScriptPath}` ], {
 			cwd: process.cwd(),
 			detached: false,
 			stdio: 'inherit'
