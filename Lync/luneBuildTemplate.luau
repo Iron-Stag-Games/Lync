@@ -71,22 +71,33 @@ local Vector3int16 = roblox.Vector3int16
 ]] .. code))
 end
 
-local function lpcall(_context, _warning, func, ...)
-	return true, func(...)
+local function lpcall(context: string, warning: boolean, func: any, ...): (boolean, any)
+	local args = {...}
+	if not warning then
+		return true, func(unpack(args))
+	else
+		local success, result = pcall(function()
+			return func(unpack(args))
+		end)
+		if not success then
+			warn(context .. ": " .. tostring(result))
+		end
+		return success, result
+	end
 end
 
 local function getObjects(url)
 	return roblox.deserializeModel(fs.readFile(url:sub(12)))
 end
 
-local function listenForChanges()
+local function listenForChanges(_object)
 end
 
 local function getHost()
 	return "http://localhost:" .. workspace:GetAttribute("__lyncbuildfile")
 end
 
-local function setScriptSourceLive()
+local function setScriptSourceLive(_container, _lua)
 end
 
 local function updateChangedModelUi()

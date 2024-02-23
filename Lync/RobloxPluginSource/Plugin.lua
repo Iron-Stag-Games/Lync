@@ -295,7 +295,7 @@ local function lpcall(context: string, warning: boolean, func: any, ...): (boole
 	local args = {...}
 	return xpcall(function()
 		return func(unpack(args))
-	end, function(err)
+	end, function(err: string)
 		if not warning then
 			task.spawn(error, "[Lync] - " .. context .. ": " .. err)
 		elseif debugPrints then
