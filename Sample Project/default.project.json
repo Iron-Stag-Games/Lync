@@ -2,6 +2,7 @@
 	"name": "Example Build",
 	"build": "BuildScripts/Build/Build.rbxl",
 	"port": 34873,
+	"collisionGroups": "collisionGroups.json",
 	"sourcemapEnabled": {
 		"RBXM": true,
 		"RBXMX": true

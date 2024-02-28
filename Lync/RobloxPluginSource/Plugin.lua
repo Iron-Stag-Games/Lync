@@ -1,8 +1,10 @@
 --!strict
+--!optimize 2
+--!native
 --[[
 	Lync Client
 	https://github.com/Iron-Stag-Games/Lync
-	Copyright (C) 2022  Iron Stag Games
+	Copyright (C) 2024  Iron Stag Games
 
 	This library is free software; you can redistribute it and/or
 	modify it under the terms of the GNU Lesser General Public
@@ -19,7 +21,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 ]]
-local VERSION = "Alpha 28"
+local VERSION = "Alpha 29"
 
 if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
@@ -28,12 +30,11 @@ if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
-local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
+local PhysicsService = game:GetService("PhysicsService")
 local RunService = game:GetService("RunService")
 local ScriptEditorService = game:GetService("ScriptEditorService")
 local Selection = game:GetService("Selection")
-local StudioService = game:GetService("StudioService")
 local TweenService = game:GetService("TweenService")
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -50,59 +51,58 @@ local SUPPRESSED_CLASSES = {
 	"ChatInputBarConfiguration";
 	"BubbleChatConfiguration";
 }
+local BUTTON_TWEEN_INFO = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local BUTTON_TWEEN_PROPERTIES = {Offset = Vector2.new(0.51, 0)}
 
 -- Defines
-local contentRoot = ""
-local debugPrints = false
 local theme: StudioTheme = settings().Studio.Theme :: StudioTheme
 local connected = false
 local connecting = false
 local serverKey = plugin:GetSetting("Lync_ServerKey")
-local map: {[string]: {[string]: any}}
+local map: {
+	info: {
+		Version: number;
+		Debug: boolean;
+		ContentRoot: string;
+		CollisionGroupsFile: string;
+		CollisionGroups: {[string]: {[string]: boolean}};
+		ServePlaceIds: {number};
+	};
+	tree: {[string]: {[string]: any}};
+};
 local activeSourceRequests = 0
-local changedModels: {[Instance]: boolean} = {}
+local changedFiles: {[Instance]: boolean} = {}
+local changedCollisionGroupData = false
 local syncDuringTest = plugin:GetSetting("Lync_SyncDuringTest") or false
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Widget setup
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
--- Main Widget
-
-local mainWidget = plugin:CreateDockWidgetPluginGui("Lync_Main", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Left, true, false, 268 + 8, 40 + 8, 268 + 8, 40 + 8))
+local mainWidget = plugin:CreateDockWidgetPluginGui("Lync_Main", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Left, true, false, 360 + 8, 40 + 8, 360 + 8, 40 + 8))
 mainWidget.Name = "Lync Client"
 mainWidget.Title = mainWidget.Name
+mainWidget.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local mainWidgetFrame = script.WidgetGui.Frame
-mainWidgetFrame.Parent = mainWidget
-mainWidgetFrame.Frame.Version.Text = VERSION:lower()
+local widgetFrame = script.WidgetGui.Frame
+widgetFrame.Parent = mainWidget
+widgetFrame.Title.Version.Text = VERSION:lower()
 
-local connect = mainWidgetFrame.Frame.Connect
-local portTextBox = mainWidgetFrame.Frame.Port
+local connect = widgetFrame.Actions.Connect
+local portTextBox = widgetFrame.Actions.Port
 portTextBox.Text = plugin:GetSetting("Lync_Port") or ""
-local saveScript = mainWidgetFrame.SaveScript
-local revertScript = mainWidgetFrame.RevertScript
 
--- Unsaved Model Widget
-
-local unsavedModelWidget = plugin:CreateDockWidgetPluginGui("Lync_UnsavedModel", DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Right, false, false, 512, 256, 256, 128))
-unsavedModelWidget.Name = "Lync - Unsaved Models"
-unsavedModelWidget.Title = unsavedModelWidget.Name
-unsavedModelWidget.Enabled = false
-
-local unsavedModelWidgetFrame = script.UnsavedModelListGui.ScrollingFrame
-unsavedModelWidgetFrame.Parent = unsavedModelWidget
-
--- Unsaved Model Warning
-
-local unsavedModelWarning = script.UnsavedModelWarningGui
-unsavedModelWarning.Parent = CoreGui
+local unsavedFilesFrame = widgetFrame.UnsavedFiles
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Helper Functions
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-local function connectButtonColors(button: TextButton)
+function getHost(): string
+	return "http://localhost:" .. (portTextBox.Text ~= "" and portTextBox.Text or portTextBox.PlaceholderText)
+end
+
+function connectButtonColors(button: TextButton)
 	button.MouseEnter:Connect(function()
 		if not button.Active then return end
 		button.BackgroundColor3 = button:GetAttribute("BackgroundHover")
@@ -124,69 +124,308 @@ local function connectButtonColors(button: TextButton)
 	end)
 end
 
-local function updateChangedModelUi()
+function setScriptSourceLive(container: LuaSourceContainer, lua: string)
+	local document = ScriptEditorService:FindScriptDocument(container)
+	local cursorLine: number, cursorChar: number, anchorLine: number, anchorChar: number;
+	if document then
+		cursorLine, cursorChar, anchorLine, anchorChar = document:GetSelection()
+	end
+	container:SetAttribute("__lync_syncing", true)
+	ScriptEditorService:UpdateSourceAsync(container, function(_oldContent: string)
+		return ({lua:gsub("\r", "")})[1]
+	end)
+	container:SetAttribute("__lync_syncing", nil)
+	if document then
+		local maxLine = document:GetLineCount()
+		local maxCursorChar = document:GetLine(math.min(cursorLine, maxLine)):len() + 1
+		local maxAnchorChar = document:GetLine(math.min(anchorLine, maxLine)):len() + 1
+		document:ForceSetSelectionAsync(
+			math.min(cursorLine, maxLine),
+			math.min(cursorChar, maxCursorChar),
+			math.min(anchorLine, maxLine),
+			math.min(anchorChar, maxAnchorChar)
+		)
+	end
+	changedFiles[container] = nil
+	updateChangedFilesUI()
+end
+
+function getCurrentCollisionGroups(): {[string]: {[string]: boolean}}
+	local currentCollisionGroups = {}
+	for _, collisionGroup in PhysicsService:GetRegisteredCollisionGroups() do
+		currentCollisionGroups[collisionGroup.name] = {}
+		for _, otherCollisionGroup in PhysicsService:GetRegisteredCollisionGroups() do
+			if not currentCollisionGroups[otherCollisionGroup.name] or currentCollisionGroups[otherCollisionGroup.name][collisionGroup.name] == nil then
+				currentCollisionGroups[collisionGroup.name][otherCollisionGroup.name] = PhysicsService:CollisionGroupsAreCollidable(collisionGroup.name, otherCollisionGroup.name)
+			end
+		end
+	end
+	return currentCollisionGroups
+end
+
+function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: string)
+	local fileEntry = script.UnsavedFileListItem:Clone()
+	local fullName = if
+		typeof(object) == "Instance" then map.tree[path].Path
+		elseif object == "CollisionGroupData" then "< collision group data >"
+		else object
+	fileEntry.Name = fullName
+	if typeof(object) == "Instance" then
+		fileEntry.Instance.Value = object
+	else
+		fileEntry.Special.Value = object
+	end
+	fileEntry.SelectButton.TextLabel.Text = fullName
+	fileEntry.Parent = unsavedFilesFrame
+
+	-- Select
+	do
+		if typeof(object) == "Instance" then
+			fileEntry.SelectButton.Activated:Connect(function()
+				local data = map.tree[path]
+				if data.Type == "Lua" and fileEntry:GetAttribute("Selected") then
+					ScriptEditorService:OpenScriptDocumentAsync(object)
+				end
+				Selection:Set({object})
+			end)
+			fileEntry:GetAttributeChangedSignal("Selected"):Connect(function()
+				if fileEntry:GetAttribute("Selected") then
+					fileEntry.SelectButton.BackgroundColor3 = fileEntry.SelectButton:GetAttribute("BackgroundSelected")
+					fileEntry.SelectButton.TextLabel.TextColor3 = fileEntry.SelectButton:GetAttribute("TextSelected")
+				else
+					fileEntry.SelectButton.BackgroundColor3 = fileEntry.SelectButton:GetAttribute("Background")
+					fileEntry.SelectButton.TextLabel.TextColor3 = fileEntry.SelectButton:GetAttribute("Text")
+				end
+			end)
+			fileEntry:SetAttribute("Selected", table.find(Selection:Get(), object))
+		end
+		fileEntry.SelectButton.MouseEnter:Connect(function()
+			if not fileEntry:GetAttribute("Selected") then
+				fileEntry.SelectButton.BackgroundColor3 = fileEntry.SelectButton:GetAttribute("BackgroundHover")
+				fileEntry.SelectButton.TextLabel.TextColor3 = fileEntry.SelectButton:GetAttribute("TextHover")
+			end
+		end)
+		fileEntry.SelectButton.MouseLeave:Connect(function()
+			if not fileEntry:GetAttribute("Selected") then
+				fileEntry.SelectButton.BackgroundColor3 = fileEntry.SelectButton:GetAttribute("Background")
+				fileEntry.SelectButton.TextLabel.TextColor3 = fileEntry.SelectButton:GetAttribute("Text")
+			end
+		end)
+	end
+
+	-- Ignore
+	if typeof(object) == "Instance" then
+		local holdTween: Tween?;
+	
+		fileEntry.IgnoreButton.MouseButton1Down:Connect(function()
+			if fileEntry.IgnoreButton.Active and not holdTween then
+				local tween = TweenService:Create(fileEntry.IgnoreButton.TextLabel.UIGradient, BUTTON_TWEEN_INFO, BUTTON_TWEEN_PROPERTIES)
+				holdTween = tween
+				tween:Play()
+				tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
+					if playbackState == Enum.PlaybackState.Completed then
+						if typeof(object) == "Instance" then
+							changedFiles[object] = nil
+						elseif object == "CollisionGroupData" then
+							changedCollisionGroupData = false
+						end
+						updateChangedFilesUI()
+					end
+				end)
+			end
+		end)
+	
+		local function cancelRevert()
+			if holdTween then
+				holdTween:Cancel()
+				holdTween = nil
+			end
+			fileEntry.IgnoreButton.TextLabel.Text = "Ignore"
+			fileEntry.IgnoreButton.TextLabel.UIGradient.Offset = Vector2.new(-0.51, 0)
+		end
+		fileEntry.IgnoreButton.MouseButton1Up:Connect(cancelRevert)
+		fileEntry.IgnoreButton.MouseLeave:Connect(cancelRevert)
+	
+		connectButtonColors(fileEntry.IgnoreButton)
+	else
+		fileEntry.IgnoreButton.Visible = false
+		fileEntry.SelectButton.Size += UDim2.fromOffset(74, 0)
+	end
+
+	-- Revert
+	do
+		local holdTween: Tween?;
+	
+		fileEntry.RevertButton.MouseButton1Down:Connect(function()
+			if fileEntry.RevertButton.Active and not holdTween then
+				local tween = TweenService:Create(fileEntry.RevertButton.TextLabel.UIGradient, BUTTON_TWEEN_INFO, BUTTON_TWEEN_PROPERTIES)
+				holdTween = tween
+				tween:Play()
+				tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
+					if playbackState == Enum.PlaybackState.Completed then
+						if typeof(object) == "Instance" then
+							local data = map.tree[path]
+							local success, result = pcall(function()
+								if data.Type == "Lua" then
+									local source = HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+									setScriptSourceLive(data.Instance, source)
+								elseif data.Type == "Model" then
+									buildPath(path)
+								end
+							end)
+							if success then
+								print("[Lync] - Reverted file:", data.Path)
+							else
+								task.spawn(error, `[Lync] - Failed to revert file: {data.Path}\n{tostring(result)}`)
+								fileEntry.RevertButton.TextLabel.Text = "Failed"
+							end
+						elseif object == "CollisionGroupData" then
+							local currentCollisionGroups = getCurrentCollisionGroups()
+							for collisionGroupName in currentCollisionGroups do
+								if map.info.CollisionGroups[collisionGroupName] == nil then
+									PhysicsService:UnregisterCollisionGroup(collisionGroupName)
+								end
+							end
+							setCollisionGroups()
+							print("[Lync] - Reverted collision group data")
+						end
+					end
+				end)
+			end
+		end)
+	
+		local function cancelRevert()
+			if holdTween then
+				holdTween:Cancel()
+				holdTween = nil
+			end
+			fileEntry.RevertButton.TextLabel.Text = "Revert"
+			fileEntry.RevertButton.TextLabel.UIGradient.Offset = Vector2.new(-0.51, 0)
+		end
+		fileEntry.RevertButton.MouseButton1Up:Connect(cancelRevert)
+		fileEntry.RevertButton.MouseLeave:Connect(cancelRevert)
+	
+		connectButtonColors(fileEntry.RevertButton)
+	end
+
+	-- Save
+	do
+		local holdTween: Tween?;
+	
+		fileEntry.SaveButton.MouseButton1Down:Connect(function()
+			if fileEntry.SaveButton.Active and not holdTween then
+				local tween = TweenService:Create(fileEntry.SaveButton.TextLabel.UIGradient, BUTTON_TWEEN_INFO, BUTTON_TWEEN_PROPERTIES)
+				holdTween = tween
+				tween:Play()
+				tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
+					if playbackState == Enum.PlaybackState.Completed then
+						if typeof(object) == "Instance" then
+							local data = map.tree[path]
+							local success, result = pcall(function()
+								if data.Type == "Lua" then
+									HttpService:PostAsync(getHost(), ScriptEditorService:GetEditorSource(data.Instance), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
+								elseif data.Type == "Model" then
+									Selection:Set({object})
+									if next(Selection:Get()) and plugin:PromptSaveSelection(object.Name) then
+										changedFiles[object] = nil
+										updateChangedFilesUI()
+									end
+								end
+							end)
+							if data.Type == "Lua" then
+								if success then
+									print("[Lync] - Saved file:", data.Path)
+								else
+									task.spawn(error, `[Lync] - Failed to save file: {data.Path}\n{tostring(result)}`)
+									fileEntry.SaveButton.TextLabel.Text = "Failed"
+								end
+							end
+						elseif object == "CollisionGroupData" then
+							local currentCollisionGroups = getCurrentCollisionGroups()
+							local success, result = pcall(function()
+								HttpService:PostAsync(getHost(), HttpService:JSONEncode(currentCollisionGroups), Enum.HttpContentType.ApplicationJson, false, {Key = serverKey, Type = "ReverseSync", Path = map.info.CollisionGroupsFile})
+							end)
+							if success then
+								map.info.CollisionGroups = currentCollisionGroups
+								print("[Lync] - Saved collision group data")
+							else
+								task.spawn(error, `[Lync] - Failed to save collision group data\n{tostring(result)}`)
+								fileEntry.SaveButton.TextLabel.Text = "Failed"
+							end
+						end
+					end
+				end)
+			end
+		end)
+	
+		local function cancelSave()
+			if holdTween then
+				holdTween:Cancel()
+				holdTween = nil
+			end
+			fileEntry.SaveButton.TextLabel.Text = "Save"
+			fileEntry.SaveButton.TextLabel.UIGradient.Offset = Vector2.new(-0.51, 0)
+		end
+		fileEntry.SaveButton.MouseButton1Up:Connect(cancelSave)
+		fileEntry.SaveButton.MouseLeave:Connect(cancelSave)
+	
+		connectButtonColors(fileEntry.SaveButton)
+	end
+end
+
+function updateChangedFilesUI()
 	-- Destroy hidden or old entries
-	for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
-		if modelEntry:IsA("Frame") then
-			if not changedModels[modelEntry.Object.Value] then
-				modelEntry:Destroy()
+	for _, fileEntry in unsavedFilesFrame:GetChildren() do
+		if fileEntry:IsA("Frame") then
+			if fileEntry:GetAttribute("CollisionGroupData") then
+				if not changedCollisionGroupData then
+					fileEntry:Destroy()
+				end
+			elseif not changedFiles[fileEntry.Instance.Value] then
+				fileEntry:Destroy()
 			end
 		end
 	end
 
 	-- Make new entries
-	for object, changed in changedModels do
-		if changed then
-			-- Skip if entry already created
-			local alreadyCreated = false
-			for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
-				if modelEntry:IsA("Frame") and modelEntry.Object.Value == object then
-					alreadyCreated = true
-					break
-				end
+	for object in changedFiles do
+		-- Skip if entry already created
+		local alreadyCreated = false
+		for _, fileEntry in unsavedFilesFrame:GetChildren() do
+			if fileEntry:IsA("Frame") and fileEntry.Instance.Value == object then
+				alreadyCreated = true
+				break
 			end
-			if alreadyCreated then
-				continue
+		end
+		if alreadyCreated then
+			continue
+		end
+
+		for path in map.tree do
+			if map.tree[path].Instance == object then
+				addChangedFileEntry(object, path)
+				break
 			end
-
-			local fullName = object:GetFullName()
-			local modelEntry = script.UnsavedModelListItem:Clone()
-			modelEntry.Name = fullName
-			modelEntry.Object.Value = object
-			modelEntry.SelectButton.TextLabel.Text = fullName
-			modelEntry.Parent = unsavedModelWidgetFrame
-
-			modelEntry.SelectButton.Activated:Connect(function()
-				Selection:Set({object})
-			end)
-
-			modelEntry.IgnoreButton.Activated:Connect(function()
-				changedModels[object] = nil
-				updateChangedModelUi()
-			end)
-			connectButtonColors(modelEntry.IgnoreButton)
-
-			modelEntry.SaveButton.Activated:Connect(function()
-				Selection:Set({object})
-				if next(Selection:Get()) and plugin:PromptSaveSelection(object.Name) then
-					changedModels[object] = nil
-					updateChangedModelUi()
-				end
-			end)
-			connectButtonColors(modelEntry.SaveButton)
-
-			unsavedModelWarning.Enabled = true
 		end
 	end
 
-	-- Hide UI if empty
-	if not next(changedModels) then
-		unsavedModelWidget.Enabled = false
-		unsavedModelWarning.Enabled = false
+	if changedCollisionGroupData then
+		local alreadyCreated = false
+		for _, fileEntry in unsavedFilesFrame:GetChildren() do
+			if fileEntry:IsA("Frame") and fileEntry.Special.Value == "CollisionGroupData" then
+				alreadyCreated = true
+				break
+			end
+		end
+		if not alreadyCreated then
+			addChangedFileEntry("CollisionGroupData", "")
+		end
 	end
+
+	widgetFrame.TextLabel.Visible = not next(changedFiles) and not changedCollisionGroupData
 end
 
-local function setConnectTheme()
+function setConnectTheme()
 	local backgroundColor = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButton else Enum.StudioStyleGuideColor.DialogMainButton
 	connect:SetAttribute("Background", theme:GetColor(backgroundColor))
 	connect:SetAttribute("BackgroundHover", theme:GetColor(backgroundColor, Enum.StudioStyleGuideModifier.Hover))
@@ -200,89 +439,80 @@ local function setConnectTheme()
 	connect.Frame.UIStroke.Color = connect:GetAttribute("Text")
 end
 
-local function setScriptActionsTheme()
-	local enabled = saveScript.Active
-	local idleModifier = if enabled then Enum.StudioStyleGuideModifier.Default else Enum.StudioStyleGuideModifier.Disabled
-
-	local saveScriptBackgroundColor = Enum.StudioStyleGuideColor.DialogMainButton
-	saveScript:SetAttribute("Background", theme:GetColor(saveScriptBackgroundColor, idleModifier))
-	saveScript:SetAttribute("BackgroundHover", theme:GetColor(saveScriptBackgroundColor, Enum.StudioStyleGuideModifier.Hover))
-	saveScript:SetAttribute("BackgroundPressed", theme:GetColor(saveScriptBackgroundColor, Enum.StudioStyleGuideModifier.Pressed))
-	saveScript.BackgroundColor3 = saveScript:GetAttribute("Background")
-	local saveScriptTextColor = Enum.StudioStyleGuideColor.DialogMainButtonText
-	saveScript:SetAttribute("Text", theme:GetColor(saveScriptTextColor, idleModifier))
-	saveScript:SetAttribute("TextHover", theme:GetColor(saveScriptTextColor, Enum.StudioStyleGuideModifier.Hover))
-	saveScript:SetAttribute("TextPressed", theme:GetColor(saveScriptTextColor, Enum.StudioStyleGuideModifier.Pressed))
-	saveScript.TextColor3 = saveScript:GetAttribute("Text")
-
-	local revertScriptBackgroundColor = Enum.StudioStyleGuideColor.DialogButton
-	revertScript:SetAttribute("Background", theme:GetColor(revertScriptBackgroundColor, idleModifier))
-	revertScript:SetAttribute("BackgroundHover", theme:GetColor(revertScriptBackgroundColor, Enum.StudioStyleGuideModifier.Hover))
-	revertScript:SetAttribute("BackgroundPressed", theme:GetColor(revertScriptBackgroundColor, Enum.StudioStyleGuideModifier.Pressed))
-	revertScript.BackgroundColor3 = revertScript:GetAttribute("Background")
-	local revertScriptTextColor = Enum.StudioStyleGuideColor.DialogButtonText
-	revertScript:SetAttribute("Text", theme:GetColor(revertScriptTextColor, idleModifier))
-	revertScript:SetAttribute("TextHover", theme:GetColor(revertScriptTextColor, Enum.StudioStyleGuideModifier.Hover))
-	revertScript:SetAttribute("TextPressed", theme:GetColor(revertScriptTextColor, Enum.StudioStyleGuideModifier.Pressed))
-	revertScript.TextColor3 = revertScript:GetAttribute("Text")
-end
-
-local function setTheme()
+function setTheme()
 	-- Main Widget
-	mainWidgetFrame.Frame.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
-	mainWidgetFrame.Frame.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
-	connect.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
-	portTextBox.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
-	portTextBox.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
-	mainWidgetFrame.Frame.Version.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
-	local portBorderColor = Enum.StudioStyleGuideColor.InputFieldBorder
-	mainWidgetFrame.Frame:SetAttribute("Border", theme:GetColor(portBorderColor))
-	mainWidgetFrame.Frame:SetAttribute("BorderHover", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Hover))
-	mainWidgetFrame.Frame:SetAttribute("BorderSelected", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Selected))
-	mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
-	saveScript.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
-	revertScript.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
-	setConnectTheme()
-	setScriptActionsTheme()
+	do
+		widgetFrame.Actions.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
+		widgetFrame.Actions.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
+		connect.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+		portTextBox.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+		portTextBox.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
+		widgetFrame.Title.Version.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+		local portBorderColor = Enum.StudioStyleGuideColor.InputFieldBorder
+		widgetFrame.Actions:SetAttribute("Border", theme:GetColor(portBorderColor))
+		widgetFrame.Actions:SetAttribute("BorderHover", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Hover))
+		widgetFrame.Actions:SetAttribute("BorderSelected", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Selected))
+		widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("Border")
+		setConnectTheme()
+	end
 
-	-- Unsaved Model Widget
-	script.UnsavedModelListItem.SelectButton.TextLabel.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
-	local ignoreBackground = Enum.StudioStyleGuideColor.DialogButton
-	script.UnsavedModelListItem.IgnoreButton:SetAttribute("Background", theme:GetColor(ignoreBackground))
-	script.UnsavedModelListItem.IgnoreButton:SetAttribute("BackgroundHover", theme:GetColor(ignoreBackground, Enum.StudioStyleGuideModifier.Hover))
-	script.UnsavedModelListItem.IgnoreButton:SetAttribute("BackgroundPressed", theme:GetColor(ignoreBackground, Enum.StudioStyleGuideModifier.Pressed))
-	script.UnsavedModelListItem.IgnoreButton.BackgroundColor3 = script.UnsavedModelListItem.IgnoreButton:GetAttribute("Background")
-	local ignoreText = Enum.StudioStyleGuideColor.DialogButtonText
-	script.UnsavedModelListItem.IgnoreButton:SetAttribute("Text", theme:GetColor(ignoreText))
-	script.UnsavedModelListItem.IgnoreButton:SetAttribute("TextHover", theme:GetColor(ignoreText, Enum.StudioStyleGuideModifier.Hover))
-	script.UnsavedModelListItem.IgnoreButton:SetAttribute("TextPressed", theme:GetColor(ignoreText, Enum.StudioStyleGuideModifier.Pressed))
-	script.UnsavedModelListItem.IgnoreButton.TextColor3 = script.UnsavedModelListItem.IgnoreButton:GetAttribute("Text")
-	script.UnsavedModelListItem.IgnoreButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
-	local saveBackground = Enum.StudioStyleGuideColor.DialogMainButton
-	script.UnsavedModelListItem.SaveButton:SetAttribute("Background", theme:GetColor(saveBackground))
-	script.UnsavedModelListItem.SaveButton:SetAttribute("BackgroundHover", theme:GetColor(saveBackground, Enum.StudioStyleGuideModifier.Hover))
-	script.UnsavedModelListItem.SaveButton:SetAttribute("BackgroundPressed", theme:GetColor(saveBackground, Enum.StudioStyleGuideModifier.Pressed))
-	script.UnsavedModelListItem.SaveButton.BackgroundColor3 = script.UnsavedModelListItem.SaveButton:GetAttribute("Background")
-	local saveText = Enum.StudioStyleGuideColor.DialogMainButtonText
-	script.UnsavedModelListItem.SaveButton:SetAttribute("Text", theme:GetColor(saveText))
-	script.UnsavedModelListItem.SaveButton:SetAttribute("TextHover", theme:GetColor(saveText, Enum.StudioStyleGuideModifier.Hover))
-	script.UnsavedModelListItem.SaveButton:SetAttribute("TextPressed", theme:GetColor(saveText, Enum.StudioStyleGuideModifier.Pressed))
-	script.UnsavedModelListItem.SaveButton.TextColor3 = script.UnsavedModelListItem.SaveButton:GetAttribute("Text")
-	script.UnsavedModelListItem.SaveButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+	-- Unsaved Files
+	do
+		widgetFrame.TextLabel.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+		local selectBackground = Enum.StudioStyleGuideColor.Item
+		script.UnsavedFileListItem.SelectButton:SetAttribute("Background", theme:GetColor(selectBackground))
+		script.UnsavedFileListItem.SelectButton:SetAttribute("BackgroundHover", theme:GetColor(selectBackground, Enum.StudioStyleGuideModifier.Hover))
+		script.UnsavedFileListItem.SelectButton:SetAttribute("BackgroundSelected", theme:GetColor(selectBackground, Enum.StudioStyleGuideModifier.Selected))
+		script.UnsavedFileListItem.SelectButton.BackgroundColor3 = script.UnsavedFileListItem.SelectButton:GetAttribute("Background")
+		local selectText = Enum.StudioStyleGuideColor.ButtonText
+		script.UnsavedFileListItem.SelectButton:SetAttribute("Text", theme:GetColor(selectText))
+		script.UnsavedFileListItem.SelectButton:SetAttribute("TextHover", theme:GetColor(selectText, Enum.StudioStyleGuideModifier.Hover))
+		script.UnsavedFileListItem.SelectButton:SetAttribute("TextSelected", theme:GetColor(selectText, Enum.StudioStyleGuideModifier.Selected))
+		script.UnsavedFileListItem.SelectButton.TextLabel.TextColor3 = script.UnsavedFileListItem.SelectButton:GetAttribute("Text")
+		local ignoreBackground = Enum.StudioStyleGuideColor.DialogButton
+		script.UnsavedFileListItem.IgnoreButton:SetAttribute("Background", theme:GetColor(ignoreBackground))
+		script.UnsavedFileListItem.IgnoreButton:SetAttribute("BackgroundHover", theme:GetColor(ignoreBackground, Enum.StudioStyleGuideModifier.Hover))
+		script.UnsavedFileListItem.IgnoreButton:SetAttribute("BackgroundPressed", theme:GetColor(ignoreBackground, Enum.StudioStyleGuideModifier.Pressed))
+		script.UnsavedFileListItem.IgnoreButton.BackgroundColor3 = script.UnsavedFileListItem.IgnoreButton:GetAttribute("Background")
+		local ignoreText = Enum.StudioStyleGuideColor.DialogButtonText
+		script.UnsavedFileListItem.IgnoreButton:SetAttribute("Text", theme:GetColor(ignoreText))
+		script.UnsavedFileListItem.IgnoreButton:SetAttribute("TextHover", theme:GetColor(ignoreText, Enum.StudioStyleGuideModifier.Hover))
+		script.UnsavedFileListItem.IgnoreButton:SetAttribute("TextPressed", theme:GetColor(ignoreText, Enum.StudioStyleGuideModifier.Pressed))
+		script.UnsavedFileListItem.IgnoreButton.TextColor3 = script.UnsavedFileListItem.IgnoreButton:GetAttribute("Text")
+		script.UnsavedFileListItem.IgnoreButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+		local revertBackground = Enum.StudioStyleGuideColor.DialogButton
+		script.UnsavedFileListItem.RevertButton:SetAttribute("Background", theme:GetColor(revertBackground))
+		script.UnsavedFileListItem.RevertButton:SetAttribute("BackgroundHover", theme:GetColor(revertBackground, Enum.StudioStyleGuideModifier.Hover))
+		script.UnsavedFileListItem.RevertButton:SetAttribute("BackgroundPressed", theme:GetColor(revertBackground, Enum.StudioStyleGuideModifier.Pressed))
+		script.UnsavedFileListItem.RevertButton.BackgroundColor3 = script.UnsavedFileListItem.RevertButton:GetAttribute("Background")
+		local revertText = Enum.StudioStyleGuideColor.DialogButtonText
+		script.UnsavedFileListItem.RevertButton:SetAttribute("Text", theme:GetColor(revertText))
+		script.UnsavedFileListItem.RevertButton:SetAttribute("TextHover", theme:GetColor(revertText, Enum.StudioStyleGuideModifier.Hover))
+		script.UnsavedFileListItem.RevertButton:SetAttribute("TextPressed", theme:GetColor(revertText, Enum.StudioStyleGuideModifier.Pressed))
+		script.UnsavedFileListItem.RevertButton.TextColor3 = script.UnsavedFileListItem.RevertButton:GetAttribute("Text")
+		script.UnsavedFileListItem.RevertButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+		local saveBackground = Enum.StudioStyleGuideColor.DialogMainButton
+		script.UnsavedFileListItem.SaveButton:SetAttribute("Background", theme:GetColor(saveBackground))
+		script.UnsavedFileListItem.SaveButton:SetAttribute("BackgroundHover", theme:GetColor(saveBackground, Enum.StudioStyleGuideModifier.Hover))
+		script.UnsavedFileListItem.SaveButton:SetAttribute("BackgroundPressed", theme:GetColor(saveBackground, Enum.StudioStyleGuideModifier.Pressed))
+		script.UnsavedFileListItem.SaveButton.BackgroundColor3 = script.UnsavedFileListItem.SaveButton:GetAttribute("Background")
+		local saveText = Enum.StudioStyleGuideColor.DialogMainButtonText
+		script.UnsavedFileListItem.SaveButton:SetAttribute("Text", theme:GetColor(saveText))
+		script.UnsavedFileListItem.SaveButton:SetAttribute("TextHover", theme:GetColor(saveText, Enum.StudioStyleGuideModifier.Hover))
+		script.UnsavedFileListItem.SaveButton:SetAttribute("TextPressed", theme:GetColor(saveText, Enum.StudioStyleGuideModifier.Pressed))
+		script.UnsavedFileListItem.SaveButton.TextColor3 = script.UnsavedFileListItem.SaveButton:GetAttribute("Text")
+		script.UnsavedFileListItem.SaveButton.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
+	end
 
-	for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
-		if modelEntry:IsA("Frame") then
-			modelEntry:Destroy()
+	for _, fileEntry in unsavedFilesFrame:GetChildren() do
+		if fileEntry:IsA("Frame") then
+			fileEntry:Destroy()
 		end
 	end
-	updateChangedModelUi()
+	updateChangedFilesUI()
 end
 
-local function getHost(): string
-	return "http://localhost:" .. (portTextBox.Text ~= "" and portTextBox.Text or portTextBox.PlaceholderText)
-end
-
-local function terminate(errorMessage: string)
+function terminate(errorMessage: string)
 	connecting = false
 	if connected then
 		task.spawn(error, "[Lync] - " .. errorMessage, 0)
@@ -291,108 +521,99 @@ local function terminate(errorMessage: string)
 	end
 end
 
-local function lpcall(context: string, warning: boolean, func: any, ...): (boolean, any)
+function lpcall(context: string, warning: boolean, func: any, ...): (boolean, any)
 	local args = {...}
 	return xpcall(function()
 		return func(unpack(args))
 	end, function(err: string)
 		if not warning then
 			task.spawn(error, "[Lync] - " .. context .. ": " .. err)
-		elseif debugPrints then
+		elseif map.info.Debug then
 			warn("[Lync] - " .. context .. ": " .. err)
 		end
 	end)
 end
 
-local function getObjects(url: string): {Instance}?
+function getObjects(url: string): {Instance}?
 	local success, result = lpcall("Get Objects", false, game.GetObjects, game, url)
 	return if success then result else nil
 end
 
-local function makeDirty(object: Instance, descendant: any, property: string?)
-	if not changedModels[object] and object.Parent and (not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end)) then
-		if debugPrints then warn("[Lync] - Modified synced object:", object, property) end
-		changedModels[object] = true
-		updateChangedModelUi()
+function makeDirty(object: Instance, descendant: any, property: string?)
+	if not changedFiles[object] and object.Parent and (not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end)) then
+		if map.info.Debug then warn("[Lync] - Modified synced object:", object, property) end
+		changedFiles[object] = true
+		updateChangedFilesUI()
 	end
 end
 
-local function listenForChanges(object: Instance)
-	if not changedModels[object] then
+function listenForChanges(object: Instance, mapType: string)
+	if not changedFiles[object] then
 		-- Modification events
-		object.Changed:Connect(function(property)
-			if property == "Name" or property == "Parent" then
-				for _, modelEntry in unsavedModelWidgetFrame:GetChildren() do
-					if modelEntry:IsA("Frame") and modelEntry.Object.Value == object then
-						local fullName = object:GetFullName()
-						modelEntry.Name = fullName
-						modelEntry.SelectButton.TextLabel.Text = fullName
-						break
-					end
+		if mapType == "Lua" then
+			(object :: Script):GetPropertyChangedSignal("Source"):Connect(function()
+				if object:GetAttribute("__lync_syncing") then return end
+				if map.info.Debug then warn("[Lync] - Modified synced object:", object, "Source") end
+				changedFiles[object] = true
+				updateChangedFilesUI()
+			end)
+		elseif mapType == "Model" then
+			object.Changed:Connect(function(property: string)
+				if property ~= "Parent" then
+					makeDirty(object, object, property)
 				end
+			end)
+			object.AttributeChanged:Connect(function(_attribute: string)
+				makeDirty(object, object)
+			end)
+			object.DescendantAdded:Connect(function(descendant: Instance)
+				makeDirty(object, object)
+				descendant.Changed:Connect(function(property: string)
+					makeDirty(object, descendant, property)
+				end)
+				descendant.AttributeChanged:Connect(function(_)
+					makeDirty(object, descendant)
+				end)
+			end)
+			for _, descendant in object:GetDescendants() do
+				descendant.Changed:Connect(function(property: string)
+					makeDirty(object, descendant, property)
+				end)
+				descendant.AttributeChanged:Connect(function(_)
+					makeDirty(object, descendant)
+				end)
 			end
-			if property ~= "Parent" then
-				makeDirty(object, object, property)
-			end
-		end)
-		object.AttributeChanged:Connect(function(_)
-			makeDirty(object, object)
-		end)
-		object.DescendantAdded:Connect(function(descendant)
-			makeDirty(object, object)
-			descendant.Changed:Connect(function(property)
-				makeDirty(object, descendant, property)
-			end)
-			descendant.AttributeChanged:Connect(function(_)
-				makeDirty(object, descendant)
-			end)
-		end)
-		for _, descendant in object:GetDescendants() do
-			descendant.Changed:Connect(function(property)
-				makeDirty(object, descendant, property)
-			end)
-			descendant.AttributeChanged:Connect(function(_)
-				makeDirty(object, descendant)
-			end)
 		end
 
 		-- Clear on destruction
 		object.Destroying:Connect(function()
-			changedModels[object] = nil
-			updateChangedModelUi()
+			changedFiles[object] = nil
+			updateChangedFilesUI()
 		end)
-	end
-end
-
-local function setScriptSourceLive(container: LuaSourceContainer, lua: string)
-	local document = ScriptEditorService:FindScriptDocument(container)
-	local cursorLine: number, cursorChar: number, anchorLine: number, anchorChar: number;
-	if document then
-		cursorLine, cursorChar, anchorLine, anchorChar = document:GetSelection()
-	end
-	ScriptEditorService:UpdateSourceAsync(container, function(_oldContent: string)
-		return ({lua:gsub("\r", "")})[1]
-	end)
-	if document then
-		local maxLine = document:GetLineCount()
-		local maxCursorChar = document:GetLine(math.min(cursorLine, maxLine)):len() + 1
-		local maxAnchorChar = document:GetLine(math.min(anchorLine, maxLine)):len() + 1
-		document:ForceSetSelectionAsync(
-			math.min(cursorLine, maxLine),
-			math.min(cursorChar, maxCursorChar),
-			math.min(anchorLine, maxLine),
-			math.min(anchorChar, maxAnchorChar)
-		)
 	end
 end
 
 --offline-start
 
-local function trim6(s: string): string
+function trim6(s: string): string
 	return (if s:match('^()%s*$') then '' else s:match('^%s*(.*%S)')) :: string
 end
 
-local function validateLuaProperty(lua: string): boolean
+function setCollisionGroups()
+	for collisionGroup, canCollideWith in map.info.CollisionGroups do
+		if not PhysicsService:IsCollisionGroupRegistered(collisionGroup) then
+			PhysicsService:RegisterCollisionGroup(collisionGroup)
+		end
+		for otherCollisionGroup, canCollide in canCollideWith do
+			if not PhysicsService:IsCollisionGroupRegistered(otherCollisionGroup) then
+				PhysicsService:RegisterCollisionGroup(otherCollisionGroup)
+			end
+			PhysicsService:CollisionGroupSetCollidable(collisionGroup, otherCollisionGroup, canCollide)
+		end
+	end
+end
+
+function validateLuaProperty(lua: string): boolean
 	-- Constructor
 	if lua:match([[^[A-Z][0-9A-Za-z]+%.[0-9A-Za-z]+%(.*%)$]]) then
 		local valid = true
@@ -450,7 +671,7 @@ local function validateLuaProperty(lua: string): boolean
 	return false
 end
 
-local function eval(value: any): any
+function eval(value: any): any
 	if type(value) == "table" then
 		if validateLuaProperty(value[1]) then
 			return (loadstring("return " .. value[1]) :: any)()
@@ -463,7 +684,7 @@ local function eval(value: any): any
 	end
 end
 
-local function setDetails(target: any, data: any)
+function setDetails(target: any, data: any)
 	if data.Context then
 		lpcall("Set Context " .. data.Context, false, function()
 			if data.Context == "Legacy" then
@@ -503,7 +724,7 @@ local function setDetails(target: any, data: any)
 	end
 end
 
-local function buildJsonModel(target: any, data: any)
+function buildJsonModel(target: any, data: any)
 	data.Properties = data.properties
 	data.Attributes = data.attributes
 	data.Tags = data.tags
@@ -520,8 +741,8 @@ local function buildJsonModel(target: any, data: any)
 	setDetails(target, data)
 end
 
-local function buildPath(path: string)
-	local data = map[path]
+function buildPath(path: string)
+	local data = map.tree[path]
 	local createInstance = false
 	local target: any = game
 	local subpaths = path:split("/")
@@ -542,9 +763,9 @@ local function buildPath(path: string)
 					if not pcall(function()
 						nextTarget.Parent = nil
 						createInstance = true
-						if data.Type == "Model" and changedModels[nextTarget] then
-							changedModels[nextTarget] = nil
-							updateChangedModelUi()
+						if data.Type == "Model" and changedFiles[nextTarget] then
+							changedFiles[nextTarget] = nil
+							updateChangedFilesUI()
 						end
 					end) then
 						target = nextTarget
@@ -596,7 +817,6 @@ local function buildPath(path: string)
 				newInstance.Parent = target
 				target = newInstance
 			end
-			data.Instance = target
 			task.spawn(function()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
@@ -614,12 +834,12 @@ local function buildPath(path: string)
 				end
 			end)
 		elseif data.Type == "Model" then
-			local objects = getObjects("rbxasset://" .. contentRoot .. data.Path)
+			local objects = getObjects("rbxasset://" .. map.info.ContentRoot .. data.Path)
 			if objects then
 				if #objects == 1 then
 					objects[1].Name = name
 					objects[1].Parent = target
-					listenForChanges(objects[1])
+					target = objects[1]
 				else
 					terminate(`'{data.Path}' cannot contain zero or multiple root Instances`)
 				end
@@ -705,7 +925,7 @@ local function buildPath(path: string)
 					lpcall("Set Entries", false, function()
 						if serverKey == "BuildScript" then
 							-- Temporary. Awaiting rbx-dom / Lune update.
-							print("Localization entries unimplemented!")
+							warn("Localization entries unimplemented!")
 						else
 							target:SetEntries(HttpService:JSONDecode(result))
 						end
@@ -715,10 +935,12 @@ local function buildPath(path: string)
 				end
 			end)
 		end
+		data.Instance = target
 		setDetails(target, data)
+		listenForChanges(target, data.Type)
 		if data.TerrainRegion then
 			if target == workspace.Terrain then
-				local objects = getObjects("rbxasset://" .. contentRoot .. data.TerrainRegion[1])
+				local objects = getObjects("rbxasset://" .. map.info.ContentRoot .. data.TerrainRegion[1])
 				if objects then
 					if #objects == 1 then
 						lpcall("Set Terrain Region", false, function()
@@ -752,20 +974,31 @@ local function buildPath(path: string)
 	end
 end
 
-local function buildAll()
+function buildAll()
+	-- Build place file
 	local sortedPaths = {}
-	for path in pairs(map) do
+	for path in pairs(map.tree) do
 		table.insert(sortedPaths, path)
 	end
 	table.sort(sortedPaths)
 	for _, path in sortedPaths do
 		buildPath(path)
 	end
+
+	-- Assign collision groups
+	if map.info.CollisionGroups then
+		if serverKey == "BuildScript" then
+			-- Temporary. Awaiting rbx-dom / Lune update.
+			warn("Collision groups unimplemented!")
+		else
+			setCollisionGroups()
+		end
+	end
 end
 
 --offline-end
 
-local function setConnected(newConnected: boolean)
+function setConnected(newConnected: boolean)
 	if connecting then return end
 
 	if connected ~= newConnected then
@@ -787,29 +1020,24 @@ local function setConnected(newConnected: boolean)
 		if newConnected then
 			if not map then
 				local success, result = pcall(function()
-					local get = HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER})
-					return get ~= "{}" and HttpService:JSONDecode(get) or nil
+					return HttpService:JSONDecode(HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Map", Playtest = IS_PLAYTEST_SERVER}))
 				end)
 				if success then
-					if result.Version == VERSION then
-						debugPrints = result.Debug
-						contentRoot = result.ContentRoot
-						result.Debug = nil
-						result.ContentRoot = nil
+					if result.info.Version == VERSION then
 						map = result
 						if not IS_PLAYTEST_SERVER then
-							if debugPrints then warn("[Lync] - Map:", result) end
+							if result.info.Debug then warn("[Lync] - Map:", result) end
 							task.spawn(buildAll)
 							repeat task.wait() until activeSourceRequests == 0
 						end
 					else
-						task.spawn(error, `[Lync] - Version mismatch ({result.Version} ~= {VERSION}). Please restart Studio`)
+						task.spawn(error, `[Lync] - Version mismatch ({result.info.Version} ~= {VERSION}). Please restart Studio`)
 						newConnected = false
 					end
 
-					if result.ServePlaceIds then
+					if result.info.ServePlaceIds then
 						local placeIdMatch = false
-						for _, placeId in result.ServePlaceIds do
+						for _, placeId in result.info.ServePlaceIds do
 							if placeId == game.PlaceId then
 								placeIdMatch = true
 								break
@@ -873,188 +1101,75 @@ if not IS_PLAYTEST_SERVER then
 	end)
 
 	-- Connect
+	do
+		connect.Activated:Connect(function()
+			setConnected(not connected)
+		end)
 
-	connect.Activated:Connect(function()
-		setConnected(not connected)
-	end)
-
-	connectButtonColors(connect)
+		connectButtonColors(connect)
+	end
 
 	-- Port
+	do
+		portTextBox.MouseEnter:Connect(function()
+			if not portTextBox.Active or portTextBox:IsFocused() then return end
+			widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("BorderHover")
+		end)
 
-	portTextBox.MouseEnter:Connect(function()
-		if not portTextBox.Active or portTextBox:IsFocused() then return end
-		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderHover")
-	end)
+		portTextBox.MouseLeave:Connect(function()
+			if portTextBox:IsFocused() then return end
+			widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("Border")
+		end)
 
-	portTextBox.MouseLeave:Connect(function()
-		if portTextBox:IsFocused() then return end
-		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
-	end)
+		portTextBox.Focused:Connect(function()
+			if not portTextBox.Active then return end
+			widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("BorderSelected")
+		end)
 
-	portTextBox.Focused:Connect(function()
-		if not portTextBox.Active then return end
-		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("BorderSelected")
-	end)
-
-	portTextBox.FocusLost:Connect(function(_enterPressed)
-		local entry = math.clamp(tonumber(portTextBox.Text) or 0, 0, 65535)
-		portTextBox.Text = entry > 0 and entry or ""
-		mainWidgetFrame.Frame.UIStroke.Color = mainWidgetFrame.Frame:GetAttribute("Border")
-		plugin:SetSetting("Lync_Port", entry > 0 and entry or nil)
-	end)
-
-	-- Save Script
-
-	local saveScriptHeldTween: Tween?;
-
-	saveScript.MouseButton1Down:Connect(function()
-		if saveScript.Active and not saveScriptHeldTween then
-			local tween = TweenService:Create(saveScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
-			saveScriptHeldTween = tween
-			tween:Play()
-			tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
-				if playbackState == Enum.PlaybackState.Completed then
-					for _, data in map do
-						if data.Instance == StudioService.ActiveScript then
-							local success, result = pcall(function()
-								HttpService:PostAsync(getHost(), ScriptEditorService:GetEditorSource(StudioService.ActiveScript :: LuaSourceContainer), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
-							end)
-							if success then
-								print("[Lync] - Saved script:", data.Path)
-								if saveScript.TextLabel.Text == "Saving..." then
-									saveScript.TextLabel.Text = "Saved!"
-								end
-							else
-								task.spawn(error, `[Lync] - Failed to save script: {data.Path}\n{tostring(result)}`)
-								if saveScript.TextLabel.Text == "Saving..." then
-									saveScript.TextLabel.Text = "Failed"
-								end
-							end
-							break
-						end
-					end
-				end
-			end)
-		end
-	end)
-
-	local function cancelSaveScript()
-		if saveScriptHeldTween then
-			saveScriptHeldTween:Cancel()
-			saveScriptHeldTween = nil
-		end
-		saveScript.TextLabel.Text = "Saving..."
-		saveScript.TextLabel.UIGradient.Offset = Vector2.new(-0.51, 0)
+		portTextBox.FocusLost:Connect(function(_enterPressed)
+			local entry = math.clamp(tonumber(portTextBox.Text) or 0, 0, 65535)
+			portTextBox.Text = entry > 0 and entry or ""
+			widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("Border")
+			plugin:SetSetting("Lync_Port", entry > 0 and entry or nil)
+		end)
 	end
-
-	saveScript.MouseButton1Up:Connect(cancelSaveScript)
-
-	saveScript.MouseLeave:Connect(cancelSaveScript)
-
-	connectButtonColors(saveScript)
-
-	-- Revert Script
-
-	local revertScriptHeldTween: Tween?;
-
-	revertScript.MouseButton1Down:Connect(function()
-		if revertScript.Active and not revertScriptHeldTween then
-			local tween = TweenService:Create(revertScript.TextLabel.UIGradient, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(0.51, 0)})
-			revertScriptHeldTween = tween
-			tween:Play()
-			tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
-				if playbackState == Enum.PlaybackState.Completed then
-					for _, data in map do
-						if data.Instance == StudioService.ActiveScript then
-							local success, result = pcall(function()
-								local source = HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
-								setScriptSourceLive(data.Instance, source)
-							end)
-							if success then
-								print("[Lync] - Reverted script:", data.Path)
-								if revertScript.TextLabel.Text == "Reverting..." then
-									revertScript.TextLabel.Text = "Reverted!"
-								end
-							else
-								task.spawn(error, `[Lync] - Failed to revert script: {data.Path}\n{tostring(result)}`)
-								if revertScript.TextLabel.Text == "Reverting..." then
-									revertScript.TextLabel.Text = "Failed"
-								end
-							end
-							break
-						end
-					end
-				end
-			end)
-		end
-	end)
-
-	local function cancelRevertScript()
-		if revertScriptHeldTween then
-			revertScriptHeldTween:Cancel()
-			revertScriptHeldTween = nil
-		end
-		revertScript.TextLabel.Text = "Reverting..."
-		revertScript.TextLabel.UIGradient.Offset = Vector2.new(-0.51, 0)
-	end
-
-	revertScript.MouseButton1Up:Connect(cancelRevertScript)
-
-	revertScript.MouseLeave:Connect(cancelRevertScript)
-
-	connectButtonColors(revertScript)
-
-	-- Enable Save / Revert Script
-
-	StudioService:GetPropertyChangedSignal("ActiveScript"):Connect(function()
-		local syncedScriptActive = false
-
-		if StudioService.ActiveScript and map then
-			for _, data in map do
-				if data.Instance == StudioService.ActiveScript then
-					syncedScriptActive = true
-					break
-				end
-			end
-		end
-
-		saveScript.Active = syncedScriptActive
-		revertScript.Active = syncedScriptActive
-		setScriptActionsTheme()
-	end)
 
 	-- Playtest Sync
-
-	local toggleSyncDuringTest = toolbar:CreateButton("Playtest Sync", "Apply changes to files during solo playtests", "rbxassetid://13771245795") :: PluginToolbarButton
-
-	toggleSyncDuringTest.ClickableWhenViewportHidden = true
-	toggleSyncDuringTest:SetActive(syncDuringTest)
-
-	toggleSyncDuringTest.Click:Connect(function()
-		syncDuringTest = not syncDuringTest
-		plugin:SetSetting("Lync_SyncDuringTest", syncDuringTest)
+	do
+		local toggleSyncDuringTest = toolbar:CreateButton("Playtest Sync", "Apply changes to files during solo playtests", "rbxassetid://13771245795") :: PluginToolbarButton
+		toggleSyncDuringTest.ClickableWhenViewportHidden = true
 		toggleSyncDuringTest:SetActive(syncDuringTest)
-	end)
+
+		toggleSyncDuringTest.Click:Connect(function()
+			syncDuringTest = not syncDuringTest
+			plugin:SetSetting("Lync_SyncDuringTest", syncDuringTest)
+			toggleSyncDuringTest:SetActive(syncDuringTest)
+		end)
+	end
 
 	-- Save Terrain
+	do
+		local saveTerrain = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion", "rbxassetid://13771218804") :: PluginToolbarButton
+		saveTerrain.ClickableWhenViewportHidden = true
 
-	local saveTerrain = toolbar:CreateButton("Save Terrain", "Save a copy of this place's Terrain as a TerrainRegion", "rbxassetid://13771218804") :: PluginToolbarButton
+		saveTerrain.Click:Connect(function()
+			local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents);
+			terrainRegion.Parent = workspace
+			Selection:Set({terrainRegion})
+			plugin:PromptSaveSelection(terrainRegion.Name)
+			terrainRegion:Destroy()
+		end)
+	end
 
-	saveTerrain.ClickableWhenViewportHidden = true
-
-	saveTerrain.Click:Connect(function()
-		local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents);
-		terrainRegion.Parent = workspace
-		Selection:Set({terrainRegion})
-		plugin:PromptSaveSelection(terrainRegion.Name)
-		terrainRegion:Destroy()
-	end)
-
-	-- Changed Model Widget
-
-	unsavedModelWarning.MainButton.Activated:Connect(function()
-		unsavedModelWidget.Enabled = true
+	-- Selection Changed
+	
+	Selection.SelectionChanged:Connect(function()
+		local selection = Selection:Get()
+		for _, fileEntry in unsavedFilesFrame:GetChildren() do
+			if fileEntry:IsA("Frame") then
+				fileEntry:SetAttribute("Selected", table.find(selection, fileEntry.Instance.Value))
+			end
+		end
 	end)
 
 	-- Theme
@@ -1091,6 +1206,47 @@ if workspace:GetAttribute("__lyncbuildfile") and not IS_PLAYTEST_SERVER or syncD
 	setConnected(true)
 end
 
+RunService.Heartbeat:Connect(function(_dt: number)
+	if connected and map.info.CollisionGroups then
+		local currentCollisionGroups = getCurrentCollisionGroups()
+
+		local dirty = false
+		for collisionGroupName in currentCollisionGroups do
+			if map.info.CollisionGroups[collisionGroupName] == nil then
+				dirty = true
+				break
+			end
+		end
+		if not dirty then
+			for collisionGroupName in map.info.CollisionGroups do
+				if currentCollisionGroups[collisionGroupName] == nil then
+					dirty = true
+					break
+				end
+			end
+		end
+		if not dirty then
+			for collisionGroupName, collisionGroupData in map.info.CollisionGroups do
+				if dirty then break end
+				for otherCollisionGroupName in collisionGroupData do
+					if
+						not not (currentCollisionGroups[collisionGroupName][otherCollisionGroupName] or currentCollisionGroups[otherCollisionGroupName][collisionGroupName])
+						~= not not (map.info.CollisionGroups[collisionGroupName][otherCollisionGroupName] or map.info.CollisionGroups[otherCollisionGroupName][collisionGroupName])
+					then
+						dirty = true
+						break
+					end
+				end
+			end
+		end
+
+		if changedCollisionGroupData ~= dirty then
+			changedCollisionGroupData = dirty
+			updateChangedFilesUI()
+		end
+	end
+end)
+
 while task.wait(0.5) do
 	if connected then
 		local success, result = pcall(function()
@@ -1099,7 +1255,7 @@ while task.wait(0.5) do
 		end)
 		if success then
 			if result then
-				if debugPrints then warn("[Lync] - Modified:", result) end
+				if map.info.Debug then warn("[Lync] - Modified:", result) end
 				for key, value in result do
 					map[key] = value or nil
 				end

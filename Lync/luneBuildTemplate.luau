@@ -9,10 +9,17 @@ local Instance = roblox.Instance
 
 local game = Instance.new("DataModel")
 local workspace = game:GetService("Workspace")
+local PhysicsService = game:GetService("PhysicsService")
 
-local SUPPRESSED_CLASSES = {}
+local SUPPRESSED_CLASSES = {
+	"Terrain";
+	"StarterCharacterScripts";
+	"StarterPlayerScripts";
+	"ChatWindowConfiguration";
+	"ChatInputBarConfiguration";
+	"BubbleChatConfiguration";
+}
 
-local contentRoot = ""
 local serverKey = "BuildScript"
 local map = {}
 local activeSourceRequests = 0
@@ -80,7 +87,7 @@ local function lpcall(context: string, warning: boolean, func: any, ...): (boole
 			return func(unpack(args))
 		end)
 		if not success then
-			warn(context .. ": " .. tostring(result))
+			warn(context .. ": " .. tostring(result):match("^([^\n]*)\n*"))
 		end
 		return success, result
 	end

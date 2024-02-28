@@ -92,10 +92,7 @@ module.exports.validate = function(type, json, localPath) {
 	let failed = false
 
 	if (type == 'MainProject') {
-		if (!('name' in json)) {
-			console.error(fileError(localPath), yellow('Missing key'), green('name'))
-			failed = true
-		} else if (typeof json.name != 'string') {
+		if (('name' in json) && typeof json.name != 'string') {
 			console.error(jsonError(localPath, json, json, 'name'), yellow('Must be a string'))
 			failed = true
 		}
@@ -124,6 +121,11 @@ module.exports.validate = function(type, json, localPath) {
 			failed = true
 		} else if (typeof json.port != 'number') {
 			console.error(jsonError(localPath, json, json, 'port'), yellow('Must be a number'))
+			failed = true
+		}
+
+		if (('collisionGroups' in json) && typeof json.collisionGroups != 'string') {
+			console.error(jsonError(localPath, json, json, 'collisionGroups'), yellow('Must be a string'))
 			failed = true
 		}
 

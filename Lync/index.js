@@ -1,7 +1,7 @@
 /*
 	Lync Server
 	https://github.com/Iron-Stag-Games/Lync
-	Copyright (C) 2022  Iron Stag Games
+	Copyright (C) 2024  Iron Stag Games
 
 	This library is free software; you can redistribute it and/or
 	modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 */
-const VERSION = 'Alpha 28'
+const VERSION = 'Alpha 29'
 
 const { spawn, spawnSync } = require('child_process')
 const crypto = require('crypto')
@@ -142,10 +142,10 @@ const PROJECT_JSON = ARGS[1] && ARGS[1].replace(/\\/g, '/') || 'default.project.
 // Globals
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-const securityKeys = {}
 const mTimes = {}
+var securityKey = null
 var firstMapped = false
-var map = {}
+var map = { info: {}, tree: {} }
 var modified = {}
 var modified_playtest = {}
 var modified_sourcemap = {}
@@ -293,16 +293,16 @@ function assignMap(robloxPath, mapDetails, mtimeMs) {
 		if (localPathIsIgnored(localPath)) return
 	}
 	if (DEBUG) console.log('Mapping', mapDetails.Type, green(robloxPath), '->', cyan(localPath || ''))
-	if (robloxPath in map) {
-		if (map[robloxPath].Path != localPath && !map[robloxPath].ProjectJson) {
+	if (robloxPath in map.tree) {
+		if (map.tree[robloxPath].Path != localPath && !map.tree[robloxPath].ProjectJson) {
 			console.error(yellow(`Collision on '${robloxPath}'`))
-			if (DEBUG) console.error(map[robloxPath], '->', mapDetails)
+			if (DEBUG) console.error(map.tree[robloxPath], '->', mapDetails)
 		}
-		if (map[robloxPath].ProjectJson) {
-			mapDetails.ProjectJson = map[robloxPath].ProjectJson
+		if (map.tree[robloxPath].ProjectJson) {
+			mapDetails.ProjectJson = map.tree[robloxPath].ProjectJson
 		}
 	}
-	map[robloxPath] = mapDetails
+	map.tree[robloxPath] = mapDetails
 	modified[robloxPath] = mapDetails
 	modified_playtest[robloxPath] = mapDetails
 	modified_sourcemap[robloxPath] = mapDetails
@@ -751,7 +751,7 @@ async function mapJsonRecursive(jsonPath, target, robloxPath, key, firstLoadingE
 				} catch (err) {
 					console.error(red('Failed to download package'), green(localPath.package) + red(':'), yellow(err))
 				}
-				map[nextRobloxPath].Path.package = assetFile
+				map.tree[nextRobloxPath].Path.package = assetFile
 				if (fs.existsSync(assetFile + assetExt)) {
 					await mapDirectory(assetFile + assetExt, nextRobloxPath, 'JSON')
 				}
@@ -789,8 +789,19 @@ async function changedJson() {
 		globIgnorePathsArr.push(projectJson.globIgnorePaths)
 	globIgnorePaths = `{${globIgnorePathsArr.join(',')}}`
 	globIgnorePathsPicoMatch = picomatch(globIgnorePaths)
-	if (DEBUG) console.log('Mapping', green(projectJson.name))
-	map = {}
+
+	if (DEBUG) console.log('Mapping', green(projectJson.name || path.parse(process.cwd()).name))
+
+	map = { info: {}, tree: {} }
+	map.info.Version = VERSION
+	map.info.Debug = DEBUG
+	map.info.ContentRoot = path.join('lync', path.parse(process.cwd()).name, PROJECT_JSON).replaceAll('\\', '/') + '/'
+	if ('collisionGroups' in projectJson) {
+		map.info.CollisionGroupsFile = projectJson.collisionGroups
+		map.info.CollisionGroups = JSON.parse(fs.readFileSync(projectJson.collisionGroups))
+	}
+	map.info.ServePlaceIds = projectJson.servePlaceIds
+
 	const projectJsonStats = fs.statSync(PROJECT_JSON)
 	for (const service in projectJson.tree) {
 		if (service != '$className') await mapJsonRecursive(PROJECT_JSON, projectJson.tree, 'tree', service, false, undefined, projectJsonStats.mtimeMs)
@@ -972,8 +983,8 @@ function runJobs(event, localPath) {
 			}
 		}
 
-		for (const key in map) {
-			const mapping = map[key]
+		for (const key in map.tree) {
+			const mapping = map.tree[key]
 			if (mapping.Type == 'JsonModel') {
 				function mapJsonModel(json) {
 					for (const key in json) {
@@ -1031,6 +1042,7 @@ function runJobs(event, localPath) {
 		+ `\nworkspace:SetAttribute("__lyncbuildfile", ${projectJson.port})\n`
 		+ `${pluginSource}\n`
 		+ `map = net.jsonDecode("${toEscapeSequence(JSON.stringify(map, null, '\t'))}")\n`
+		+ `map.info.ContentRoot = ""\n`
 		+ `buildAll()\n`
 		+ `fs.writeFile("${projectJson.build}", roblox.serializePlace(game))\n`
 		if (fs.existsSync(buildScriptPath))
@@ -1058,7 +1070,7 @@ function runJobs(event, localPath) {
 				process.exit()
 			} else {
 				// Open Studio
-				for (const key in securityKeys) delete securityKeys[key]
+				securityKey = null
 				if (PLATFORM == 'windows' || PLATFORM == 'macos') {
 					if (DEBUG) console.log('Opening', cyan(projectJson.build))
 					spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
@@ -1078,7 +1090,7 @@ function runJobs(event, localPath) {
 		fs.copyFileSync(projectJson.base, projectJson.build)
 
 		// Open Studio
-		for (const key in securityKeys) delete securityKeys[key]
+		securityKey = null
 		if (PLATFORM == 'windows' || PLATFORM == 'macos') {
 			if (DEBUG) console.log('Opening', cyan(projectJson.build))
 			spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
@@ -1132,13 +1144,13 @@ function runJobs(event, localPath) {
 								// Deleted
 								if (!localPathStats) {
 									console.log('D', cyan(localPath))
-									for (const key in map) {
+									for (const key in map.tree) {
 		
 										// Direct
-										if (map[key].Path && (map[key].Path == localPath || map[key].Path.startsWith(localPath + '/'))) {
+										if (map.tree[key].Path && (map.tree[key].Path == localPath || map.tree[key].Path.startsWith(localPath + '/'))) {
 											delete mTimes[localPath]
-											delete mTimes[map[key].Path]
-											delete map[key]
+											delete mTimes[map.tree[key].Path]
+											delete map.tree[key]
 											modified[key] = false
 											modified_playtest[key] = false
 											modified_sourcemap[key] = false
@@ -1148,16 +1160,16 @@ function runJobs(event, localPath) {
 										}
 		
 										// Meta
-										if (key in map && map[key].Meta && (map[key].Meta == localPath || map[key].Meta.startsWith(localPath + '/'))) {
-											if (fs.existsSync(map[key].Path)) {
-												await mapDirectory(map[key].Path, key, 'Modified')
+										if (key in map.tree && map.tree[key].Meta && (map.tree[key].Meta == localPath || map.tree[key].Meta.startsWith(localPath + '/'))) {
+											if (fs.existsSync(map.tree[key].Path)) {
+												await mapDirectory(map.tree[key].Path, key, 'Modified')
 											}
 										}
 		
 										// JSON member
-										if (key in map && map[key].ProjectJson == localPath) {
-											if (fs.existsSync(map[key].Path)) {
-												await mapDirectory(map[key].Path, key, 'Modified')
+										if (key in map.tree && map.tree[key].ProjectJson == localPath) {
+											if (fs.existsSync(map.tree[key].Path)) {
+												await mapDirectory(map.tree[key].Path, key, 'Modified')
 											}
 										}
 									}
@@ -1165,12 +1177,12 @@ function runJobs(event, localPath) {
 								// Changed
 								} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
 									console.log('M', cyan(localPath))
-									for (const key in map) {
-										if (map[key].InitParent == parentPathString) {
+									for (const key in map.tree) {
+										if (map.tree[key].InitParent == parentPathString) {
 											await mapDirectory(parentPathString, key, 'Modified')
-										} else if (map[key].Meta == localPath) {
-											await mapDirectory(map[key].Path, key, 'Modified')
-										} else if (map[key].Path == localPath) {
+										} else if (map.tree[key].Meta == localPath) {
+											await mapDirectory(map.tree[key].Path, key, 'Modified')
+										} else if (map.tree[key].Path == localPath) {
 											await mapDirectory(localPath, key, 'Modified')
 										}
 									}
@@ -1182,8 +1194,8 @@ function runJobs(event, localPath) {
 								// Added
 								if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
 									console.log('A', cyan(localPath))
-									for (const key in map) {
-										if (map[key].Path == parentPathString || map[key].InitParent == parentPathString) {
+									for (const key in map.tree) {
+										if (map.tree[key].Path == parentPathString || map.tree[key].InitParent == parentPathString) {
 											const localPathParsed = path.parse(localPath)
 											const localPathName = localPathParsed.name.toLowerCase()
 											const localPathExt = localPathParsed.ext.toLowerCase()
@@ -1192,10 +1204,10 @@ function runJobs(event, localPath) {
 											if (localPathName != 'init.meta' && localPathName.endsWith('.meta') && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml')) {
 												const title = localPathParsed.name.slice(0, -5)
 												if (fs.existsSync(localPathParsed.dir + '/' + title + '.lua')) {
-													delete map[key]
+													delete map.tree[key]
 													await mapDirectory(localPath, title + '.lua')
 												} else if (fs.existsSync(localPathParsed.dir + '/' + title + '.luau')) {
-													delete map[key]
+													delete map.tree[key]
 													await mapDirectory(localPath, title + '.luau')
 												} else {
 													console.error(fileError(localPath), yellow('Stray meta file'))
@@ -1204,7 +1216,7 @@ function runJobs(event, localPath) {
 		
 											// Remap parent folder
 											} else if (localPathIsInit(localPath) || localPathName == 'init.meta' && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml') || localPathParsed.base == 'default.project.json') {
-												delete map[key]
+												delete map.tree[key]
 												await mapDirectory(parentPathString, key)
 		
 											// Map only file or directory
@@ -1236,7 +1248,7 @@ function runJobs(event, localPath) {
 
 	http.createServer(function(req, res) {
 		if (MODE != 'build') {
-			if (!(req.socket.remoteAddress in securityKeys)) {
+			if (securityKey == null) {
 				if (!('key' in req.headers)) {
 					const errText = 'Missing Key header'
 					console.error(red('Server error:'), yellow(errText))
@@ -1245,9 +1257,9 @@ function runJobs(event, localPath) {
 					res.end(errText)
 					return
 				}
-				securityKeys[req.socket.remoteAddress] = req.headers.key
+				securityKey = req.headers.key
 				console.log(`Client connected: ${yellow(req.socket.remoteAddress)}`)
-			} else if (req.headers.key != securityKeys[req.socket.remoteAddress]) {
+			} else if (req.headers.key != securityKey) {
 				const errText = `Security key mismatch. The current session will now be terminated. (Key = ${req.headers.key})\nPlease check for any malicious plugins or scripts and try again.`
 				console.error(red('Terminated:'), yellow(errText))
 				res.writeHead(403)
@@ -1297,15 +1309,7 @@ function runJobs(event, localPath) {
 				}
 
 				// Send map
-				map.Version = VERSION
-				map.Debug = DEBUG
-				map.ContentRoot = path.join('lync', path.parse(process.cwd()).name, PROJECT_JSON).replaceAll('\\', '/') + '/'
-				map.ServePlaceIds = projectJson.servePlaceIds
 				const mapJsonString = JSON.stringify(map)
-				delete map['Version']
-				delete map['Debug']
-				delete map['ContentRoot']
-				delete map['ServePlaceIds']
 				if ('playtest' in req.headers) {
 					modified_playtest = {}
 				} else {
@@ -1459,9 +1463,9 @@ function runJobs(event, localPath) {
 					break
 				}
 				const localPathExt = path.parse(req.headers.path).ext.toLowerCase()
-				if (localPathExt != '.lua' && localPathExt != '.luau') {
+				if (localPathExt != '.lua' && localPathExt != '.luau' && localPathExt != '.json') {
 					res.writeHead(403)
-					res.end('File extension must be lua or luau')
+					res.end('File extension must be lua, luau, or json')
 					break
 				}
 				let data = []
@@ -1497,14 +1501,14 @@ function runJobs(event, localPath) {
 		process.exit()
 	})
 	.listen(projectJson.port, function() {
-		if (MODE != 'build') console.log(`Serving ${green(projectJson.name)} on port ${yellow(projectJson.port)}`)
+		if (MODE != 'build') console.log(`Serving ${green(projectJson.name || path.parse(process.cwd()).name)} on port ${yellow(projectJson.port)}`)
 
 		// Generate sourcemap
 
 		if (CONFIG.GenerateSourcemap) {
 			const startTime = Date.now()
 			if (DEBUG) console.log('Generating', cyan('sourcemap.json'), '. . .')
-			generateSourcemap(PROJECT_JSON, map, projectJson)
+			generateSourcemap(PROJECT_JSON, map.tree, projectJson)
 			if (DEBUG) console.log('Generated', cyan('sourcemap.json'), 'in', (Date.now() - startTime) / 1000, 'seconds')
 			modified_sourcemap = {}
 		}
