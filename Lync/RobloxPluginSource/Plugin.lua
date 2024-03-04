@@ -1257,7 +1257,7 @@ while task.wait(0.5) do
 			if result then
 				if map.info.Debug then warn("[Lync] - Modified:", result) end
 				for key, value in result do
-					map[key] = value or nil
+					map.tree[key] = value or nil
 				end
 				local sortedPaths = {}
 				for path in pairs(result) do
