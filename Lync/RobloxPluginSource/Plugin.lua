@@ -540,7 +540,7 @@ function getObjects(url: string): {Instance}?
 end
 
 function makeDirty(object: Instance, descendant: any, property: string?)
-	if not changedFiles[object] and object.Parent and (not property or property ~= "Archivable" and pcall(function() descendant[property] = descendant[property] end)) then
+	if not changedFiles[object] and object.Parent and (not property or property ~= "Archivable" and property ~= "CollisionGroupId" and pcall(function() descendant[property] = descendant[property] end)) then
 		if map.info.Debug then warn("[Lync] - Modified synced object:", object, property) end
 		changedFiles[object] = true
 		updateChangedFilesUI()
@@ -975,16 +975,6 @@ function buildPath(path: string)
 end
 
 function buildAll()
-	-- Build place file
-	local sortedPaths = {}
-	for path in pairs(map.tree) do
-		table.insert(sortedPaths, path)
-	end
-	table.sort(sortedPaths)
-	for _, path in sortedPaths do
-		buildPath(path)
-	end
-
 	-- Assign collision groups
 	if map.info.CollisionGroups then
 		if serverKey == "BuildScript" then
@@ -993,6 +983,16 @@ function buildAll()
 		else
 			setCollisionGroups()
 		end
+	end
+
+	-- Build place file
+	local sortedPaths = {}
+	for path in pairs(map.tree) do
+		table.insert(sortedPaths, path)
+	end
+	table.sort(sortedPaths)
+	for _, path in sortedPaths do
+		buildPath(path)
 	end
 end
 
