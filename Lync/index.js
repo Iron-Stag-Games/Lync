@@ -609,24 +609,26 @@ async function mapDirectory(localPath, robloxPath, flag) {
 				}, localPathStats.mtimeMs)
 			}
 
-			fs.readdirSync(localPath).forEach(async function(dirNext) {
-				const dirNextLower = dirNext.toLowerCase()
-				const localPathParentNameLower = localPathParentName.toLowerCase()
-				// Do not map Init files. They were just mapped on this run of mapDirectory.
-				switch (dirNextLower) {
-					case 'init.meta.json':
-					case 'init.meta.yaml':
-					case 'init.meta.toml':
-					case localPathParentNameLower + '.init.lua':
-					case localPathParentNameLower + '.init.luau':
-					case 'init.lua':
-					case 'init.luau':
-						break
-					default:
-						const filePathNext = localPath + '/' + dirNext
-						await mapDirectory(filePathNext, robloxPath + '/' + dirNext)
-				}
-			})
+			if (flag != 'Modified') {
+				fs.readdirSync(localPath).forEach(async function(dirNext) {
+					const dirNextLower = dirNext.toLowerCase()
+					const localPathParentNameLower = localPathParentName.toLowerCase()
+					// Do not map Init files. They were just mapped on this run of mapDirectory.
+					switch (dirNextLower) {
+						case 'init.meta.json':
+						case 'init.meta.yaml':
+						case 'init.meta.toml':
+						case localPathParentNameLower + '.init.lua':
+						case localPathParentNameLower + '.init.luau':
+						case 'init.lua':
+						case 'init.luau':
+							break
+						default:
+							const filePathNext = localPath + '/' + dirNext
+							await mapDirectory(filePathNext, robloxPath + '/' + dirNext)
+					}
+				})
+			}
 		}
 	}
 }
@@ -1146,26 +1148,33 @@ function runJobs(event, localPath) {
 									console.log('D', cyan(localPath))
 									for (const key in map.tree) {
 		
-										// Direct
-										if (map.tree[key].Path && (map.tree[key].Path == localPath || map.tree[key].Path.startsWith(localPath + '/'))) {
+										// Direct, non-Init
+										if (map.tree[key].Path == localPath && map.tree[key].InitParent != parentPathString) {
 											delete mTimes[localPath]
 											delete mTimes[map.tree[key].Path]
 											delete map.tree[key]
 											modified[key] = false
 											modified_playtest[key] = false
 											modified_sourcemap[key] = false
-											if (localPathIsInit(localPath) && fs.existsSync(parentPathString)) {
-												await mapDirectory(parentPathString, key, 'Modified')
+										}
+
+										// Init
+										if (key in map.tree && map.tree[key].InitParent == parentPathString && localPathIsInit(localPath)) {
+											if (fs.existsSync(parentPathString)) {
+												delete mTimes[localPath]
+												delete map.tree[key]
+												await mapDirectory(parentPathString, key)
 											}
 										}
-		
+
 										// Meta
 										if (key in map.tree && map.tree[key].Meta && (map.tree[key].Meta == localPath || map.tree[key].Meta.startsWith(localPath + '/'))) {
 											if (fs.existsSync(map.tree[key].Path)) {
+												delete mTimes[localPath]
 												await mapDirectory(map.tree[key].Path, key, 'Modified')
 											}
 										}
-		
+
 										// JSON member
 										if (key in map.tree && map.tree[key].ProjectJson == localPath) {
 											if (fs.existsSync(map.tree[key].Path)) {
@@ -1173,12 +1182,12 @@ function runJobs(event, localPath) {
 											}
 										}
 									}
-		
+
 								// Changed
 								} else if (localPathStats.isFile() && mTimes[localPath] != localPathStats.mtimeMs) {
 									console.log('M', cyan(localPath))
 									for (const key in map.tree) {
-										if (map.tree[key].InitParent == parentPathString) {
+										if (localPathIsInit(localPath) && map.tree[key].InitParent == parentPathString) {
 											await mapDirectory(parentPathString, key, 'Modified')
 										} else if (map.tree[key].Meta == localPath) {
 											await mapDirectory(map.tree[key].Path, key, 'Modified')
@@ -1188,9 +1197,9 @@ function runJobs(event, localPath) {
 									}
 									mTimes[localPath] = localPathStats.mtimeMs
 								}
-		
+
 							} else if ((event == 'add' | event == 'addDir') && localPathStats) {
-		
+
 								// Added
 								if (parentPathString in mTimes && (!localPathStats.isFile() || localPathExtensionIsMappable(localPath))) {
 									console.log('A', cyan(localPath))
@@ -1199,7 +1208,7 @@ function runJobs(event, localPath) {
 											const localPathParsed = path.parse(localPath)
 											const localPathName = localPathParsed.name.toLowerCase()
 											const localPathExt = localPathParsed.ext.toLowerCase()
-		
+
 											// Remap adjacent matching file
 											if (localPathName != 'init.meta' && localPathName.endsWith('.meta') && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml')) {
 												const title = localPathParsed.name.slice(0, -5)
@@ -1213,12 +1222,12 @@ function runJobs(event, localPath) {
 													console.error(fileError(localPath), yellow('Stray meta file'))
 													return
 												}
-		
+
 											// Remap parent folder
 											} else if (localPathIsInit(localPath) || localPathName == 'init.meta' && (localPathExt == '.json' || localPathExt == '.yaml' || localPathExt == '.toml') || localPathParsed.base == 'default.project.json') {
 												delete map.tree[key]
 												await mapDirectory(parentPathString, key)
-		
+
 											// Map only file or directory
 											} else {
 												await mapDirectory(localPath, key + '/' + localPathParsed.base)
@@ -1228,7 +1237,7 @@ function runJobs(event, localPath) {
 									if (!mTimes[localPath]) console.error(red('Lync bug:'), yellow('Failed to add'), cyan(localPath))
 								}
 							}
-		
+
 							// Modify sourcemap
 							if (CONFIG.GenerateSourcemap && Object.keys(modified_sourcemap).length > 0) {
 								generateSourcemap(PROJECT_JSON, modified_sourcemap, projectJson)
