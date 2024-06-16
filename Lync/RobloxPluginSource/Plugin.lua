@@ -925,7 +925,7 @@ function buildPath(path: string)
 					lpcall("Set Entries", false, function()
 						if serverKey == "BuildScript" then
 							-- Temporary. Awaiting rbx-dom / Lune update.
-							warn("Localization entries unimplemented!")
+							print("[Lune Build] Localization entries unimplemented!")
 						else
 							target:SetEntries(HttpService:JSONDecode(result))
 						end
@@ -979,7 +979,7 @@ function buildAll()
 	if map.info.CollisionGroups then
 		if serverKey == "BuildScript" then
 			-- Temporary. Awaiting rbx-dom / Lune update.
-			warn("Collision groups unimplemented!")
+			print("[Lune Build] Collision groups unimplemented!")
 		else
 			setCollisionGroups()
 		end
@@ -1198,6 +1198,7 @@ end
 if workspace:GetAttribute("__lyncbuildfile") and not IS_PLAYTEST_SERVER or syncDuringTest and IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
 	if syncDuringTest and IS_PLAYTEST_SERVER then warn("[Lync] - Playtest Sync is active.") end
 	if workspace:GetAttribute("__lyncbuildfile") then
+		assert(type(workspace:GetAttribute("__lyncbuildfile")) == "number", "Attribute 'workspace.__lyncbuildfile' must be a number")
 		portTextBox.Text = ""
 		portTextBox.PlaceholderText = workspace:GetAttribute("__lyncbuildfile")
 		portTextBox.TextEditable = false
