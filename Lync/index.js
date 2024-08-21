@@ -840,6 +840,30 @@ function runJobs(event, localPath) {
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Automated Download Functions
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+async function fetchSources() {
+	if (!('sources' in projectJson) || projectJson.length == 0) console.log('Nothing to download')
+	for (const index in projectJson.sources) {
+		const source = projectJson.sources[index]
+		console.log('Fetching source', green(source.name), '. . .')
+		try {
+			let contents;
+			if (source.type == 'GET') {
+				contents = await getAsync(source.url, source.headers)
+			} else if (source.type == 'POST') {
+				contents = await postAsync(source.url, source.headers, source.postData)
+			}
+			fs.writeFileSync(source.path, contents)
+			console.log(green(source.name), 'saved to', cyan(source.path))
+		} catch (err) {
+			console.error(red('Fetch error:'), yellow(err))
+		}
+	}
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Main
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -936,23 +960,7 @@ function runJobs(event, localPath) {
 
 	// Download sources
 	if (MODE == 'fetch') {
-		if (!('sources' in projectJson) || projectJson.length == 0) console.log('Nothing to download')
-		for (const index in projectJson.sources) {
-			const source = projectJson.sources[index]
-			console.log('Fetching source', green(source.name), '. . .')
-			try {
-				let contents;
-				if (source.type == 'GET') {
-					contents = await getAsync(source.url, source.headers)
-				} else if (source.type == 'POST') {
-					contents = await postAsync(source.url, source.headers, source.postData)
-				}
-				fs.writeFileSync(source.path, contents)
-				console.log(green(source.name), 'saved to', cyan(source.path))
-			} catch (err) {
-				console.error(red('Fetch error:'), yellow(err))
-			}
-		}
+		fetchSources()
 		process.exit()
 	}
 	
@@ -1398,37 +1406,46 @@ function runJobs(event, localPath) {
 									defval: null
 								})
 								const entries = tableDefinitions.numColumnKeys > 0 && {} || []
-								const startRow = tableDefinitions.hasHeader && 1 || 0
+								const hasHeader = tableDefinitions.hasHeader
+								const startRow = hasHeader && 1 || 0
 								const startColumn = tableDefinitions.numColumnKeys
+								const lastColumnKeyUsesIndices = tableDefinitions.lastColumnKeyUsesIndices
 								const header = sheetJson[0]
 								for (let row = startRow; row < sheetJson.length; row++) {
 									for (let column = startColumn; column < header.length; column++) {
-										const key = tableDefinitions.hasHeader && header[column] || (column - startColumn)
+										const key = hasHeader && header[column] || (column - startColumn)
 										let target = entries
-										if (tableDefinitions.numColumnKeys > 0) {
-											for (let columnKeyIndex = 0; columnKeyIndex < tableDefinitions.numColumnKeys; columnKeyIndex++) {
+										if (startColumn > 0) {
+											for (let columnKeyIndex = 0; columnKeyIndex < startColumn; columnKeyIndex++) {
 												const columnKey = sheetJson[row][columnKeyIndex]
 												if (!columnKey) {
 													target = null
 													break
 												}
-												if (!(columnKey in target)) {
-													target[columnKey] = tableDefinitions.hasHeader && {} || []
+												if (lastColumnKeyUsesIndices && columnKeyIndex == startColumn - 1) {
+													if (!(columnKey in target))
+														target[columnKey] = []
+													target = target[columnKey]
+													if (!(target[row]))
+														target[row] = {}
+													target = target[row]
+												} else {
+													if (!(columnKey in target))
+														target[columnKey] = hasHeader && {} || []
+													target = target[columnKey]
 												}
-												target = target[columnKey]
 											}
 										} else {
 											const indexKey = row - startRow
-											if (!target[indexKey]) {
-												target[indexKey] = tableDefinitions.hasHeader && {} || []
-											}
+											if (!target[indexKey])
+												target[indexKey] = hasHeader && {} || []
 											target = target[indexKey]
 										}
 										if (target)
 											target[key] = sheetJson[row][column]
 									}
 								}
-								read = LUA.format(entries, { singleQuote: false, spaces: '\t' })
+								read = LUA.format(entries, { singleQuote: false, spaces: '\t' }).replaceAll(/^\n/gm, '') // Regex removes blank newlines
 							}
 						}
 
@@ -1498,6 +1515,12 @@ function runJobs(event, localPath) {
 			case 'Resume':
 				res.writeHead(200)
 				res.end()
+				break
+
+			case 'FetchSources':
+				res.writeHead(200)
+				res.end()
+				fetchSources()
 				break
 
 			default:

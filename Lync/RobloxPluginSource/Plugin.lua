@@ -86,10 +86,10 @@ mainWidget.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local widgetFrame = script.WidgetGui.Frame
 widgetFrame.Parent = mainWidget
-widgetFrame.Title.Version.Text = VERSION:lower()
+widgetFrame.TopBar.Title.Version.Text = VERSION:lower()
 
-local connect = widgetFrame.Actions.Connect
-local portTextBox = widgetFrame.Actions.Port
+local connect = widgetFrame.TopBar.Actions.Connect
+local portTextBox = widgetFrame.TopBar.Actions.Port
 portTextBox.Text = plugin:GetSetting("Lync_Port") or ""
 
 local unsavedFilesFrame = widgetFrame.UnsavedFiles
@@ -442,17 +442,17 @@ end
 function setTheme()
 	-- Main Widget
 	do
-		widgetFrame.Actions.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
-		widgetFrame.Actions.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
+		widgetFrame.TopBar.Actions.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
+		widgetFrame.TopBar.Actions.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
 		connect.UIStroke.Color = theme:GetColor(Enum.StudioStyleGuideColor.DialogButtonBorder)
 		portTextBox.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
 		portTextBox.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
-		widgetFrame.Title.Version.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+		widgetFrame.TopBar.Title.Version.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
 		local portBorderColor = Enum.StudioStyleGuideColor.InputFieldBorder
-		widgetFrame.Actions:SetAttribute("Border", theme:GetColor(portBorderColor))
-		widgetFrame.Actions:SetAttribute("BorderHover", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Hover))
-		widgetFrame.Actions:SetAttribute("BorderSelected", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Selected))
-		widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("Border")
+		widgetFrame.TopBar.Actions:SetAttribute("Border", theme:GetColor(portBorderColor))
+		widgetFrame.TopBar.Actions:SetAttribute("BorderHover", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Hover))
+		widgetFrame.TopBar.Actions:SetAttribute("BorderSelected", theme:GetColor(portBorderColor, Enum.StudioStyleGuideModifier.Selected))
+		widgetFrame.TopBar.Actions.UIStroke.Color = widgetFrame.TopBar.Actions:GetAttribute("Border")
 		setConnectTheme()
 	end
 
@@ -1113,23 +1113,23 @@ if not IS_PLAYTEST_SERVER then
 	do
 		portTextBox.MouseEnter:Connect(function()
 			if not portTextBox.Active or portTextBox:IsFocused() then return end
-			widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("BorderHover")
+			widgetFrame.TopBar.Actions.UIStroke.Color = widgetFrame.TopBar.Actions:GetAttribute("BorderHover")
 		end)
 
 		portTextBox.MouseLeave:Connect(function()
 			if portTextBox:IsFocused() then return end
-			widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("Border")
+			widgetFrame.TopBar.Actions.UIStroke.Color = widgetFrame.TopBar.Actions:GetAttribute("Border")
 		end)
 
 		portTextBox.Focused:Connect(function()
 			if not portTextBox.Active then return end
-			widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("BorderSelected")
+			widgetFrame.TopBar.Actions.UIStroke.Color = widgetFrame.TopBar.Actions:GetAttribute("BorderSelected")
 		end)
 
 		portTextBox.FocusLost:Connect(function(_enterPressed)
 			local entry = math.clamp(tonumber(portTextBox.Text) or 0, 0, 65535)
 			portTextBox.Text = entry > 0 and entry or ""
-			widgetFrame.Actions.UIStroke.Color = widgetFrame.Actions:GetAttribute("Border")
+			widgetFrame.TopBar.Actions.UIStroke.Color = widgetFrame.TopBar.Actions:GetAttribute("Border")
 			plugin:SetSetting("Lync_Port", entry > 0 and entry or nil)
 		end)
 	end

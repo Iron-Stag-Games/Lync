@@ -46,6 +46,14 @@ module.exports.validate = function(json, localPath) {
 		failed = true
 	}
 
+	if (!('lastColumnKeyUsesIndices' in json)) {
+		console.error(fileError(localPath), yellow('Missing key'), green('lastColumnKeyUsesIndices'))
+		failed = true
+	} else if (typeof json.lastColumnKeyUsesIndices != 'boolean') {
+		console.error(fileError(localPath), green('lastColumnKeyUsesIndices'), yellow('must be a boolean'))
+		failed = true
+	}
+
 	if (failed) return
 	return json
 }
