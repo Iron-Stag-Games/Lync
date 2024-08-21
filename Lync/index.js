@@ -960,7 +960,7 @@ async function fetchSources() {
 
 	// Download sources
 	if (MODE == 'fetch') {
-		fetchSources()
+		await fetchSources()
 		process.exit()
 	}
 	
