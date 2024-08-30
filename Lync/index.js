@@ -1398,6 +1398,13 @@ async function fetchSources() {
 									sheet = excelFile.Sheets[excelFile.SheetNames[0]]
 									range = XLSX.utils.decode_range(tableDefinitions.ref.replace('=', ''))
 								}
+
+								// Support undefined start and end rows
+								const hasHeader = tableDefinitions.hasHeader
+								if (range.s.r == -1)
+									range.s.r = 0
+								if (range.e.r == -1)
+									range.e.r = parseInt(sheet['!ref'].split(':')[1].replaceAll(/[^0-9]/gm, '')) - 1
 		
 								// Convert cells to dict
 								const sheetJson = XLSX.utils.sheet_to_json(sheet, {
@@ -1406,7 +1413,6 @@ async function fetchSources() {
 									defval: null
 								})
 								const entries = tableDefinitions.numColumnKeys > 0 && {} || []
-								const hasHeader = tableDefinitions.hasHeader
 								const startRow = hasHeader && 1 || 0
 								const startColumn = tableDefinitions.numColumnKeys
 								const lastColumnKeyUsesIndices = tableDefinitions.lastColumnKeyUsesIndices
