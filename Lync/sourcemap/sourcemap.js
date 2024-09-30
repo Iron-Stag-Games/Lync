@@ -77,7 +77,7 @@ module.exports.generateSourcemap = function(PROJECT_JSON, map, projectJson) {
 				try {
 					switch (mapping.Type) {
 						case 'Model':
-							target.ClassName = ''
+							target.className = 'Folder'
 							const pathParsed = path.parse(mapping.Path)
 							const pathExt = pathParsed.ext.toLowerCase()
 							if (pathExt == '.rbxm' && (!('sourcemapEnabled' in projectJson) || projectJson.sourcemapEnabled.RBXM)) {
@@ -87,7 +87,7 @@ module.exports.generateSourcemap = function(PROJECT_JSON, map, projectJson) {
 							}
 							break
 						case 'JsonModel':
-							target.ClassName = ''
+							target.className = 'Folder'
 							modelJSON.fill(target, fs.readFileSync(mapping.Path, { encoding: 'utf-8' }))
 							break
 					}

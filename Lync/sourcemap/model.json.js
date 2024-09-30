@@ -3,17 +3,17 @@
  * @param {Object} json
  */
 function recurse(target, json) {
-	target.className = json.ClassName || 'Folder'
+	target.className = json.className || 'Folder'
 
-	if (json.Children) {
-		for (const key in json.Children) {
+	if (json.children) {
+		for (const key in json.children) {
 			let nextTarget = target
-			const jsonChild = json.Children[key]
+			const jsonChild = json.children[key]
 
 			// Map under existing child
 			let hasChild = false
 			for (const child of nextTarget.children) {
-				if (child.name == jsonChild.Name) {
+				if (child.name == jsonChild.name) {
 					nextTarget = child
 					hasChild = true
 					break
@@ -23,8 +23,8 @@ function recurse(target, json) {
 			// Add new child
 			if (!hasChild) {
 				nextTarget = nextTarget.children[nextTarget.children.push({
-					'name': jsonChild.Name,
-					'className': 'Folder',
+					'name': jsonChild.name || jsonChild.className,
+					'className': '',
 					'filePaths': [],
 					'children': []
 				}) - 1]
