@@ -1292,25 +1292,35 @@ async function fetchSources() {
 				hardLinkPaths = []
 				if (PLATFORM == 'windows' || PLATFORM == 'linux') {
 					const versionsPath = path.resolve(PLATFORM == 'windows' && CONFIG.Path_RobloxVersions.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || CONFIG.Path_RobloxVersions)
-					fs.readdirSync(versionsPath).forEach((dirNext) => {
-						const stats = fs.statSync(path.resolve(versionsPath, dirNext))
-						if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
-							const hardLinkPath = path.resolve(versionsPath, dirNext, 'content/lync')
-							if (!fs.existsSync(hardLinkPath)) {
-								fs.mkdirSync(hardLinkPath)
+					try {
+						fs.accessSync(versionsPath, fs.constants.R_OK | fs.constants.W_OK)
+						fs.readdirSync(versionsPath).forEach((dirNext) => {
+							const stats = fs.statSync(path.resolve(versionsPath, dirNext))
+							if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
+								const hardLinkPath = path.resolve(versionsPath, dirNext, 'content/lync')
+								if (!fs.existsSync(hardLinkPath)) {
+									fs.mkdirSync(hardLinkPath)
+								}
+								hardLinkPaths.push(hardLinkPath)
 							}
-							hardLinkPaths.push(hardLinkPath)
-						}
-					})
+						})
+					} catch (err) {
+						console.error(red('Hard link error:'), yellow(err))
+					}
 					if (PLATFORM == 'windows') {
 						// Studio Mod Manager
 						const modManagerContentPath = path.resolve(CONFIG.Path_StudioModManagerContent.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
 						if (fs.existsSync(modManagerContentPath)) {
-							const hardLinkPath = path.resolve(modManagerContentPath, 'lync')
-							if (!fs.existsSync(hardLinkPath)) {
-								fs.mkdirSync(hardLinkPath)
+							try {
+								fs.accessSync(modManagerContentPath, fs.constants.R_OK | fs.constants.W_OK)
+								const hardLinkPath = path.resolve(modManagerContentPath, 'lync')
+								if (!fs.existsSync(hardLinkPath)) {
+									fs.mkdirSync(hardLinkPath)
+								}
+								hardLinkPaths.push(hardLinkPath)
+							} catch (err) {
+								console.error(red('Hard link error:'), yellow(err))
 							}
-							hardLinkPaths.push(hardLinkPath)
 						}
 					}
 				} else if (PLATFORM == 'macos') {
@@ -1322,7 +1332,11 @@ async function fetchSources() {
 					hardLinkPaths.push(hardLinkPath)
 				}
 				for (const hardLinkPath of hardLinkPaths) {
+					if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
 					hardLinkRecursive(process.cwd(), hardLinkPath)
+				}
+				if (hardLinkPaths.length == 0) {
+					console.error(red('Hard link error:'), yellow('No hard link paths found'))
 				}
 
 				// Send map
