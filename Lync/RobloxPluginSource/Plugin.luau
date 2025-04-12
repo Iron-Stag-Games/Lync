@@ -537,10 +537,10 @@ function lpcall(context: string, warning: boolean, func: any, ...): (boolean, an
 	local args = {...}
 	return xpcall(function()
 		return func(unpack(args))
-	end, function(err: string)
+	end, function(err: string): ()
 		if not warning then
 			task.spawn(error, "[Lync] - " .. context .. ": " .. err)
-		elseif map.info.Debug then
+		else
 			warn("[Lync] - " .. context .. ": " .. err)
 		end
 	end)
@@ -663,7 +663,7 @@ function setDetails(target: any, data: any): ()
 	if data.Properties then
 		local warning = if target.Parent == game or table.find(SUPPRESSED_CLASSES, target.ClassName) then true else false
 		for property, value in data.Properties do
-			lpcall("Set Property " .. property, warning, function()
+			lpcall("Set Property", warning, function()
 				if target:IsA("Model") and property == "Scale" then
 					target:ScaleTo(eval(value))
 				else
