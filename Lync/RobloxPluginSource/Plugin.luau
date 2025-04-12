@@ -1170,12 +1170,17 @@ if not IS_PLAYTEST_SERVER then
 
 		saveTerrain.Click:Connect(function()
 			local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents)
+			terrainRegion.Parent = workspace
+			Selection:Set({terrainRegion})
+			plugin:PromptSaveSelection(terrainRegion.Name)
+			terrainRegion:Destroy()
+			--[[local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents)
 			for path, data in map.tree do
 				if data.TerrainRegion then
 					HttpService:PostAsync(getHost(), buffer.tostring(SerializationService:SerializeInstancesAsync({terrainRegion})), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
 					break
 				end
-			end
+			end]]
 		end)
 	end
 
