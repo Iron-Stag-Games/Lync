@@ -2,7 +2,7 @@
 	"name": "Lync",
 	"className": "Script",
 	"filePaths": [
-        "Lync/RobloxPluginSource/Plugin.lua"
+        "Lync/RobloxPluginSource/Plugin.luau"
     ],
 	"children": []
 }

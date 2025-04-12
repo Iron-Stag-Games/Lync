@@ -97,25 +97,6 @@ module.exports.validate = function(type, json, localPath) {
 			failed = true
 		}
 
-		if (('base' in json) && typeof json.base != 'string') {
-			console.error(jsonError(localPath, json, json, 'base'), yellow('Must be a string'))
-			failed = true
-		}
-
-		if (!('build' in json)) {
-			console.error(fileError(localPath), yellow('Missing key'), green('build'))
-			failed = true
-		} else if (typeof json.build != 'string') {
-			console.error(jsonError(localPath, json, json, 'build'), yellow('Must be a string'))
-			failed = true
-		} else {
-			const pathExt = path.parse(json.build).ext.toLowerCase()
-			if (pathExt != '.rbxl' && pathExt != '.rbxlx') {
-				console.error(jsonError(localPath, json, json, 'build'), yellow('Must point to an overwritable RBXL or RBXLX file'))
-				failed = true
-			}
-		}
-
 		if (!('port' in json)) {
 			console.error(fileError(localPath), yellow('Missing key'), green('port'))
 			failed = true
@@ -124,23 +105,25 @@ module.exports.validate = function(type, json, localPath) {
 			failed = true
 		}
 
-		if (('collisionGroups' in json) && typeof json.collisionGroups != 'string') {
-			console.error(jsonError(localPath, json, json, 'collisionGroups'), yellow('Must be a string'))
+		if (!('experienceId' in json)) {
+			console.error(fileError(localPath), yellow('Missing key'), green('experienceId'))
+			failed = true
+		} else if (typeof json.experienceId != 'number') {
+			console.error(jsonError(localPath, json, json, 'experienceId'), yellow('Must be a number'))
 			failed = true
 		}
 
-		if ('servePlaceIds' in json) {
-			if (!(typeof json.servePlaceIds == 'object' && Array.isArray(json.servePlaceIds))) {
-				console.error(jsonError(localPath, json, json, 'servePlaceIds'), yellow('Must be an array'))
-				failed = true
-			} else {
-				for (const index in json.servePlaceIds) {
-					if (typeof json.servePlaceIds[index] != 'number') {
-						console.error(jsonError(localPath, json, json.servePlaceIds, index), yellow('Must be a number'))
-						failed = true
-					}
-				}
-			}
+		if (!('placeId' in json)) {
+			console.error(fileError(localPath), yellow('Missing key'), green('placeId'))
+			failed = true
+		} else if (typeof json.placeId != 'number') {
+			console.error(jsonError(localPath, json, json, 'placeId'), yellow('Must be a number'))
+			failed = true
+		}
+
+		if (('collisionGroups' in json) && typeof json.collisionGroups != 'string') {
+			console.error(jsonError(localPath, json, json, 'collisionGroups'), yellow('Must be a string'))
+			failed = true
 		}
 
 		if ('globIgnorePaths' in json) {

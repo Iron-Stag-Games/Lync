@@ -4,7 +4,7 @@
 --[[
 	Lync Client
 	https://github.com/Iron-Stag-Games/Lync
-	Copyright (C) 2024  Iron Stag Games
+	Copyright (C) 2025  Iron Stag Games
 
 	This library is free software; you can redistribute it and/or
 	modify it under the terms of the GNU Lesser General Public
@@ -21,7 +21,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 ]]
-local VERSION = "Alpha 29"
+local VERSION = "Alpha 30"
 
 if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("RunService"):IsClient() then return end
 
@@ -30,11 +30,13 @@ if not plugin or game:GetService("RunService"):IsRunning() and game:GetService("
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
+local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local PhysicsService = game:GetService("PhysicsService")
 local RunService = game:GetService("RunService")
 local ScriptEditorService = game:GetService("ScriptEditorService")
 local Selection = game:GetService("Selection")
+local SerializationService = game:GetService("SerializationService")
 local TweenService = game:GetService("TweenService")
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -42,7 +44,7 @@ local TweenService = game:GetService("TweenService")
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 -- Constants
-local IS_PLAYTEST_SERVER = if game:GetService("RunService"):IsRunning() then "true" else nil
+local IS_PLAYTEST_SERVER = if RunService:IsRunning() then "true" else nil
 local SUPPRESSED_CLASSES = {
 	"Terrain";
 	"StarterCharacterScripts";
@@ -50,6 +52,24 @@ local SUPPRESSED_CLASSES = {
 	"ChatWindowConfiguration";
 	"ChatInputBarConfiguration";
 	"BubbleChatConfiguration";
+}
+local SUPPRESSED_PROPERTIES = {
+	"AbsoluteCanvasSize";
+	"AbsoluteCellCount";
+	"AbsoluteCellSize";
+	"AbsoluteContentSize";
+	"AbsolutePosition";
+	"AbsoluteRotation";
+	"AbsoluteSize";
+	"AbsoluteWindowSize";
+	"Archivable";
+	"CollisionGroupId";
+	"GuiState";
+	"OpenTypeFeaturesError";
+	"IsLoaded";
+	"TextBounds";
+	"TextFits";
+	"TimeLength";
 }
 local BUTTON_TWEEN_INFO = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local BUTTON_TWEEN_PROPERTIES = {Offset = Vector2.new(0.51, 0)}
@@ -63,10 +83,8 @@ local map: {
 	info: {
 		Version: number;
 		Debug: boolean;
-		ContentRoot: string;
 		CollisionGroupsFile: string;
 		CollisionGroups: {[string]: {[string]: boolean}};
-		ServePlaceIds: {number};
 	};
 	tree: {[string]: {[string]: any}};
 };
@@ -102,29 +120,29 @@ function getHost(): string
 	return "http://localhost:" .. (portTextBox.Text ~= "" and portTextBox.Text or portTextBox.PlaceholderText)
 end
 
-function connectButtonColors(button: TextButton)
+function connectButtonColors(button: TextButton): ()
 	button.MouseEnter:Connect(function()
 		if not button.Active then return end
-		button.BackgroundColor3 = button:GetAttribute("BackgroundHover")
-		button.TextColor3 = button:GetAttribute("TextHover")
+		button.BackgroundColor3 = button:GetAttribute("BackgroundHover") :: Color3
+		button.TextColor3 = button:GetAttribute("TextHover") :: Color3
 	end)
 	button.MouseLeave:Connect(function()
-		button.BackgroundColor3 = button:GetAttribute("Background")
-		button.TextColor3 = button:GetAttribute("Text")
+		button.BackgroundColor3 = button:GetAttribute("Background") :: Color3
+		button.TextColor3 = button:GetAttribute("Text") :: Color3
 	end)
 	button.MouseButton1Down:Connect(function()
 		if not button.Active then return end
-		button.BackgroundColor3 = button:GetAttribute("BackgroundPressed")
-		button.TextColor3 = button:GetAttribute("TextPressed")
+		button.BackgroundColor3 = button:GetAttribute("BackgroundPressed") :: Color3
+		button.TextColor3 = button:GetAttribute("TextPressed") :: Color3
 	end)
 	button.MouseButton1Up:Connect(function()
 		if not button.Active then return end
-		button.BackgroundColor3 = button:GetAttribute("Background")
-		button.TextColor3 = button:GetAttribute("Text")
+		button.BackgroundColor3 = button:GetAttribute("Background") :: Color3
+		button.TextColor3 = button:GetAttribute("Text") :: Color3
 	end)
 end
 
-function setScriptSourceLive(container: LuaSourceContainer, lua: string)
+function setScriptSourceLive(container: LuaSourceContainer, lua: string): ()
 	local document = ScriptEditorService:FindScriptDocument(container)
 	local cursorLine: number, cursorChar: number, anchorLine: number, anchorChar: number;
 	if document then
@@ -163,7 +181,7 @@ function getCurrentCollisionGroups(): {[string]: {[string]: boolean}}
 	return currentCollisionGroups
 end
 
-function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: string)
+function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: string): ()
 	local fileEntry = script.UnsavedFileListItem:Clone()
 	local fullName = if
 		typeof(object) == "Instance" then map.tree[path].Path
@@ -267,7 +285,7 @@ function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: st
 							local data = map.tree[path]
 							local success, result = pcall(function()
 								if data.Type == "Lua" then
-									local source = HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+									local source = HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
 									setScriptSourceLive(data.Instance, source)
 								elseif data.Type == "Model" then
 									buildPath(path)
@@ -325,20 +343,14 @@ function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: st
 								if data.Type == "Lua" then
 									HttpService:PostAsync(getHost(), ScriptEditorService:GetEditorSource(data.Instance), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
 								elseif data.Type == "Model" then
-									Selection:Set({object})
-									if next(Selection:Get()) and plugin:PromptSaveSelection(object.Name) then
-										changedFiles[object] = nil
-										updateChangedFilesUI()
-									end
+									HttpService:PostAsync(getHost(), buffer.tostring(SerializationService:SerializeInstancesAsync({object})), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
 								end
 							end)
-							if data.Type == "Lua" then
-								if success then
-									print("[Lync] - Saved file:", data.Path)
-								else
-									task.spawn(error, `[Lync] - Failed to save file: {data.Path}\n{tostring(result)}`)
-									fileEntry.SaveButton.TextLabel.Text = "Failed"
-								end
+							if success then
+								print("[Lync] - Saved file:", data.Path)
+							else
+								task.spawn(error, `[Lync] - Failed to save file: {data.Path}\n{tostring(result)}`)
+								fileEntry.SaveButton.TextLabel.Text = "Failed"
 							end
 						elseif object == "CollisionGroupData" then
 							local currentCollisionGroups = getCurrentCollisionGroups()
@@ -373,7 +385,7 @@ function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: st
 	end
 end
 
-function updateChangedFilesUI()
+function updateChangedFilesUI(): ()
 	-- Destroy hidden or old entries
 	for _, fileEntry in unsavedFilesFrame:GetChildren() do
 		if fileEntry:IsA("Frame") then
@@ -425,7 +437,7 @@ function updateChangedFilesUI()
 	widgetFrame.TextLabel.Visible = not next(changedFiles) and not changedCollisionGroupData
 end
 
-function setConnectTheme()
+function setConnectTheme(): ()
 	local backgroundColor = if (connecting or connected) then Enum.StudioStyleGuideColor.DialogButton else Enum.StudioStyleGuideColor.DialogMainButton
 	connect:SetAttribute("Background", theme:GetColor(backgroundColor))
 	connect:SetAttribute("BackgroundHover", theme:GetColor(backgroundColor, Enum.StudioStyleGuideModifier.Hover))
@@ -439,7 +451,7 @@ function setConnectTheme()
 	connect.Frame.UIStroke.Color = connect:GetAttribute("Text")
 end
 
-function setTheme()
+function setTheme(): ()
 	-- Main Widget
 	do
 		widgetFrame.TopBar.Actions.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
@@ -512,7 +524,7 @@ function setTheme()
 	updateChangedFilesUI()
 end
 
-function terminate(errorMessage: string)
+function terminate(errorMessage: string): ()
 	connecting = false
 	if connected then
 		task.spawn(error, "[Lync] - " .. errorMessage, 0)
@@ -534,72 +546,24 @@ function lpcall(context: string, warning: boolean, func: any, ...): (boolean, an
 	end)
 end
 
-function getObjects(url: string): {Instance}?
-	local success, result = lpcall("Get Objects", false, game.GetObjects, game, url)
+function deserialize(path: string, data: string): {Instance}?
+	local success, result = lpcall(`Deserialize "{path}"`, false, SerializationService.DeserializeInstancesAsync, SerializationService, buffer.fromstring(data))
 	return if success then result else nil
 end
 
-function makeDirty(object: Instance, descendant: any, property: string?)
-	if not changedFiles[object] and object.Parent and (not property or property ~= "Archivable" and property ~= "CollisionGroupId" and pcall(function() descendant[property] = descendant[property] end)) then
-		if map.info.Debug then warn("[Lync] - Modified synced object:", object, property) end
+function makeDirty(object: Instance, descendant: any, property: string): ()
+	if not changedFiles[object] and object.Parent and not table.find(SUPPRESSED_PROPERTIES, property) then
+		if map.info.Debug then print("[Lync] - Modified synced object:", object, property) end
 		changedFiles[object] = true
 		updateChangedFilesUI()
 	end
 end
 
-function listenForChanges(object: Instance, mapType: string)
-	if not changedFiles[object] then
-		-- Modification events
-		if mapType == "Lua" then
-			(object :: Script):GetPropertyChangedSignal("Source"):Connect(function()
-				if object:GetAttribute("__lync_syncing") then return end
-				if map.info.Debug then warn("[Lync] - Modified synced object:", object, "Source") end
-				changedFiles[object] = true
-				updateChangedFilesUI()
-			end)
-		elseif mapType == "Model" then
-			object.Changed:Connect(function(property: string)
-				if property ~= "Parent" then
-					makeDirty(object, object, property)
-				end
-			end)
-			object.AttributeChanged:Connect(function(_attribute: string)
-				makeDirty(object, object)
-			end)
-			object.DescendantAdded:Connect(function(descendant: Instance)
-				makeDirty(object, object)
-				descendant.Changed:Connect(function(property: string)
-					makeDirty(object, descendant, property)
-				end)
-				descendant.AttributeChanged:Connect(function(_)
-					makeDirty(object, descendant)
-				end)
-			end)
-			for _, descendant in object:GetDescendants() do
-				descendant.Changed:Connect(function(property: string)
-					makeDirty(object, descendant, property)
-				end)
-				descendant.AttributeChanged:Connect(function(_)
-					makeDirty(object, descendant)
-				end)
-			end
-		end
-
-		-- Clear on destruction
-		object.Destroying:Connect(function()
-			changedFiles[object] = nil
-			updateChangedFilesUI()
-		end)
-	end
-end
-
---offline-start
-
 function trim6(s: string): string
 	return (if s:match('^()%s*$') then '' else s:match('^%s*(.*%S)')) :: string
 end
 
-function setCollisionGroups()
+function setCollisionGroups(): ()
 	for collisionGroup, canCollideWith in map.info.CollisionGroups do
 		if not PhysicsService:IsCollisionGroupRegistered(collisionGroup) then
 			PhysicsService:RegisterCollisionGroup(collisionGroup)
@@ -684,7 +648,7 @@ function eval(value: any): any
 	end
 end
 
-function setDetails(target: any, data: any)
+function setDetails(target: any, data: any): ()
 	if data.Context then
 		lpcall("Set Context " .. data.Context, false, function()
 			if data.Context == "Legacy" then
@@ -700,7 +664,7 @@ function setDetails(target: any, data: any)
 		local warning = if target.Parent == game or table.find(SUPPRESSED_CLASSES, target.ClassName) then true else false
 		for property, value in data.Properties do
 			lpcall("Set Property " .. property, warning, function()
-				if serverKey ~= "BuildScript" and target:IsA("Model") and property == "Scale" then
+				if target:IsA("Model") and property == "Scale" then
 					target:ScaleTo(eval(value))
 				else
 					target[property] = eval(value)
@@ -718,13 +682,13 @@ function setDetails(target: any, data: any)
 	if data.Tags then
 		for _, tag in data.Tags do
 			lpcall("Set Tag", false, function()
-				game:GetService("CollectionService"):AddTag(target, tag)
+				CollectionService:AddTag(target, tag)
 			end)
 		end
 	end
 end
 
-function buildJsonModel(target: any, data: any)
+function buildJsonModel(target: any, data: any): ()
 	data.Properties = data.properties
 	data.Attributes = data.attributes
 	data.Tags = data.tags
@@ -735,18 +699,70 @@ function buildJsonModel(target: any, data: any)
 				newInstance.Name = childData.name
 			end
 			buildJsonModel(newInstance, childData)
+			setDetails(newInstance, childData)
 			newInstance.Parent = target
 		end
 	end
-	setDetails(target, data)
 end
 
-function buildPath(path: string)
+function finishBuild(target: any, data: any): ()
+	data.Instance = target
+	setDetails(target, data)
+
+	if not changedFiles[target] then
+		local mapType = data.Type
+
+		-- Modification events
+		if mapType == "Lua" then
+			(target :: Script):GetPropertyChangedSignal("Source"):Connect(function()
+				if target:GetAttribute("__lync_syncing") then return end
+				if map.info.Debug then print("[Lync] - Modified synced object:", target, "Source") end
+				changedFiles[target] = true
+				updateChangedFilesUI()
+			end)
+		elseif mapType == "Model" then
+			target.Changed:Connect(function(property: string): ()
+				if property ~= "Parent" then
+					makeDirty(target, target, property)
+				end
+			end)
+			target.AttributeChanged:Connect(function(attribute: string): ()
+				makeDirty(target, target, "AttributeChanged")
+			end)
+			target.DescendantAdded:Connect(function(descendant: Instance): ()
+				makeDirty(target, target, "DescendantAdded")
+				descendant.Changed:Connect(function(property: string)
+					makeDirty(target, descendant, property)
+				end)
+				descendant.AttributeChanged:Connect(function(attribute: string): ()
+					makeDirty(target, descendant, "AttributeChanged")
+				end)
+			end)
+			for _, descendant in target:GetDescendants() do
+				descendant.Changed:Connect(function(property: string): ()
+					makeDirty(target, descendant, property)
+				end)
+				descendant.AttributeChanged:Connect(function(attribute: string): ()
+					makeDirty(target, descendant, "AttributeChanged")
+				end)
+			end
+		end
+
+		-- Clear on destruction
+		target.Destroying:Connect(function()
+			changedFiles[target] = nil
+			updateChangedFilesUI()
+		end)
+	end
+end
+
+function buildPath(path: string): ()
 	local data = map.tree[path]
 	local createInstance = false
 	local target: any = game
 	local subpaths = path:split("/")
 	local name = subpaths[#subpaths]
+
 	for index = 2, #subpaths do
 		local subpath = subpaths[index]
 		local nextTarget = target:FindFirstChild(subpath)
@@ -779,9 +795,10 @@ function buildPath(path: string)
 		elseif index == #subpaths then
 			createInstance = true
 		elseif data then
-			terminate(`Path '{subpath}' not found in {target:GetFullName()}`)
+			terminate(`Path "{subpath}" not found in {target:GetFullName()}`)
 		end
 	end
+
 	if data then
 		if path == "tree/Workspace/Camera" then
 			data.ClassName = "Camera"
@@ -798,11 +815,13 @@ function buildPath(path: string)
 		elseif path == "tree/TextChatService/BubbleChatConfiguration" then
 			data.ClassName = "BubbleChatConfiguration"
 		end
+
 		if data.ClearOnSync and not createInstance then
 			for _, child in target:GetChildren() do
 				pcall(child.Destroy, child)
 			end
 		end
+
 		if data.Type == "Instance" then
 			if createInstance then
 				local newInstance = Instance.new(data.ClassName)
@@ -810,6 +829,8 @@ function buildPath(path: string)
 				newInstance.Parent = target
 				target = newInstance
 			end
+			finishBuild(target, data)
+
 		elseif data.Type == "Lua" then
 			if createInstance then
 				local newInstance = Instance.new(if data.Context == "ModuleScript" then "ModuleScript" elseif data.Context == "LocalScript" then "LocalScript" else "Script")
@@ -817,33 +838,44 @@ function buildPath(path: string)
 				newInstance.Parent = target
 				target = newInstance
 			end
-			task.spawn(function()
+			task.spawn(function(): ()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
 				end)
 				activeSourceRequests -= 1
 				if success then
-					if serverKey == "BuildScript" then
-						target.Source = result
-					else
-						setScriptSourceLive(target, result)
-					end
+					setScriptSourceLive(target, result)
+					finishBuild(target, data)
 				else
-					terminate(`The server did not return a source for '{data.Path}'`)
+					terminate(`The server did not return a source for "{data.Path}"`)
 				end
 			end)
+
 		elseif data.Type == "Model" then
-			local objects = getObjects("rbxasset://" .. map.info.ContentRoot .. data.Path)
-			if objects then
-				if #objects == 1 then
-					objects[1].Name = name
-					objects[1].Parent = target
-					target = objects[1]
+			task.spawn(function(): ()
+				activeSourceRequests += 1
+				local success, result = pcall(function()
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
+				end)
+				activeSourceRequests -= 1
+				if success then
+					local objects = deserialize(data.Path, result)
+					if objects then
+						if #objects == 1 then
+							objects[1].Name = name
+							objects[1].Parent = target
+							target = objects[1]
+							finishBuild(target, data)
+						else
+							terminate(`"{data.Path}" cannot contain zero or multiple root Instances`)
+						end
+					end
 				else
-					terminate(`'{data.Path}' cannot contain zero or multiple root Instances`)
+					terminate(`The server did not return a source for "{data.Path}"`)
 				end
-			end
+			end)
+
 		elseif data.Type == "JSON" or data.Type == "YAML" or data.Type == "TOML" or data.Type == "Excel" then
 			if createInstance then
 				local newInstance = Instance.new("ModuleScript")
@@ -851,27 +883,25 @@ function buildPath(path: string)
 				newInstance.Parent = target
 				target = newInstance
 			end
-			task.spawn(function()
+			task.spawn(function(): ()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
 					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
 				end)
 				activeSourceRequests -= 1
 				if success then
-					if serverKey == "BuildScript" then
-						target.Source = result
-					else
-						setScriptSourceLive(target, result)
-					end
+					setScriptSourceLive(target, result)
+					finishBuild(target, data)
 				else
-					terminate(`The server did not return a source for '{data.Path}'`)
+					terminate(`The server did not return a source for "{data.Path}"`)
 				end
 			end)
+
 		elseif data.Type == "JsonModel" then
-			task.spawn(function()
+			task.spawn(function(): ()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
 				end)
 				activeSourceRequests -= 1
 				if success then
@@ -885,10 +915,12 @@ function buildPath(path: string)
 						target:ClearAllChildren()
 					end
 					buildJsonModel(target, json)
+					finishBuild(target, data)
 				else
-					terminate(`The server did not return a source for '{data.Path}'`)
+					terminate(`The server did not return a source for "{data.Path}"`)
 				end
 			end)
+
 		elseif data.Type == "PlainText" then
 			if createInstance then
 				local newInstance = Instance.new("StringValue")
@@ -896,18 +928,20 @@ function buildPath(path: string)
 				newInstance.Parent = target
 				target = newInstance
 			end
-			task.spawn(function()
+			task.spawn(function(): ()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
 				end)
 				activeSourceRequests -= 1
 				if success then
 					target.Value = result
+					finishBuild(target, data)
 				else
-					terminate(`The server did not return a source for '{data.Path}'`)
+					terminate(`The server did not return a source for "{data.Path}"`)
 				end
 			end)
+
 		elseif data.Type == "Localization" then
 			if createInstance then
 				local newInstance = Instance.new("LocalizationTable")
@@ -915,51 +949,55 @@ function buildPath(path: string)
 				newInstance.Parent = target
 				target = newInstance
 			end
-			task.spawn(function()
+			task.spawn(function(): ()
 				activeSourceRequests += 1
 				local success, result = pcall(function()
-					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = "Localization"})
+					return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.Path, DataType = data.Type})
 				end)
 				activeSourceRequests -= 1
 				if success then
 					lpcall("Set Entries", false, function()
-						if serverKey == "BuildScript" then
-							-- Temporary. Awaiting rbx-dom / Lune update.
-							print("[Lune Build] Localization entries unimplemented!")
-						else
-							target:SetEntries(HttpService:JSONDecode(result))
-						end
+						target:SetEntries(HttpService:JSONDecode(result))
+						finishBuild(target, data)
 					end)
 				else
-					terminate(`The server did not return a source for '{data.Path}'`)
+					terminate(`The server did not return a source for "{data.Path}"`)
 				end
 			end)
+
+		else
+			finishBuild(target, data)
 		end
-		data.Instance = target
-		setDetails(target, data)
-		listenForChanges(target, data.Type)
+
 		if data.TerrainRegion then
 			if target == workspace.Terrain then
-				local objects = getObjects("rbxasset://" .. map.info.ContentRoot .. data.TerrainRegion[1])
-				if objects then
-					if #objects == 1 then
-						lpcall("Set Terrain Region", false, function()
-							if serverKey == "BuildScript" then
-								-- Temporary. Awaiting rbx-dom / Lune update.
-								workspace.Terrain.SmoothGrid = (objects[1] :: any).SmoothGrid
+				task.spawn(function(): ()
+					activeSourceRequests += 1
+					local success, result = pcall(function()
+						return HttpService:GetAsync(getHost(), false, {Key = serverKey, Type = "Source", Path = data.TerrainRegion[1], DataType = data.Type})
+					end)
+					activeSourceRequests -= 1
+					if success then
+						local objects = deserialize(data.TerrainRegion[1], result)
+						if objects then
+							if #objects == 1 then
+								lpcall("Set Terrain Region", false, function()
+									workspace.Terrain:Clear()
+									workspace.Terrain:PasteRegion(objects[1] :: TerrainRegion, eval(data.TerrainRegion[2]), data.TerrainRegion[3])
+								end)
 							else
-								workspace.Terrain:Clear()
-								workspace.Terrain:PasteRegion(objects[1] :: TerrainRegion, eval(data.TerrainRegion[2]), data.TerrainRegion[3])
+								terminate(`"{data.TerrainRegion[1]}" cannot contain zero or multiple root Instances`)
 							end
-						end)
+						end
 					else
-						terminate(`'{data.TerrainRegion[1]}' cannot contain zero or multiple root Instances`)
+						terminate(`The server did not return a source for "{data.TerrainRegion[1]}"`)
 					end
-				end
+				end)
 			else
 				terminate("Cannot use $terrainRegion property with " .. tostring(target))
 			end
 		end
+
 		if data.TerrainMaterialColors then
 			if target == workspace.Terrain then
 				for material, value in data.TerrainMaterialColors do
@@ -977,17 +1015,12 @@ end
 function buildAll()
 	-- Assign collision groups
 	if map.info.CollisionGroups then
-		if serverKey == "BuildScript" then
-			-- Temporary. Awaiting rbx-dom / Lune update.
-			print("[Lune Build] Collision groups unimplemented!")
-		else
-			setCollisionGroups()
-		end
+		setCollisionGroups()
 	end
 
 	-- Build place file
 	local sortedPaths = {}
-	for path in pairs(map.tree) do
+	for path in map.tree do
 		table.insert(sortedPaths, path)
 	end
 	table.sort(sortedPaths)
@@ -995,8 +1028,6 @@ function buildAll()
 		buildPath(path)
 	end
 end
-
---offline-end
 
 function setConnected(newConnected: boolean)
 	if connecting then return end
@@ -1034,20 +1065,6 @@ function setConnected(newConnected: boolean)
 						task.spawn(error, `[Lync] - Version mismatch ({result.info.Version} ~= {VERSION}). Please restart Studio`)
 						newConnected = false
 					end
-
-					if result.info.ServePlaceIds then
-						local placeIdMatch = false
-						for _, placeId in result.info.ServePlaceIds do
-							if placeId == game.PlaceId then
-								placeIdMatch = true
-								break
-							end
-						end
-						if not placeIdMatch then
-							task.spawn(error, `[Lync] - PlaceId '{game.PlaceId}' not found in ServePlaceIds`)
-							newConnected = false
-						end
-					end
 				else
 					task.spawn(error, "[Lync] - " .. result)
 					newConnected = false
@@ -1065,13 +1082,12 @@ function setConnected(newConnected: boolean)
 
 		connecting = false
 		connected = newConnected
-		workspace:SetAttribute("__lyncactive", if newConnected then true else nil)
+		workspace:SetAttribute("__lync_active", if newConnected then true else nil)
 		portTextBox.TextEditable = not connected
 		connect.Text = if connected then "Pause" elseif map then "Resume" else "Sync"
 		setConnectTheme()
 
 		if newConnected then
-			workspace:SetAttribute("__lyncbuildfile", nil)
 			ChangeHistoryService:ResetWaypoints()
 			ChangeHistoryService:SetWaypoint("Initial Sync")
 		end
@@ -1153,11 +1169,13 @@ if not IS_PLAYTEST_SERVER then
 		saveTerrain.ClickableWhenViewportHidden = true
 
 		saveTerrain.Click:Connect(function()
-			local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents);
-			terrainRegion.Parent = workspace
-			Selection:Set({terrainRegion})
-			plugin:PromptSaveSelection(terrainRegion.Name)
-			terrainRegion:Destroy()
+			local terrainRegion = workspace.Terrain:CopyRegion(workspace.Terrain.MaxExtents)
+			for path, data in map.tree do
+				if data.TerrainRegion then
+					HttpService:PostAsync(getHost(), buffer.tostring(SerializationService:SerializeInstancesAsync({terrainRegion})), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
+					break
+				end
+			end
 		end)
 	end
 
@@ -1191,16 +1209,16 @@ if not serverKey then
 	plugin:SetSetting("Lync_ServerKey", serverKey)
 end
 
-if not IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
-	workspace:SetAttribute("__lyncactive", nil)
+if not IS_PLAYTEST_SERVER and workspace:GetAttribute("__lync_active") then
+	workspace:SetAttribute("__lync_active", nil)
 end
 
-if workspace:GetAttribute("__lyncbuildfile") and not IS_PLAYTEST_SERVER or syncDuringTest and IS_PLAYTEST_SERVER and workspace:GetAttribute("__lyncactive") then
+if workspace:GetAttribute("__lync_port") and (not IS_PLAYTEST_SERVER or syncDuringTest  and workspace:GetAttribute("__lync_active")) then
 	if syncDuringTest and IS_PLAYTEST_SERVER then warn("[Lync] - Playtest Sync is active.") end
-	if workspace:GetAttribute("__lyncbuildfile") then
-		assert(type(workspace:GetAttribute("__lyncbuildfile")) == "number", "Attribute 'workspace.__lyncbuildfile' must be a number")
+	if workspace:GetAttribute("__lync_port") then
+		assert(type(workspace:GetAttribute("__lync_port")) == "number", `Attribute "workspace.__lync_port" must be a number`)
 		portTextBox.Text = ""
-		portTextBox.PlaceholderText = workspace:GetAttribute("__lyncbuildfile")
+		portTextBox.PlaceholderText = workspace:GetAttribute("__lync_port")
 		portTextBox.TextEditable = false
 		portTextBox.Active = false
 	end

@@ -17,7 +17,7 @@
 	},
 	"pkg": {
 		"scripts": "./index.js",
-		"assets": [ "./Plugin.rbxm", "./luneBuildTemplate.luau", "./RobloxPluginSource/Plugin.lua" ],
+		"assets": [ "./Plugin.rbxm", "./luneBuildTemplate.luau", "./RobloxPluginSource/Plugin.luau" ],
 		"targets": [
 			"node18-win",
 			"node18-macos",

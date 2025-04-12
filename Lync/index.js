@@ -1,7 +1,7 @@
 /*
 	Lync Server
 	https://github.com/Iron-Stag-Games/Lync
-	Copyright (C) 2024  Iron Stag Games
+	Copyright (C) 2025  Iron Stag Games
 
 	This library is free software; you can redistribute it and/or
 	modify it under the terms of the GNU Lesser General Public
@@ -18,9 +18,9 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 	USA
 */
-const VERSION = 'Alpha 29'
+const VERSION = 'Alpha 30'
 
-const { spawn, spawnSync } = require('child_process')
+const { execSync, spawn, spawnSync } = require('child_process')
 const crypto = require('crypto')
 const fs = require('fs')
 const os = require('os')
@@ -63,28 +63,15 @@ try {
 		AutoUpdate_UsePrereleases: false,
 		AutoUpdate_Repo: 'Iron-Stag-Games/Lync',
 		AutoUpdate_LatestId: 0,
-		Path_RobloxVersions: '',
-		Path_RobloxContent: '',
 		Path_RobloxPlugins: '',
-		Path_StudioModManagerContent: '',
-		Path_Lune: 'lune',
 		JobCommands: {}
 	}
 	if (PLATFORM == 'windows') {
-		CONFIG.Path_RobloxVersions = '%LOCALAPPDATA%/Roblox/Versions'
 		CONFIG.Path_RobloxPlugins = '%LOCALAPPDATA%/Roblox/Plugins'
-		CONFIG.Path_StudioModManagerContent = '%LOCALAPPDATA%/Roblox Studio/content'
-		delete CONFIG.Path_RobloxContent
 	} else if (PLATFORM == 'macos') {
-		CONFIG.Path_RobloxContent = '/Applications/RobloxStudio.app/Contents/Resources/content'
 		CONFIG.Path_RobloxPlugins = '$HOME/Documents/Roblox/Plugins'
-		delete CONFIG.Path_RobloxVersions
-		delete CONFIG.Path_StudioModManagerContent
 	} else {
-		CONFIG.Path_RobloxVersions = ''
 		CONFIG.Path_RobloxPlugins = ''
-		delete CONFIG.Path_RobloxContent
-		delete CONFIG.Path_StudioModManagerContent
 	}
 	if (fs.existsSync(CONFIG_PATH)) {
 		const oldConfig = JSON.parse(fs.readFileSync(CONFIG_PATH))
@@ -125,7 +112,7 @@ const ARGS = process.argv.slice(2)
 const MODE = (ARGS[0] || '').toLowerCase()
 if (MODE == '' || MODE == 'help') {
 	argHelp()
-} else if (MODE == 'config' || (MODE == 'serve' || MODE == 'open') && PLATFORM == 'linux' && (CONFIG.Path_RobloxVersions == '' || CONFIG.Path_RobloxPlugins == '')) {
+} else if (MODE == 'config' || (MODE == 'serve' || MODE == 'open') && PLATFORM == 'linux' && CONFIG.Path_RobloxPlugins == '') {
 	spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${CONFIG_PATH}"`, [], {
 		stdio: 'ignore',
 		detached: true,
@@ -151,7 +138,6 @@ var modified_playtest = {}
 var modified_sourcemap = {}
 var projectJson;
 var globIgnorePathsPicoMatch;
-var hardLinkPaths;
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Common Functions
@@ -189,44 +175,6 @@ function localPathIsIgnored(localPath) {
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Sync Functions
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @param {string} sourcePath
- * @param {string} hardLinkRootPath
- */
-function hardLinkRecursive(sourcePath, hardLinkRootPath) {
-	if (localPathIsIgnored(sourcePath)) return
-	const hardLinkPath = path.resolve(hardLinkRootPath, path.parse(process.cwd()).name, PROJECT_JSON, path.relative(process.cwd(), sourcePath))
-	if (process.cwd() == sourcePath) {
-		try {
-			fs.rmSync(hardLinkPath, { force: true, recursive: true })
-		} catch (err) {
-			console.error(red('Hard link error:'), yellow(err))
-		}
-	}
-	const stats = fs.statSync(sourcePath)
-	const parentPath = path.resolve(hardLinkPath, '..')
-	try {
-		if (!fs.existsSync(parentPath)) {
-			fs.mkdirSync(parentPath, { recursive: true })
-		}
-		if (stats.isDirectory()) {
-			if (!fs.existsSync(hardLinkPath)) {
-				fs.mkdirSync(hardLinkPath)
-			}
-			fs.readdirSync(sourcePath).forEach((dirNext) => {
-				hardLinkRecursive(path.resolve(sourcePath, dirNext), hardLinkRootPath)
-			})
-		} else {
-			if (fs.existsSync(hardLinkPath)) {
-				fs.unlinkSync(hardLinkPath)
-			}
-			fs.linkSync(sourcePath, hardLinkPath)
-		}
-	} catch (err) {
-		console.error(red('Hard link error:'), yellow(err))
-	}
-}
 
 /**
  * @param {string} url
@@ -398,11 +346,6 @@ function mapLua(localPath, robloxPath, attributes, tags, metaLocalPath, initPath
  */
 async function mapDirectory(localPath, robloxPath, flag) {
 	if (localPathIsIgnored(localPath)) return
-
-	// Update hard link (doesn't trigger during initial mapping)
-	if (hardLinkPaths)
-		for (const hardLinkPath of hardLinkPaths)
-			hardLinkRecursive(localPath, hardLinkPath)
 
 	const localPathStats = fs.statSync(localPath)
 	if (localPathStats.isFile()) {
@@ -797,12 +740,10 @@ async function changedJson() {
 	map = { info: {}, tree: {} }
 	map.info.Version = VERSION
 	map.info.Debug = DEBUG
-	map.info.ContentRoot = path.join('lync', path.parse(process.cwd()).name, PROJECT_JSON).replaceAll('\\', '/') + '/'
 	if ('collisionGroups' in projectJson) {
 		map.info.CollisionGroupsFile = projectJson.collisionGroups
 		map.info.CollisionGroups = JSON.parse(fs.readFileSync(projectJson.collisionGroups))
 	}
-	map.info.ServePlaceIds = projectJson.servePlaceIds
 
 	const projectJsonStats = fs.statSync(PROJECT_JSON)
 	for (const service in projectJson.tree) {
@@ -953,162 +894,54 @@ async function fetchSources() {
 	http.globalAgent.maxSockets = 65535
 
 	// Map project
-
 	await changedJson()
 	firstMapped = true
-	console.log()
 
 	// Download sources
 	if (MODE == 'fetch') {
 		await fetchSources()
 		process.exit()
 	}
-	
-	// Build
-	if (MODE == 'open' && !('base' in projectJson) || MODE == 'build') {
-		const buildScriptPath = projectJson.build + '.luau'
-		const lunePath = PLATFORM == 'windows' && CONFIG.Path_Lune.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA)
-			|| PLATFORM == 'macos' && CONFIG.Path_Lune.replace('$HOME', process.env.HOME)
-			|| CONFIG.Path_Lune
 
-		// Map loadstring calls (needed until Lune implements loadstring)
-		let loadstringMapEntries = {}
-		let loadstringMap = ''
-
-		function toEscapeSequence(str) {
-			let escapeSequence = ''
-			let i = str.length
-			while (i--)
-				escapeSequence = '\\' + str.charCodeAt(i) + escapeSequence
-			return escapeSequence
-		}
-
-		function mapProperties(properties) {
-			for (const property in properties) {
-				let value = properties[property]
-				if (Array.isArray(value) && !(value in loadstringMapEntries)) {
-					loadstringMap += `\t[ "${toEscapeSequence('return ' + value)}" ] = ${value};\n`
-					loadstringMapEntries[value] = true
-				}
-			}
-		}
-
-		for (const key in map.tree) {
-			const mapping = map.tree[key]
-			if (mapping.Type == 'JsonModel') {
-				function mapJsonModel(json) {
-					for (const key in json) {
-						const jsonModelMapping = json[key]
-						if (typeof jsonModelMapping == 'object') {
-							if ('Properties' in jsonModelMapping)
-								mapProperties(jsonModelMapping.Properties)
-							mapJsonModel(jsonModelMapping)
-						}
-					}
-				}
-				const jsonModel = validateJson('Model', mapping.Path, fs.readFileSync(mapping.Path, { encoding: 'utf-8' }))
-				if (jsonModel) mapJsonModel(jsonModel)
-			} else if ('Properties' in mapping)
-				mapProperties(mapping.Properties)
-			if ('TerrainMaterialColors' in mapping)
-				mapProperties(mapping.TerrainMaterialColors)
-		}
-
-		// Fetch script functions
-		let pluginSource = fs.readFileSync(path.resolve(__dirname, 'RobloxPluginSource/Plugin.lua'), { encoding: 'utf8' })
-		pluginSource = pluginSource.substring(pluginSource.indexOf('--offline-start') + 15, pluginSource.indexOf('--offline-end'))
-
-		// Write validation script
-		if (DEBUG) console.log('Writing validation script . . .')
-		let validationScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
-		validationScript += `${pluginSource}\n`
-		validationScript += `for _, lua in {\n`
-		for (const entry in loadstringMapEntries) {
-			validationScript += `\t"${toEscapeSequence(entry)}";\n`
-		}
-		validationScript += '} do\n\tlocal HttpService;\n\tif not validateLuaProperty(lua) then\n\t\terror(`Security - Lua string [ {lua} ] failed validation`)\n\tend\nend\n'
-		if (fs.existsSync(buildScriptPath))
-			fs.rmSync(buildScriptPath)
-		fs.writeFileSync(buildScriptPath, validationScript)
-
-		// Validate loadstrings
-		if (DEBUG) console.log('Validating loadstrings . . .')
-		const validationStatus = spawnSync(lunePath, [ 'run', `${buildScriptPath}` ], {
-			cwd: process.cwd(),
-			detached: false,
-			stdio: 'inherit'
-		}).status
-		if (validationStatus == null) {
-			console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
-			process.exit(1)
-		} else if (validationStatus != 0) {
-			console.error(red('Build error:'), yellow('Validation script failed with status', validationStatus))
-			process.exit(2)
-		}
-
-		// Write build script
-		if (DEBUG) console.log('Writing build script . . .')
-		let buildScript = fs.readFileSync(path.resolve(__dirname, 'luneBuildTemplate.luau'))
-		+ `\nworkspace:SetAttribute("__lyncbuildfile", ${projectJson.port})\n`
-		+ `${pluginSource}\n`
-		+ `map = net.jsonDecode("${toEscapeSequence(JSON.stringify(map, null, '\t'))}")\n`
-		+ `map.info.ContentRoot = ""\n`
-		+ `buildAll()\n`
-		+ `fs.writeFile("${projectJson.build}", roblox.serializePlace(game))\n`
-		if (fs.existsSync(buildScriptPath))
-			fs.rmSync(buildScriptPath)
-		fs.writeFileSync(buildScriptPath, buildScript)
-
-		// Build RBXL
-		if (DEBUG) console.log('Building RBXL . . .')
-		const build = spawn(lunePath, [ 'run', `${buildScriptPath}` ], {
-			cwd: process.cwd(),
-			detached: false,
-			stdio: 'inherit'
-		})
-		build.on('close', (status) => {
-			if (status == null) {
-				console.error(red('Build error:'), yellow('Lune executable not found:'), cyan(lunePath))
-				process.exit(1)
-			} else if (status != 0) {
-				console.error(red('Build error:'), yellow('Build script failed with status'), status)
-				process.exit(3)
-			}
-			console.log('Build saved to', cyan(projectJson.build))
-			fs.rmSync(buildScriptPath)
-			if (MODE == 'build') {
-				process.exit()
-			} else {
-				// Open Studio
-				securityKey = null
-				if (PLATFORM == 'windows' || PLATFORM == 'macos') {
-					if (DEBUG) console.log('Opening', cyan(projectJson.build))
-					spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
-						stdio: 'ignore',
-						detached: true,
-						shell: true,
-						windowsHide: true
-					})
-				}
-			}
-		})
+	// Generate sourcemap
+	if (CONFIG.GenerateSourcemap) {
+		const startTime = Date.now()
+		console.log('Generating', cyan('sourcemap.json'), '. . .')
+		generateSourcemap(PROJECT_JSON, map.tree, projectJson)
+		console.log('Generated', cyan('sourcemap.json'), 'in', (Date.now() - startTime) / 1000, 'seconds')
+		modified_sourcemap = {}
 	}
 
-	// Copy base file
-	if (MODE == 'open' && ('base' in projectJson)) {
-		if (DEBUG) console.log('Copying', cyan(projectJson.base), '->', cyan(projectJson.build))
-		fs.copyFileSync(projectJson.base, projectJson.build)
+	console.log()
+	
+	// Build
+	if (MODE == 'build') {
+		console.error(red('Build error:'), yellow('Unimplemented'))
+		process.exit(1)
+	}
 
-		// Open Studio
+	// Open place
+	if (MODE == 'open') {
 		securityKey = null
 		if (PLATFORM == 'windows' || PLATFORM == 'macos') {
-			if (DEBUG) console.log('Opening', cyan(projectJson.build))
-			spawn((PLATFORM == 'macos' && 'open -n ' || '') + `"${projectJson.build}"`, [], {
-				stdio: 'ignore',
-				detached: true,
-				shell: true,
-				windowsHide: true
-			})
+			if (PLATFORM == 'windows') {
+				const output = execSync('reg query HKCR\\roblox-studio\\shell\\open\\command /ve').toString()
+				const match = output.match(/"(.*?)"/)
+				const defaultApp = match ? match[1] : null
+				if (!defaultApp) {
+					console.error(red('Open error:'), yellow('Roblox Studio not installed'))
+					process.exit(2)
+				}
+				spawn(defaultApp, ['-task EditPlace', `-universeId ${projectJson.experienceId}`, `-placeId ${projectJson.placeId}`], {
+					stdio: 'pipe',
+					detached: false,
+					shell: true,
+					windowsHide: false
+				})
+			} else if (PLATFORM == 'macos') {
+				console.error(red('Open error:'), yellow('Mac OS support is unimplemented'))
+				process.exit(3)
+			}
 		}
 	}
 
@@ -1287,59 +1120,6 @@ async function fetchSources() {
 
 		switch (req.headers.type) {
 			case 'Map':
-				// Create content hard links
-
-				hardLinkPaths = []
-				if (PLATFORM == 'windows' || PLATFORM == 'linux') {
-					const versionsPath = path.resolve(PLATFORM == 'windows' && CONFIG.Path_RobloxVersions.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA) || CONFIG.Path_RobloxVersions)
-					try {
-						fs.accessSync(versionsPath, fs.constants.R_OK | fs.constants.W_OK)
-						fs.readdirSync(versionsPath).forEach((dirNext) => {
-							const stats = fs.statSync(path.resolve(versionsPath, dirNext))
-							if (stats.isDirectory() && fs.existsSync(path.resolve(versionsPath, dirNext, 'RobloxStudioBeta.exe'))) {
-								const hardLinkPath = path.resolve(versionsPath, dirNext, 'content/lync')
-								if (!fs.existsSync(hardLinkPath)) {
-									fs.mkdirSync(hardLinkPath)
-								}
-								hardLinkPaths.push(hardLinkPath)
-							}
-						})
-					} catch (err) {
-						console.error(red('Hard link error:'), yellow(err))
-					}
-					if (PLATFORM == 'windows') {
-						// Studio Mod Manager
-						const modManagerContentPath = path.resolve(CONFIG.Path_StudioModManagerContent.replace('%LOCALAPPDATA%', process.env.LOCALAPPDATA))
-						if (fs.existsSync(modManagerContentPath)) {
-							try {
-								fs.accessSync(modManagerContentPath, fs.constants.R_OK | fs.constants.W_OK)
-								const hardLinkPath = path.resolve(modManagerContentPath, 'lync')
-								if (!fs.existsSync(hardLinkPath)) {
-									fs.mkdirSync(hardLinkPath)
-								}
-								hardLinkPaths.push(hardLinkPath)
-							} catch (err) {
-								console.error(red('Hard link error:'), yellow(err))
-							}
-						}
-					}
-				} else if (PLATFORM == 'macos') {
-					const contentPath = path.resolve(CONFIG.Path_RobloxContent)
-					const hardLinkPath = path.resolve(contentPath, 'lync')
-					if (!fs.existsSync(hardLinkPath)) {
-						fs.mkdirSync(hardLinkPath)
-					}
-					hardLinkPaths.push(hardLinkPath)
-				}
-				for (const hardLinkPath of hardLinkPaths) {
-					if (DEBUG) console.log('Creating hard link', cyan(hardLinkPath))
-					hardLinkRecursive(process.cwd(), hardLinkPath)
-				}
-				if (hardLinkPaths.length == 0) {
-					console.error(red('Hard link error:'), yellow('No hard link paths found'))
-				}
-
-				// Send map
 				const mapJsonString = JSON.stringify(map)
 				if ('playtest' in req.headers) {
 					modified_playtest = {}
@@ -1365,26 +1145,26 @@ async function fetchSources() {
 
 			case 'Source':
 				try {
-					let read = fs.readFileSync(req.headers.path, { encoding: 'utf8' })
+					let read = fs.readFileSync(req.headers.path)
 
 					// Parse JSON
 					if (req.headers.datatype == 'JSON') {
-						const json = validateJson(null, req.headers.path, read)
-						if (json) read = LUA.format(json, { singleQuote: false, spaces: '\t' })
+						const json = validateJson(null, req.headers.path, read.toString('utf8'))
+						if (json) read = Buffer.from(LUA.format(json, { singleQuote: false, spaces: '\t' }), 'utf8')
 
 					// Convert YAML to JSON
 					} else if (req.headers.datatype == 'YAML') {
-						const yaml = validateYaml(null, req.headers.path, read)
-						if (yaml) read = LUA.format(yaml, { singleQuote: false, spaces: '\t' })
+						const yaml = validateYaml(null, req.headers.path, read.toString('utf8'))
+						if (yaml) read = Buffer.from(LUA.format(yaml, { singleQuote: false, spaces: '\t' }), 'utf8')
 
 					// Convert TOML to JSON
 					} else if (req.headers.datatype == 'TOML') {
-						const toml = validateToml(null, req.headers.path, read)
-						if (toml) read = LUA.format(toml, { singleQuote: false, spaces: '\t' })
+						const toml = validateToml(null, req.headers.path, read.toString('utf8'))
+						if (toml) read = Buffer.from(LUA.format(toml, { singleQuote: false, spaces: '\t' }), 'utf8')
 
 					// Read and convert Excel Tables to JSON
 					} else if (req.headers.datatype == 'Excel') {
-						let tableDefinitions = validateJson('Excel', req.headers.path, read)
+						let tableDefinitions = validateJson('Excel', req.headers.path, read.toString('utf8'))
 						if (tableDefinitions) {
 							const excelFilePath = path.resolve(req.headers.path, '..', tableDefinitions.spreadsheet)
 
@@ -1465,14 +1245,14 @@ async function fetchSources() {
 											target[key] = sheetJson[row][column]
 									}
 								}
-								read = LUA.format(entries, { singleQuote: false, spaces: '\t' }).replaceAll(/^\n/gm, '') // Regex removes blank newlines
+								read = Buffer.from(LUA.format(entries, { singleQuote: false, spaces: '\t' }).replaceAll(/^\n/gm, ''), 'utf8') // Regex removes blank newlines
 							}
 						}
 
 					// Convert Localization CSV to JSON
 					} else if (req.headers.datatype == 'Localization') {
 						let entries = []
-						const csv = parseCSV(read)
+						const csv = parseCSV(read.toString('utf8'))
 						for (let index = 0; index < csv.length; index++) {
 							const entry = csv[index]
 							const values = {}
@@ -1489,11 +1269,11 @@ async function fetchSources() {
 							}
 							entries.push({ Key: entry.Key, Source: entry.Source, Context: entry.Context, Example: entry.Example, Values: values })
 						}
-						read = JSON.stringify(entries)
+						read = Buffer.from(JSON.stringify(entries), 'utf8')
 					}
 
 					res.writeHead(200)
-					res.end(read)
+					res.end(read, 'binary')
 				} catch (err) {
 					console.error(red('Server error:'), err)
 					res.writeHead(500)
@@ -1509,9 +1289,9 @@ async function fetchSources() {
 					break
 				}
 				const localPathExt = path.parse(req.headers.path).ext.toLowerCase()
-				if (localPathExt != '.lua' && localPathExt != '.luau' && localPathExt != '.json') {
+				if (localPathExt != '.rbxm' && localPathExt != '.rbxmx' && localPathExt != '.lua' && localPathExt != '.luau' && localPathExt != '.json') {
 					res.writeHead(403)
-					res.end('File extension must be lua, luau, or json')
+					res.end('File extension must be rbxm, rbxmx, lua, luau, or json')
 					break
 				}
 				let data = []
@@ -1521,7 +1301,7 @@ async function fetchSources() {
 				req.on('end', () => {
 					try {
 						let buffer = Buffer.concat(data)
-						fs.writeFileSync(req.headers.path, buffer.toString())
+						fs.writeFileSync(req.headers.path, buffer, { encoding: 'binary' })
 						res.writeHead(200)
 						res.end()
 					} catch (err) {
@@ -1554,15 +1334,5 @@ async function fetchSources() {
 	})
 	.listen(projectJson.port, function() {
 		if (MODE != 'build') console.log(`Serving ${green(projectJson.name || path.parse(process.cwd()).name)} on port ${yellow(projectJson.port)}`)
-
-		// Generate sourcemap
-
-		if (CONFIG.GenerateSourcemap) {
-			const startTime = Date.now()
-			if (DEBUG) console.log('Generating', cyan('sourcemap.json'), '. . .')
-			generateSourcemap(PROJECT_JSON, map.tree, projectJson)
-			if (DEBUG) console.log('Generated', cyan('sourcemap.json'), 'in', (Date.now() - startTime) / 1000, 'seconds')
-			modified_sourcemap = {}
-		}
 	})
 })()
