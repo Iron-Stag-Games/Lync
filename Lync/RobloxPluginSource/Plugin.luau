@@ -64,6 +64,7 @@ local SUPPRESSED_PROPERTIES = {
 	"AbsoluteWindowSize";
 	"Archivable";
 	"CollisionGroupId";
+	"CurrentPhysicalProperties";
 	"GuiState";
 	"OpenTypeFeaturesError";
 	"IsLoaded";
@@ -89,7 +90,8 @@ local map: {
 	tree: {[string]: {[string]: any}};
 };
 local activeSourceRequests = 0
-local changedFiles: {[Instance]: boolean} = {}
+local updatingSource = setmetatable({} :: {[LuaSourceContainer]: true?}, {__mode = "k"})
+local changedFiles = setmetatable({} :: {[Instance]: boolean?}, {__mode = "k"})
 local changedCollisionGroupData = false
 local syncDuringTest = plugin:GetSetting("Lync_SyncDuringTest") or false
 
@@ -143,16 +145,21 @@ function connectButtonColors(button: TextButton): ()
 end
 
 function setScriptSourceLive(container: LuaSourceContainer, lua: string): ()
+	local newContent = ({lua:gsub("\r", "")})[1]
 	local document = ScriptEditorService:FindScriptDocument(container)
 	local cursorLine: number, cursorChar: number, anchorLine: number, anchorChar: number;
+
 	if document then
 		cursorLine, cursorChar, anchorLine, anchorChar = document:GetSelection()
 	end
-	container:SetAttribute("__lync_syncing", true)
-	ScriptEditorService:UpdateSourceAsync(container, function(_oldContent: string)
-		return ({lua:gsub("\r", "")})[1]
+
+	updatingSource[container] = true
+	activeSourceRequests += 1
+	ScriptEditorService:UpdateSourceAsync(container, function(oldContent: string): ()
+		return newContent
 	end)
-	container:SetAttribute("__lync_syncing", nil)
+	activeSourceRequests -= 1
+
 	if document then
 		local maxLine = document:GetLineCount()
 		local maxCursorChar = document:GetLine(math.min(cursorLine, maxLine)):len() + 1
@@ -164,8 +171,11 @@ function setScriptSourceLive(container: LuaSourceContainer, lua: string): ()
 			math.min(anchorChar, maxAnchorChar)
 		)
 	end
-	changedFiles[container] = nil
-	updateChangedFilesUI()
+
+	if changedFiles[container] then
+		changedFiles[container] = false
+		updateChangedFilesUI()
+	end
 end
 
 function getCurrentCollisionGroups(): {[string]: {[string]: boolean}}
@@ -243,7 +253,7 @@ function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: st
 				tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
 					if playbackState == Enum.PlaybackState.Completed then
 						if typeof(object) == "Instance" then
-							changedFiles[object] = nil
+							changedFiles[object] = false
 						elseif object == "CollisionGroupData" then
 							changedCollisionGroupData = false
 						end
@@ -400,7 +410,9 @@ function updateChangedFilesUI(): ()
 	end
 
 	-- Make new entries
-	for object in changedFiles do
+	for object, changed in changedFiles do
+		if not changed then continue end
+
 		-- Skip if entry already created
 		local alreadyCreated = false
 		for _, fileEntry in unsavedFilesFrame:GetChildren() do
@@ -551,8 +563,8 @@ function deserialize(path: string, data: string): {Instance}?
 	return if success then result else nil
 end
 
-function makeDirty(object: Instance, descendant: any, property: string): ()
-	if not changedFiles[object] and object.Parent and not table.find(SUPPRESSED_PROPERTIES, property) then
+function makeDirty(object: Instance, property: string): ()
+	if changedFiles[object] == false and object.Parent and not table.find(SUPPRESSED_PROPERTIES, property) then
 		if map.info.Debug then print("[Lync] - Modified synced object:", object, property) end
 		changedFiles[object] = true
 		updateChangedFilesUI()
@@ -709,41 +721,43 @@ function finishBuild(target: any, data: any): ()
 	data.Instance = target
 	setDetails(target, data)
 
-	if not changedFiles[target] then
+	if changedFiles[target] == nil then
 		local mapType = data.Type
 
 		-- Modification events
 		if mapType == "Lua" then
-			(target :: Script):GetPropertyChangedSignal("Source"):Connect(function()
-				if target:GetAttribute("__lync_syncing") then return end
-				if map.info.Debug then print("[Lync] - Modified synced object:", target, "Source") end
-				changedFiles[target] = true
-				updateChangedFilesUI()
+			(target :: LuaSourceContainer):GetPropertyChangedSignal("Source"):Connect(function(): ()
+				if updatingSource[target] then
+					updatingSource[target] = nil
+				else
+					makeDirty(target, "Source")
+				end
 			end)
+
 		elseif mapType == "Model" then
 			target.Changed:Connect(function(property: string): ()
 				if property ~= "Parent" then
-					makeDirty(target, target, property)
+					makeDirty(target, property)
 				end
 			end)
 			target.AttributeChanged:Connect(function(attribute: string): ()
-				makeDirty(target, target, "AttributeChanged")
+				makeDirty(target, "AttributeChanged")
 			end)
 			target.DescendantAdded:Connect(function(descendant: Instance): ()
-				makeDirty(target, target, "DescendantAdded")
+				makeDirty(target, "DescendantAdded")
 				descendant.Changed:Connect(function(property: string)
-					makeDirty(target, descendant, property)
+					makeDirty(target, property)
 				end)
 				descendant.AttributeChanged:Connect(function(attribute: string): ()
-					makeDirty(target, descendant, "AttributeChanged")
+					makeDirty(target, "AttributeChanged")
 				end)
 			end)
 			for _, descendant in target:GetDescendants() do
 				descendant.Changed:Connect(function(property: string): ()
-					makeDirty(target, descendant, property)
+					makeDirty(target, property)
 				end)
 				descendant.AttributeChanged:Connect(function(attribute: string): ()
-					makeDirty(target, descendant, "AttributeChanged")
+					makeDirty(target, "AttributeChanged")
 				end)
 			end
 		end
@@ -753,6 +767,8 @@ function finishBuild(target: any, data: any): ()
 			changedFiles[target] = nil
 			updateChangedFilesUI()
 		end)
+
+		changedFiles[target] = false
 	end
 end
 
@@ -780,7 +796,7 @@ function buildPath(path: string): ()
 						nextTarget.Parent = nil
 						createInstance = true
 						if data.Type == "Model" and changedFiles[nextTarget] then
-							changedFiles[nextTarget] = nil
+							changedFiles[nextTarget] = false
 							updateChangedFilesUI()
 						end
 					end) then
