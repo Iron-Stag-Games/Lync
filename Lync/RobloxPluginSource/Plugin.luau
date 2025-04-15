@@ -153,9 +153,11 @@ function setScriptSourceLive(container: LuaSourceContainer, lua: string): ()
 		cursorLine, cursorChar, anchorLine, anchorChar = document:GetSelection()
 	end
 
-	updatingSource[container] = true
 	activeSourceRequests += 1
 	ScriptEditorService:UpdateSourceAsync(container, function(oldContent: string): ()
+		if oldContent ~= newContent then
+			updatingSource[container] = true
+		end
 		return newContent
 	end)
 	activeSourceRequests -= 1
@@ -446,7 +448,13 @@ function updateChangedFilesUI(): ()
 		end
 	end
 
-	widgetFrame.TextLabel.Visible = not next(changedFiles) and not changedCollisionGroupData
+	local anyChanged = false
+	for object, changed in changedFiles do
+		if not changed then continue end
+		anyChanged = true
+		break
+	end
+	widgetFrame.TextLabel.Visible = not anyChanged and not changedCollisionGroupData
 end
 
 function setConnectTheme(): ()
