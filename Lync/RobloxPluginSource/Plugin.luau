@@ -63,6 +63,7 @@ local SUPPRESSED_PROPERTIES = {
 	"AbsoluteSize";
 	"AbsoluteWindowSize";
 	"Archivable";
+	"CanvasPosition";
 	"CollisionGroupId";
 	"CurrentPhysicalProperties";
 	"GuiState";
@@ -90,8 +91,8 @@ local map: {
 	tree: {[string]: {[string]: any}};
 };
 local activeSourceRequests = 0
-local updatingSource = setmetatable({} :: {[LuaSourceContainer]: true?}, {__mode = "k"})
-local changedFiles = setmetatable({} :: {[Instance]: boolean?}, {__mode = "k"})
+local updatingSource: {[LuaSourceContainer]: true?} = setmetatable({}, {__mode = "k"}) :: any
+local changedFiles: {[Instance]: boolean?} = setmetatable({}, {__mode = "k"}) :: any
 local changedCollisionGroupData = false
 local syncDuringTest = plugin:GetSetting("Lync_SyncDuringTest") or false
 
@@ -398,6 +399,8 @@ function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: st
 end
 
 function updateChangedFilesUI(): ()
+	local anyChanged = false
+
 	-- Destroy hidden or old entries
 	for _, fileEntry in unsavedFilesFrame:GetChildren() do
 		if fileEntry:IsA("Frame") then
@@ -414,6 +417,8 @@ function updateChangedFilesUI(): ()
 	-- Make new entries
 	for object, changed in changedFiles do
 		if not changed then continue end
+
+		anyChanged = true
 
 		-- Skip if entry already created
 		local alreadyCreated = false
@@ -448,12 +453,6 @@ function updateChangedFilesUI(): ()
 		end
 	end
 
-	local anyChanged = false
-	for object, changed in changedFiles do
-		if not changed then continue end
-		anyChanged = true
-		break
-	end
 	widgetFrame.TextLabel.Visible = not anyChanged and not changedCollisionGroupData
 end
 
