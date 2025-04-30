@@ -92,6 +92,7 @@ local map: {
 };
 local activeSourceRequests = 0
 local updatingSource: {[LuaSourceContainer]: true?} = setmetatable({}, {__mode = "k"}) :: any
+local tagsChangedLocks: {[Instance]: true?} = setmetatable({}, {__mode = "k"}) :: any
 local changedFiles: {[Instance]: boolean?} = setmetatable({}, {__mode = "k"}) :: any
 local changedCollisionGroupData = false
 local syncDuringTest = plugin:GetSetting("Lync_SyncDuringTest") or false
@@ -728,6 +729,12 @@ function finishBuild(target: any, data: any): ()
 	data.Instance = target
 	setDetails(target, data)
 
+	tagsChangedLocks[target] = true
+	RunService.Heartbeat:Once(function(): ()
+		RunService.Heartbeat:Wait() -- this is goofy
+		tagsChangedLocks[target] = nil
+	end)
+
 	if changedFiles[target] == nil then
 		local mapType = data.Type
 
@@ -1208,7 +1215,6 @@ if not IS_PLAYTEST_SERVER then
 	end
 
 	-- Selection Changed
-	
 	Selection.SelectionChanged:Connect(function()
 		local selection = Selection:Get()
 		for _, fileEntry in unsavedFilesFrame:GetChildren() do
@@ -1218,10 +1224,37 @@ if not IS_PLAYTEST_SERVER then
 		end
 	end)
 
+	-- Tags
+	do
+		local function checkAndMakeDirty(instance: Instance): ()
+			for path, data in map.tree do
+				if data.Type == "Model" and data.Instance and (data.Instance == instance or instance:IsDescendantOf(data.Instance)) then
+					if not tagsChangedLocks[data.Instance] then
+						makeDirty(data.Instance, "Tags")
+					end
+					break
+				end
+			end
+		end
+		local function listenTag(tag: string, added: true?): ()
+			if added then
+				for _, instance in CollectionService:GetTagged(tag) do
+					checkAndMakeDirty(instance)
+				end
+			end
+			CollectionService:GetInstanceAddedSignal(tag):Connect(checkAndMakeDirty)
+			CollectionService:GetInstanceRemovedSignal(tag):Connect(checkAndMakeDirty)
+		end
+		for _, tag in CollectionService:GetAllTags() do
+			listenTag(tag)
+		end
+		CollectionService.TagAdded:Connect(function(tag: string): ()
+			listenTag(tag, true)
+		end)
+	end
+
 	-- Theme
-
 	setTheme()
-
 	settings().Studio.ThemeChanged:Connect(function()
 		theme = settings().Studio.Theme :: StudioTheme
 		setTheme()
