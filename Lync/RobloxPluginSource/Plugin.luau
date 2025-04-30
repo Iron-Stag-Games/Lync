@@ -354,9 +354,9 @@ function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: st
 							local data = map.tree[path]
 							local success, result = pcall(function()
 								if data.Type == "Lua" then
-									HttpService:PostAsync(getHost(), ScriptEditorService:GetEditorSource(data.Instance), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
+									HttpService:RequestAsync({Url = getHost(), Method = "POST", Headers = {Key = serverKey, Type = "ReverseSync", Path = data.Path}, Body = ScriptEditorService:GetEditorSource(data.Instance), Compress = Enum.HttpCompression.None})
 								elseif data.Type == "Model" then
-									HttpService:PostAsync(getHost(), buffer.tostring(SerializationService:SerializeInstancesAsync({object})), Enum.HttpContentType.TextPlain, false, {Key = serverKey, Type = "ReverseSync", Path = data.Path})
+									HttpService:RequestAsync({Url = getHost(), Method = "POST", Headers = {Key = serverKey, Type = "ReverseSync", Path = data.Path}, Body = buffer.tostring(SerializationService:SerializeInstancesAsync({object})), Compress = Enum.HttpCompression.None})
 								end
 							end)
 							if success then
@@ -368,7 +368,7 @@ function addChangedFileEntry(object: (Instance | "CollisionGroupData"), path: st
 						elseif object == "CollisionGroupData" then
 							local currentCollisionGroups = getCurrentCollisionGroups()
 							local success, result = pcall(function()
-								HttpService:PostAsync(getHost(), HttpService:JSONEncode(currentCollisionGroups), Enum.HttpContentType.ApplicationJson, false, {Key = serverKey, Type = "ReverseSync", Path = map.info.CollisionGroupsFile})
+								HttpService:RequestAsync({Url = getHost(), Method = "POST", Headers = {Key = serverKey, Type = "ReverseSync", Path = map.info.CollisionGroupsFile}, Body = HttpService:JSONEncode(currentCollisionGroups), Compress = Enum.HttpCompression.None})
 							end)
 							if success then
 								map.info.CollisionGroups = currentCollisionGroups
