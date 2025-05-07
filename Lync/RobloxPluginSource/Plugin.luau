@@ -69,6 +69,7 @@ local SUPPRESSED_PROPERTIES = {
 	"GuiState";
 	"OpenTypeFeaturesError";
 	"IsLoaded";
+	"Resolution";
 	"TextBounds";
 	"TextFits";
 	"TimeLength";
@@ -1227,6 +1228,7 @@ if not IS_PLAYTEST_SERVER then
 	-- Tags
 	do
 		local function checkAndMakeDirty(instance: Instance): ()
+			if not map then return end
 			for path, data in map.tree do
 				if data.Type == "Model" and data.Instance and (data.Instance == instance or instance:IsDescendantOf(data.Instance)) then
 					if not tagsChangedLocks[data.Instance] then
