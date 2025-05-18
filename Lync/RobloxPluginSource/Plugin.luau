@@ -696,7 +696,7 @@ function setDetails(target: any, data: any): ()
 	if data.Attributes then
 		for attribute, value in data.Attributes do
 			lpcall("Set Attribute", false, function()
-				target:SetAttribute(attribute, value)
+				target:SetAttribute(attribute, eval(value))
 			end)
 		end
 	end
