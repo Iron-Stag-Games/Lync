@@ -970,7 +970,8 @@ async function fetchSources() {
 			persistent: true,
 			ignorePermissionErrors: true,
 			alwaysStat: true,
-			usePolling: true
+			usePolling: true,
+			interval: 500
 		}).on('all', async function(event, localPath, localPathStats) {
 			if (!globIgnorePathsPicoMatch(localPath.replace(/\\/g, '/'))) {
 				if (DEBUG) console.log('E', yellow(event), cyan(localPath))
