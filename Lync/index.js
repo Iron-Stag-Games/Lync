@@ -939,8 +939,16 @@ async function fetchSources() {
 					windowsHide: false
 				})
 			} else if (PLATFORM == 'macos') {
-				console.error(red('Open error:'), yellow('Mac OS support is unimplemented'))
-				process.exit(3)
+				const deeplink =
+					`roblox-studio://launchmode/:edit+task:EditPlace` +
+					`+universeId:${projectJson.experienceId}` +
+					`+placeId:${projectJson.placeId}`;
+
+                spawn('open', [deeplink], {
+                    stdio: 'ignore',
+                    detached: false,
+                    shell: false,
+                });
 			}
 		}
 	}
