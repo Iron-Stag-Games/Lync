@@ -69,6 +69,8 @@ local SUPPRESSED_PROPERTIES = {
 	"GuiState";
 	"OpenTypeFeaturesError";
 	"IsLoaded";
+	"IsPlaying";
+	"IsReady";
 	"Resolution";
 	"TextBounds";
 	"TextFits";
