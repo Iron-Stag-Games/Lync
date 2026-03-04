@@ -65,6 +65,7 @@ local SUPPRESSED_PROPERTIES = {
 	"Archivable";
 	"CanvasPosition";
 	"CollisionGroupId";
+	"Connected";
 	"CurrentPhysicalProperties";
 	"GuiState";
 	"OpenTypeFeaturesError";
