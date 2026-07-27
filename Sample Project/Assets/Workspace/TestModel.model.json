@@ -1,6 +1,9 @@
 {
     "name": "Money",
 	"className": "Model",
+	"properties": {
+		"Scale": 2
+	},
 	"children": [
 		{
 			"className": "Part",

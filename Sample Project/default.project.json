@@ -16,6 +16,10 @@
 				"Gravity": 133.7
 			},
 
+			"$attributes": {
+				"InstanceHandleExample": [ "InstanceHandle.new(workspace.Floppa)" ]
+			},
+
 			"$path": "Assets/Workspace",
 
 			"Terrain": {
@@ -45,12 +49,6 @@
 				"Janitor": {
 					"$path": { "package": "howmanysmall/janitor", "type": "rbxmx" }
 				}
-			}
-		},
-
-		"Lighting": {
-			"$properties": {
-				"Technology": [ "Enum.Technology.Future" ]
 			}
 		}
 	}
