@@ -102,7 +102,7 @@ module.exports.generateSourcemap = function(PROJECT_JSON, map, projectJson) {
 					target.className = key == 'tree/Workspace/Terrain' && 'Terrain' || mapping.ClassName
 					break
 				case 'Lua':
-					target.className = mapping.Context == 'Client' && 'LocalScript' || mapping.Context == 'Server' && 'Script' || 'ModuleScript'
+					target.className = mapping.Context == 'ModuleScript' && 'ModuleScript' || mapping.Context == 'LocalScript' && 'LocalScript' || 'Script'
 					break
 				case 'JSON':
 				case 'YAML':
