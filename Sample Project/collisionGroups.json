@@ -1,5 +1,1 @@
-{
-	"Default": {
-		"Default": true
-	}
-}
+{"Default":{"Default":true,"StudioSelectable":true},"StudioSelectable":{"StudioSelectable":true}}
