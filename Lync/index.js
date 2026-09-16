@@ -928,35 +928,7 @@ async function fetchSources() {
 
 	// Open place
 	if (MODE == 'open') {
-		securityKey = null
-		if (PLATFORM == 'windows' || PLATFORM == 'macos') {
-			if (PLATFORM == 'windows') {
-				const output = execSync('reg query HKCR\\roblox-studio\\shell\\open\\command /ve').toString()
-				const match = output.match(/"(.*?)"/)
-				const defaultApp = match ? match[1] : null
-				if (!defaultApp) {
-					console.error(red('Open error:'), yellow('Roblox Studio not installed'))
-					process.exit(2)
-				}
-				spawn(defaultApp, ['-task EditPlace', `-universeId ${projectJson.experienceId}`, `-placeId ${projectJson.placeId}`], {
-					stdio: 'pipe',
-					detached: false,
-					shell: true,
-					windowsHide: false
-				})
-			} else if (PLATFORM == 'macos') {
-				const deeplink =
-					`roblox-studio://launchmode/:edit+task:EditPlace` +
-					`+universeId:${projectJson.experienceId}` +
-					`+placeId:${projectJson.placeId}`;
-
-                spawn('open', [deeplink], {
-                    stdio: 'ignore',
-                    detached: false,
-                    shell: false,
-                });
-			}
-		}
+		execSync(`${PLATFORM == 'windows' ? 'start' : PLATFORM == 'macos' ? 'open' : 'xdg-open'} roblox-studio://launchmode/:edit+task:EditPlace+universeId:${projectJson.experienceId}+placeId:${projectJson.placeId}`)
 	}
 
 	// Sync
