@@ -1026,8 +1026,6 @@ async function fetchSources() {
 								// unimplemented
 							}
 							mTimes[localPath] = localPathStats.mtimeMs
-						} else {
-							console.log(cyan(localPath), mTimes[localPath])
 						}
 
 					} else if ((event == 'add' | event == 'addDir') && localPathStats) {
